@@ -1,0 +1,5 @@
+rootProject.name = 'way'
+
+include(':way')
+include(':sample')
+

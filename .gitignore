@@ -1,0 +1,14 @@
+.DS_Store
+/.idea/*
+!/.idea/codeStyles/
+!/.idea/dictionaries/
+!/.idea/inspectionProfiles/
+!/.idea/codeInsightSettings.xml
+!/.idea/kotlinCodeInsightSettings.xml
+!/.idea/encodings.xml
+*.log
+tmp/
+
+*.class
+build
+.gradle

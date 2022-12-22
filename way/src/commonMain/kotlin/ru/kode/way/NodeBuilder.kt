@@ -1,5 +1,5 @@
 package ru.kode.way
 
 interface NodeBuilder {
-  fun build(path: Path): List<Node>
+  fun build(path: Path): Map<Path, Node>
 }

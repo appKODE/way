@@ -1,3 +1,5 @@
 package ru.kode.way
 
-interface Event
+interface Event {
+  companion object
+}

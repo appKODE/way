@@ -12,7 +12,31 @@ value class Path(val segments: List<Segment>) {
     check(segments.isNotEmpty()) { "path must have at least one segment" }
     check(segments.all { it.name.isNotBlank() }) { "all path segments must be non-blank in path=$this" }
   }
+
+  override fun toString(): String {
+    return segments.joinToString(".") { it.name }
+  }
 }
 
 @JvmInline
 value class Segment(val name: String)
+
+fun Path.tail(): Path {
+  return Path(segments.drop(1))
+}
+
+fun Path.head(): Segment {
+  return segments.first()
+}
+
+fun Path.drop(count: Int): Path {
+  return Path(segments.drop(count))
+}
+
+fun Path.take(count: Int): Path {
+  return Path(segments.take(count))
+}
+
+fun Path.prepend(path: Path): Path {
+  return Path(path.segments + segments)
+}

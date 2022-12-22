@@ -19,6 +19,7 @@ kotlin {
     commonTest {
       dependencies {
         implementation libs.bundles.koTestCommon
+        implementation libs.turbine
       }
     }
     jvmMain {

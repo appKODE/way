@@ -27,7 +27,7 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("f: switch to initial state requiring sub-flow transition") {
+  should("switch to initial state requiring sub-flow transition") {
     val sut = NavigationService(
       object : Schema {
         override val regions: List<Path> = listOf(Path("app"))
@@ -51,7 +51,29 @@ class NavigationServiceTest : ShouldSpec({
   }
 
   should("switch to initial state creating all nested child screen nodes") {
-    fail("TODO")
+    val sut = NavigationService(
+      object : Schema {
+        override val regions: List<Path> = listOf(Path("app"))
+      },
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = FlowTarget(Path("login"), onFinish = { _: Int -> Finish(Unit) })
+          ),
+          "app.login" to TestFlowNode(
+            initialTarget = FlowTarget(Path("onboarding"), onFinish = { _: Int -> Finish(Unit) })
+          ),
+          "app.login.onboarding" to TestFlowNode(
+            initialScreen = "intro"
+          ),
+          "app.login.onboarding.intro" to TestScreenNode()
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().active shouldBe Path("app", "login", "onboarding", "intro")
+    }
   }
 
   should("process events in a bottom-up order") {

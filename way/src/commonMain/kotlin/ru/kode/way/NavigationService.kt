@@ -26,9 +26,7 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
     }
     if (event == Event.Init) {
       schema.regions.forEach { regionPath ->
-        val nodes = nodeBuilder.build(regionPath)
-        require(nodes.size == 1) { "expected 1 node as the root of region $regionPath, but builder returned several nodes: $nodes"}
-        val regionRoot = nodes.values.first()
+        val regionRoot = nodeBuilder.build(regionPath)
         require(regionRoot is FlowNode<*, *>) { "expected FlowNode at $regionPath, but builder returned ${regionRoot::class.simpleName}"}
         val initialNodes = resolveInitialNode(regionPath, initialTarget = regionRoot.initial)
         state._regions[regionPath] = Region(
@@ -46,7 +44,7 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
     val initialTargetAbs = Path(currentNodePath.segments + initialTarget.path.segments)
     return when (initialTarget) {
       is FlowTarget<*, *> -> {
-        val initialNodes = nodeBuilder.build(initialTargetAbs)
+        val initialNodes = initialTargetAbs.toSteps().associateWith { nodeBuilder.build(it) }
         val flowNode = initialNodes.values.lastOrNull()
           ?: error("no nodes were built for initial target at \"${initialTargetAbs}\"")
         require(flowNode is FlowNode<*, *>) { "expected FlowNode at ${initialTargetAbs}, but builder returned ${flowNode::class.simpleName}"}
@@ -56,7 +54,7 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
         )
       }
       is ScreenTarget -> {
-        val initialNodes = nodeBuilder.build(initialTargetAbs)
+        val initialNodes = initialTargetAbs.toSteps().associateWith { nodeBuilder.build(it) }
         initialNodes
       }
     }

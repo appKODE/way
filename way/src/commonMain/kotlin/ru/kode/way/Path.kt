@@ -40,3 +40,8 @@ fun Path.take(count: Int): Path {
 fun Path.prepend(path: Path): Path {
   return Path(path.segments + segments)
 }
+
+// app.permissions.intro → [app, app.permissions, app.permissions.intro]
+fun Path.toSteps(): List<Path> {
+  return (segments.indices).map { i -> this.take(i + 1) }
+}

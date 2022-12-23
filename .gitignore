@@ -12,3 +12,4 @@ tmp/
 *.class
 build
 .gradle
+local.properties

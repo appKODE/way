@@ -6,6 +6,10 @@ kotlin = "1.7.20"
 spotless = "6.0.5"
 dokka = "1.5.31"
 turbine = "0.7.0"
+compose = "1.3.1"
+composeCompiler = "1.3.2"
+androidExtensions = "1.6.1"
+agp = "7.3.1"
 
 [libraries]
 kotest-junit-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "koTest" }
@@ -15,6 +19,11 @@ kotest-property = { module = "io.kotest:kotest-property", version.ref = "koTest"
 ktlint = { module = "com.pinterest:ktlint", version.ref = "ktlint" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+composeUi = { module = "androidx.compose.ui:ui", version.ref = "compose" }
+composeRuntime = { module = "androidx.compose.runtime:runtime", version.ref = "compose" }
+composeCompiler = { module = "androidx.compose.compiler:compiler", version.ref = "composeCompiler" }
+composeMaterial = { module = "androidx.compose.material:material", version.ref = "compose" }
+activityCompose = { module = "androidx.activity:activity-compose", version.ref = "androidExtensions" }
 
 [bundles]
 koTestCommon = [ "kotest-assertions-core", "kotest-property", "kotest-framework-engine" ]
@@ -23,6 +32,9 @@ coroutines = [ "coroutines-core" ]
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin"}
+kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin"}
 kotestMultiplatform = { id = "io.kotest.multiplatform", version.ref = "koTest"}
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+androidApplication = { id = "com.android.application", version.ref = "agp" }

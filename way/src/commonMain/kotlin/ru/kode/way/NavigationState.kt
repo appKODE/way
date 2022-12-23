@@ -5,24 +5,24 @@ class NavigationState internal constructor(
 ) {
   val regions: Map<Path, Region> = _regions
 
+
+  override fun toString(): String {
+    return "NavigationState(_regions=$_regions)"
+  }
+
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
-    if (javaClass != other?.javaClass) return false
+    if (other == null || this::class != other::class) return false
 
     other as NavigationState
 
     if (_regions != other._regions) return false
-    if (regions != other.regions) return false
 
     return true
   }
 
   override fun hashCode(): Int {
     return _regions.hashCode()
-  }
-
-  override fun toString(): String {
-    return "NavigationState(_regions=$_regions)"
   }
 }
 

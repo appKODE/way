@@ -34,6 +34,9 @@ class Region internal constructor(
   val active: Path get() = _active
   val activeNode get() = nodes[active] ?: error("internal error: no node at path $active")
 
+  // TODO rename active -> attached/top/current, alive -> active?
+  val alive: List<Path> get() = TODO()
+
   override fun toString(): String {
     return "Region(_nodes=$_nodes, _active=$_active)"
   }

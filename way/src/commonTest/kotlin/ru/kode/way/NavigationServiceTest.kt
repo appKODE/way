@@ -3,6 +3,7 @@ package ru.kode.way
 import app.cash.turbine.test
 import io.kotest.assertions.fail
 import io.kotest.core.spec.style.ShouldSpec
+import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ class NavigationServiceTest : ShouldSpec({
     )
 
     sut.collectTransitions().test {
-      awaitItem().active shouldBe Path("app", "intro")
+      awaitItem().active shouldBe "app.intro"
     }
   }
 
@@ -46,7 +47,7 @@ class NavigationServiceTest : ShouldSpec({
     )
 
     sut.collectTransitions().test {
-      awaitItem().active shouldBe Path("app", "permissions", "intro")
+      awaitItem().active shouldBe "app.permissions.intro"
     }
   }
 
@@ -72,7 +73,56 @@ class NavigationServiceTest : ShouldSpec({
     )
 
     sut.collectTransitions().test {
-      awaitItem().active shouldBe Path("app", "login", "onboarding", "intro")
+      awaitItem().active shouldBe "app.login.onboarding.intro"
+    }
+  }
+
+  should("replace nodes when transitioning between sibling nodes") {
+    val sut = NavigationService(
+      object : Schema {
+        override val regions: List<Path> = listOf(Path("app"))
+      },
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialScreen = "intro",
+            transitions = listOf(
+              tr(on = "A", target = "main"),
+              tr(on = "B", target = "test"),
+              tr(on = "C", target = "main"),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.main" to TestScreenNode(),
+          "app.test" to TestScreenNode(),
+        )
+      ),
+    )
+
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro")
+        active shouldBe "app.intro"
+      }
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.main")
+        active shouldBe "app.main"
+      }
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.test")
+        active shouldBe "app.test"
+      }
+
+      sut.sendEvent(TestEvent("C"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.main")
+        active shouldBe "app.main"
+      }
     }
   }
 
@@ -81,7 +131,8 @@ class NavigationServiceTest : ShouldSpec({
   }
 })
 
-private val NavigationState.active get() = this.regions.values.first().active
+private val NavigationState.active get() = this.regions.values.first().active.toString()
+private val NavigationState.alive get() = this.regions.values.first().alive.map { it.toString() }
 
 private fun NavigationService.collectTransitions(): Flow<NavigationState> {
   return callbackFlow {

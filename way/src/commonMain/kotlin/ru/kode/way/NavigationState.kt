@@ -24,7 +24,6 @@ class NavigationState internal constructor(
   override fun toString(): String {
     return "NavigationState(_regions=$_regions)"
   }
-
 }
 
 class Region internal constructor(

@@ -23,7 +23,6 @@ class AppFlowNode : FlowNode<Event, AppFlowResult> {
         FlowResult.Done -> NavigateTo(Path.app.main)
         FlowResult.Dismissed -> Finish(AppFlowResult.Dismissed)
       }
-
     }
   )
 

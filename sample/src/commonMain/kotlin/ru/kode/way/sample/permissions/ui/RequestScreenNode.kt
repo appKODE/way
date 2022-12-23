@@ -11,6 +11,5 @@ class RequestScreenNode : ScreenNode {
   }
 
   fun Content() {
-
   }
 }

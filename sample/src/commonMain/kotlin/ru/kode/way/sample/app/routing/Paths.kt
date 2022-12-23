@@ -14,8 +14,6 @@ object AppPaths {
   val main: ScreenTarget = ScreenTarget(Path("main"))
 }
 
-interface PathWithFinish {
-
-}
+interface PathWithFinish
 
 val Path.Companion.app get() = AppPaths

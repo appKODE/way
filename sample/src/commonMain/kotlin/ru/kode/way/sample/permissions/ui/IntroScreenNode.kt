@@ -11,6 +11,5 @@ class IntroScreenNode : ScreenNode {
   }
 
   fun Content() {
-
   }
 }

@@ -1,17 +1,12 @@
 package ru.kode.way.sample.permissions.routing
 
-import ru.kode.way.sample.core.routing.FlowResult
 import ru.kode.way.Event
 import ru.kode.way.Finish
 import ru.kode.way.FlowNode
 import ru.kode.way.FlowTransition
 import ru.kode.way.NavigateTo
-import ru.kode.way.NavigationService
 import ru.kode.way.Path
-import ru.kode.way.PathResolution
-import ru.kode.way.Segment
-import ru.kode.way.Stay
-import ru.kode.way.Target
+import ru.kode.way.sample.core.routing.FlowResult
 
 sealed interface PermissionsEvent : Event {
   object IntroDone : PermissionsEvent

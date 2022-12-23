@@ -1,10 +1,15 @@
 package ru.kode.way
 
+import kotlin.jvm.JvmInline
+
 @JvmInline
 value class Path(val segments: List<Segment>) {
 
-  constructor(segment: Segment): this(listOf(segment))
-  constructor(segmentName: String, vararg segmentNames: String): this(listOf(segmentName, *segmentNames).map(::Segment))
+  constructor(segment: Segment) : this(listOf(segment))
+  constructor(
+    segmentName: String,
+    vararg segmentNames: String
+  ) : this(listOf(segmentName, *segmentNames).map(::Segment))
 
   companion object;
 

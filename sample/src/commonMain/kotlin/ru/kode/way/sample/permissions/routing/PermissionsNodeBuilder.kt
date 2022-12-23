@@ -10,7 +10,7 @@ class PermissionsNodeBuilder(
   private val flowNode: () -> FlowNode<*, *>,
   private val introScreenNode: () -> ScreenNode,
   private val requestScreenNode: () -> ScreenNode,
-): NodeBuilder {
+) : NodeBuilder {
   override fun build(path: Path): Node {
     check(path.segments.firstOrNull()?.name == "permissions") {
       "illegal path build requested for \"permissions\" node: $path"

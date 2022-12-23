@@ -18,7 +18,6 @@ data class Finish<R : Any>(val result: R) : FlowTransition<R>
 data class EnqueueEvent(val event: Event) : FlowTransition<Nothing>, ScreenTransition
 object Stay : FlowTransition<Nothing>, ScreenTransition
 
-
 enum class PathResolution {
   Absolute,
   Relative

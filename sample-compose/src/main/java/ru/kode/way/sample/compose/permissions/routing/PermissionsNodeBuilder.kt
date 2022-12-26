@@ -1,4 +1,4 @@
-package ru.kode.way.sample.permissions.routing
+package ru.kode.way.sample.compose.permissions.routing
 
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
@@ -8,8 +8,8 @@ import ru.kode.way.ScreenNode
 
 class PermissionsNodeBuilder(
   private val flowNode: () -> FlowNode<*, *>,
-  private val introScreenNode: () -> ScreenNode,
-  private val requestScreenNode: () -> ScreenNode,
+  private val introScreenNode: () -> ScreenNode<*>,
+  private val requestScreenNode: () -> ScreenNode<*>,
 ) : NodeBuilder {
   override fun build(path: Path): Node {
     check(path.segments.firstOrNull()?.name == "permissions") {

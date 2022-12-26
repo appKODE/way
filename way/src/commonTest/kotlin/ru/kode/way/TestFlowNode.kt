@@ -14,22 +14,46 @@ class TestFlowNode(
   override val dismissResult: Unit = Unit
 
   override fun transition(event: TestEvent): FlowTransition<Unit> {
-    return if (transitions.isEmpty()) Stay else {
-      val target = transitions.find { it.event == event.name }?.let { ScreenTarget(Path(it.target)) }
+    return if (transitions.isEmpty()) Ignore else {
+      val target = transitions.find { it.event == event.name }
+        ?.let {
+          if (it.targetScreen != null) {
+            ScreenTarget(Path(it.targetScreen))
+          } else if (it.targetFlow != null) {
+            FlowTarget(Path(it.targetFlow), onFinish = { _: Unit -> Ignore })
+          } else {
+            error("either targetScreen or targetFlow must not be empty")
+          }
+        }
       if (target != null) {
         NavigateTo(target)
       } else {
-        println("no transition for event \"${event.name}\", ignoring")
-        Stay
+        Ignore
       }
     }
   }
 }
 
 class TestScreenNode(
-
-) : ScreenNode {
-  override fun transition(event: Event): ScreenTransition {
-    return Stay
+  private val transitions: List<TestTransitionSpec> = emptyList()
+) : ScreenNode<TestEvent> {
+  override fun transition(event: TestEvent): ScreenTransition {
+    return if (transitions.isEmpty()) Ignore else {
+      val target = transitions.find { it.event == event.name }
+        ?.let {
+          if (it.targetScreen != null) {
+            ScreenTarget(Path(it.targetScreen))
+          } else if (it.targetFlow != null) {
+            FlowTarget(Path(it.targetFlow), onFinish = { _: Unit -> Ignore })
+          } else {
+            error("either targetScreen or targetFlow must not be empty")
+          }
+        }
+      if (target != null) {
+        NavigateTo(target)
+      } else {
+        Ignore
+      }
+    }
   }
 }

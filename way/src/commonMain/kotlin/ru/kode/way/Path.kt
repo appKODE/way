@@ -38,12 +38,20 @@ fun Path.drop(count: Int): Path {
   return Path(segments.drop(count))
 }
 
+fun Path.dropLast(count: Int): Path {
+  return Path(segments.dropLast(count))
+}
+
 fun Path.take(count: Int): Path {
   return Path(segments.take(count))
 }
 
 fun Path.prepend(path: Path): Path {
   return Path(path.segments + segments)
+}
+
+fun Path.append(path: Path): Path {
+  return Path(this.segments + path.segments)
 }
 
 // app.permissions.intro → [app, app.permissions, app.permissions.intro]

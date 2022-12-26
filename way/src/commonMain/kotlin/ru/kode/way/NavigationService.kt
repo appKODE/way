@@ -21,51 +21,57 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
   }
 
   private fun transition(state: NavigationState, event: Event): NavigationState {
-    check(event == Event.Init || !state.isInitialized()) {
+    check(event == Event.Init || state.isInitialized()) {
       "internal error: no regions in state after Event.Init"
     }
     if (event == Event.Init) {
-      schema.regions.forEach { regionPath ->
-        val regionRoot = nodeBuilder.build(regionPath)
+      schema.regions.forEach { regionId ->
+        val regionRoot = nodeBuilder.build(regionId.path)
         require(regionRoot is FlowNode<*, *>) {
-          "expected FlowNode at $regionPath, but builder returned ${regionRoot::class.simpleName}"
+          "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
-        val initialNodes = resolveInitialNode(regionPath, initialTarget = regionRoot.initial)
-        state._regions[regionPath] = Region(
-          _nodes = initialNodes.toMutableMap(),
-          _active = initialNodes.keys.last(),
+        state._regions[regionId] = Region(
+          _nodes = mutableMapOf(regionId.path to regionRoot),
+          _active = regionId.path,
+          _alive = mutableListOf(regionId.path)
         )
       }
-    } else {
     }
-    return state
+    println("on [$event] transition")
+    val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event)
+    println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
+    return calculateModifications(schema, state, resolvedTransition.targetPaths).also {
+      synchronizeNodes(it)
+    }
   }
 
-  private fun resolveInitialNode(currentNodePath: Path, initialTarget: Target): Map<Path, Node> {
-    val initialTargetAbs = Path(currentNodePath.segments + initialTarget.path.segments)
-    return when (initialTarget) {
-      is FlowTarget<*, *> -> {
-        val initialNodes = initialTargetAbs.toSteps().associateWith { nodeBuilder.build(it) }
-        val flowNode = initialNodes.values.lastOrNull()
-          ?: error("no nodes were built for initial target at \"${initialTargetAbs}\"")
-        require(flowNode is FlowNode<*, *>) {
-          "expected FlowNode at $initialTargetAbs, but builder returned ${flowNode::class.simpleName}"
+  private fun synchronizeNodes(state: NavigationState) {
+    state._regions.values.forEach { region ->
+      region.alive.forEach { path ->
+        region._nodes.keys.retainAll(region.alive.toSet())
+        if (!region._nodes.containsKey(path)) {
+          region._nodes[path] = nodeBuilder.build(path)
         }
-        initialNodes + resolveInitialNode(
-          initialTargetAbs,
-          flowNode.initial
-        )
-      }
-      is ScreenTarget -> {
-        val initialNodes = initialTargetAbs.toSteps().associateWith { nodeBuilder.build(it) }
-        initialNodes
       }
     }
   }
 
   fun sendEvent(event: Event) {
     state = transition(state, event)
+    val validityErrors = state.runValidityChecks()
+    if (validityErrors.isNotEmpty()) {
+      error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
+    }
     listeners.forEach { it(state) }
+  }
+}
+
+private fun NavigationState.runValidityChecks(): List<String> {
+  return regions.mapNotNull { (regionId, region) ->
+    if (region.alive.toSet() != region.nodes.keys) {
+      "region \"$regionId\": alive node path set is different from nodes set. Alive paths: " +
+        "${region.alive}, alive nodes: ${region.nodes.keys}"
+    } else null
   }
 }
 
@@ -73,5 +79,5 @@ private fun NavigationState.isInitialized(): Boolean {
   return this.regions.isNotEmpty()
 }
 
-// TODO be more sensible!
+// TODO be more sensible, actually calculate!
 private fun Schema.regionCount() = 1

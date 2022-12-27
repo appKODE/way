@@ -48,11 +48,11 @@ private fun resolveTransitionInRegion(
       val finishHandlers = HashMap<Path, OnFinishHandler<Any, Any>>(transition.targets.size)
       val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
       transition.targets.forEach { target ->
-        val parentFlowPath = findParentFlowPathInclusive(path, nodes)
         // there maybe several targets in different regions
         val targetRegionId = regionIdOfPath(schema.regions, target.path)
           ?: error("failed to find regionId for path=\"${target.path}\"")
-        val targetPathAbs = parentFlowPath.append(target.path)
+        val targetPathAbs = schema.targets(targetRegionId)[target.path.segments.last()]
+          ?: error("failed to find schema entry for target \"${target.path}\"")
         targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes)
         when (target) {
           is FlowTarget<*, *> -> {

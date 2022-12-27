@@ -11,9 +11,13 @@ import kotlinx.coroutines.flow.callbackFlow
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            intro
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(initialScreen = "intro"),
@@ -29,9 +33,14 @@ class NavigationServiceTest : ShouldSpec({
 
   should("switch to initial state requiring sub-flow transition") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            permissions
+              intro
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -52,9 +61,15 @@ class NavigationServiceTest : ShouldSpec({
 
   should("switch to initial state creating all nested child screen nodes") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            login
+              onboarding
+                intro
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -78,9 +93,14 @@ class NavigationServiceTest : ShouldSpec({
 
   should("ignore event completely if no node defines an actionable transition") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            permissions
+              intro
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -109,9 +129,17 @@ class NavigationServiceTest : ShouldSpec({
 
   should("process events in a bottom-up order") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            permissions
+              intro
+              request
+            profile
+              main
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -133,9 +161,9 @@ class NavigationServiceTest : ShouldSpec({
           ),
           "app.permissions.request" to TestScreenNode(),
           "app.profile" to TestFlowNode(
-            initialScreen = "intro",
+            initialScreen = "main",
           ),
-          "app.profile.intro" to TestScreenNode()
+          "app.profile.main" to TestScreenNode()
         )
       ),
     )
@@ -150,15 +178,21 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().active shouldBe "app.permissions.intro"
 
       sut.sendEvent(TestEvent("C"))
-      awaitItem().active shouldBe "app.profile.intro"
+      awaitItem().active shouldBe "app.profile.main"
     }
   }
 
   should("replace nodes when transitioning between sibling nodes") {
     val sut = NavigationService(
-      object : Schema {
-        override val regions: List<RegionId> = listOf(RegionId(Path("app")))
-      },
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            intro
+            main
+            test
+        """.trimIndent()
+      ),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -187,7 +221,6 @@ class NavigationServiceTest : ShouldSpec({
         alive.shouldContainInOrder("app", "app.main")
         active shouldBe "app.main"
       }
-
       sut.sendEvent(TestEvent("B"))
       awaitItem().apply {
         alive.shouldContainInOrder("app", "app.test")
@@ -198,6 +231,93 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().apply {
         alive.shouldContainInOrder("app", "app.main")
         active shouldBe "app.main"
+      }
+    }
+  }
+
+  should("append to live nodes when transitioning to child screen node sequentially") {
+    val sut = NavigationService(
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            intro
+              main
+                test
+        """.trimIndent()
+      ),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialScreen = "intro",
+            transitions = listOf(
+              tr_s(on = "A", target = "main"),
+              tr_s(on = "B", target = "test"),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.intro.main" to TestScreenNode(),
+          "app.intro.main.test" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro")
+        active shouldBe "app.intro"
+      }
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro", "app.intro.main")
+        active shouldBe "app.intro.main"
+      }
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
+        active shouldBe "app.intro.main.test"
+      }
+    }
+  }
+
+  should("append to live nodes when transitioning to grand child screen node") {
+    val sut = NavigationService(
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          app
+            intro
+              main
+                test
+        """.trimIndent()
+      ),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialScreen = "intro",
+            transitions = listOf(
+              tr_s(on = "A", target = "test"),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.intro.main" to TestScreenNode(),
+          "app.intro.main.test" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro")
+        active shouldBe "app.intro"
+      }
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
+        active shouldBe "app.intro.main.test"
       }
     }
   }

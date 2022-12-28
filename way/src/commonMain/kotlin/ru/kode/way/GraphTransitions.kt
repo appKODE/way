@@ -1,6 +1,6 @@
 package ru.kode.way
 
-internal fun calculateModifications(
+internal fun calculateAliveNodes(
   schema: Schema,
   state: NavigationState,
   targets: Map<RegionId, Path>

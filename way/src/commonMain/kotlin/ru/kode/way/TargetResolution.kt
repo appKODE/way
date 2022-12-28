@@ -7,18 +7,22 @@ internal fun resolveTransition(
   event: Event
 ): ResolvedTransition {
   return regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
+    val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
+    val transition = buildTransition(event, node)
     val resolved = resolveTransitionInRegion(
       schema = schema,
       regionId = regionId,
+      transition,
       path = region.active,
       activePath = region.active,
       nodes = region.nodes,
       nodeBuilder = nodeBuilder,
+      finishHandlers = region.finishHandlers,
       event = event
     )
     ResolvedTransition(
       targetPaths = acc.targetPaths + resolved.targetPaths,
-      finishHandler = (acc.finishHandler.orEmpty() + resolved.finishHandler.orEmpty()).takeIf { it.isNotEmpty() },
+      finishHandlers = (acc.finishHandlers.orEmpty() + resolved.finishHandlers.orEmpty()).takeIf { it.isNotEmpty() },
       enqueuedEvents = (acc.enqueuedEvents.orEmpty() + resolved.enqueuedEvents.orEmpty()).takeIf { it.isNotEmpty() },
     )
   }
@@ -31,21 +35,22 @@ internal fun resolveTransition(
 private fun resolveTransitionInRegion(
   schema: Schema,
   regionId: RegionId,
+  transition: Transition,
   path: Path,
   activePath: Path,
   nodes: Map<Path, Node>,
   nodeBuilder: NodeBuilder,
+  finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
   event: Event
 ): ResolvedTransition {
-  val node = nodes[path] ?: error("expected node to exist at path \"$path\"")
-  return when (val transition = buildTransition(event, node)) {
+  return when (transition) {
     is EnqueueEvent -> ResolvedTransition(
       targetPaths = mapOf(regionId to path),
-      finishHandler = null,
+      finishHandlers = null,
       enqueuedEvents = listOf(transition.event),
     )
     is NavigateTo -> {
-      val finishHandlers = HashMap<Path, OnFinishHandler<Any, Any>>(transition.targets.size)
+      var transitionFinishHandlers: HashMap<RegionId, ResolvedTransition.FinishHandler>? = null
       val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
       transition.targets.forEach { target ->
         // there maybe several targets in different regions
@@ -56,22 +61,34 @@ private fun resolveTransitionInRegion(
         targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes)
         when (target) {
           is FlowTarget<*, *> -> {
-            finishHandlers[targetPathAbs] = target.onFinish as OnFinishHandler<Any, Any>
+            val handlers = transitionFinishHandlers ?: HashMap(schema.regions.size)
+            handlers[targetRegionId] = ResolvedTransition.FinishHandler(
+              flowPath = findParentFlowPathInclusive(schema, regionId, targetPathAbs),
+              callback = target.onFinish as OnFinishHandler<Any, Any>
+            )
+            transitionFinishHandlers = handlers
           }
           is ScreenTarget -> Unit
         }
       }
       ResolvedTransition(
         targetPaths = targetPaths,
-        finishHandler = finishHandlers.takeIf { it.isNotEmpty() },
+        finishHandlers = transitionFinishHandlers,
         enqueuedEvents = null,
       )
     }
-    is Finish<*> -> TODO()
+    is Finish<*> -> {
+      val flowPath = findParentFlowPathInclusive(schema, regionId, activePath)
+      val handler = finishHandlers[flowPath] ?: error("no finish handler for \"$flowPath\"")
+      val finishTransition = handler(transition.result)
+      resolveTransitionInRegion(
+        schema, regionId, finishTransition, path, activePath, nodes, nodeBuilder, finishHandlers, event
+      )
+    }
     is Stay -> {
       ResolvedTransition(
         targetPaths = mapOf(regionId to path),
-        finishHandler = null,
+        finishHandlers = null,
         enqueuedEvents = null,
       )
     }
@@ -80,12 +97,16 @@ private fun resolveTransitionInRegion(
       if (path.isRootInRegion(regionId)) {
         ResolvedTransition(
           targetPaths = mapOf(regionId to activePath),
-          finishHandler = null,
+          finishHandlers = null,
           enqueuedEvents = null,
         )
       } else {
         val parentPath = path.dropLast(1)
-        resolveTransitionInRegion(schema, regionId, parentPath, activePath, nodes, nodeBuilder, event)
+        val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
+        resolveTransitionInRegion(
+          schema, regionId, buildTransition(event, node),
+          parentPath, activePath, nodes, nodeBuilder, finishHandlers, event
+        )
       }
     }
   }
@@ -150,16 +171,33 @@ private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Pat
   }
 }
 
+/**
+ * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
+ */
+private fun findParentFlowPathInclusive(schema: Schema, regionId: RegionId, path: Path): Path {
+  return if (schema.nodeType(regionId, path) == Schema.NodeType.Flow) {
+    path
+  } else {
+    path.dropLast(1)
+  }
+}
+
 private fun Path.isRootInRegion(regionId: RegionId): Boolean {
   return this == regionId.path
 }
 
 internal data class ResolvedTransition(
   val targetPaths: Map<RegionId, Path>,
-  val finishHandler: Map<Path, OnFinishHandler<Any, Any>>?,
+  val finishHandlers: Map<RegionId, FinishHandler>?,
   val enqueuedEvents: List<Event>?,
 ) {
+
   companion object {
     val EMPTY = ResolvedTransition(emptyMap(), null, null)
   }
+
+  data class FinishHandler(
+    val flowPath: Path,
+    val callback: OnFinishHandler<Any, Any>
+  )
 }

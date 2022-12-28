@@ -33,15 +33,47 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
         state._regions[regionId] = Region(
           _nodes = mutableMapOf(regionId.path to regionRoot),
           _active = regionId.path,
-          _alive = mutableListOf(regionId.path)
+          _alive = mutableListOf(regionId.path),
+          _finishHandlers = mutableMapOf(),
         )
       }
     }
     println("on [$event] transition")
     val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event)
     println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
-    return calculateModifications(schema, state, resolvedTransition.targetPaths).also {
+    return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also {
+      storeFinishHandlers(it, resolvedTransition)
       synchronizeNodes(it)
+      // TODO remove after ksp-generation impl, or run only in debug / during tests?
+      checkSchemaValidity(schema, it)
+    }
+  }
+
+  private fun checkSchemaValidity(schema: Schema, state: NavigationState) {
+    state.regions.forEach { (regionId, region) ->
+      region._nodes.forEach { (path, node) ->
+        when (node) {
+          is FlowNode<*, *> -> {
+            check(schema.nodeType(regionId, path) == Schema.NodeType.Flow) {
+              "according to schema, \"$path\" should be a flow node, but it is a \"${node::class.simpleName}\""
+            }
+          }
+          is ScreenNode<*> -> {
+            check(schema.nodeType(regionId, path) == Schema.NodeType.Screen) {
+              "according to schema, \"$path\" should be a screen node, but it is a \"${node::class.simpleName}\""
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private fun storeFinishHandlers(state: NavigationState, resolvedTransition: ResolvedTransition) {
+    if (resolvedTransition.finishHandlers == null) return
+    resolvedTransition.finishHandlers.forEach { (regionId, handler) ->
+      val region = state._regions[regionId] ?: error("no region with id \"$regionId\"")
+      // the path to the flow finish handler of which we are storing
+      region._finishHandlers[handler.flowPath] = handler.callback
     }
   }
 
@@ -53,6 +85,7 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
           region._nodes[path] = nodeBuilder.build(path)
         }
       }
+      region._finishHandlers.keys.retainAll(region.alive.toSet())
     }
   }
 

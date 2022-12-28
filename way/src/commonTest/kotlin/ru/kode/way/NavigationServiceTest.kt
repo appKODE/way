@@ -14,7 +14,7 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
+          f:app
             intro
         """.trimIndent()
       ),
@@ -36,8 +36,8 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
-            permissions
+          f:app
+            f:permissions
               intro
         """.trimIndent()
       ),
@@ -64,9 +64,9 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
-            login
-              onboarding
+          f:app
+            f:login
+              f:onboarding
                 intro
         """.trimIndent()
       ),
@@ -96,8 +96,8 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
-            permissions
+          f:app
+            f:permissions
               intro
         """.trimIndent()
       ),
@@ -132,11 +132,11 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
-            permissions
+          f:app
+            f:permissions
               intro
               request
-            profile
+            f:profile
               main
         """.trimIndent()
       ),
@@ -187,7 +187,7 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
+          f:app
             intro
             main
             test
@@ -240,7 +240,7 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
+          f:app
             intro
               main
                 test
@@ -287,7 +287,7 @@ class NavigationServiceTest : ShouldSpec({
       TestSchema.fromIndentedText(
         regionId = "app",
         """
-          app
+          f:app
             intro
               main
                 test
@@ -319,6 +319,123 @@ class NavigationServiceTest : ShouldSpec({
         alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
         active shouldBe "app.intro.main.test"
       }
+    }
+  }
+
+  should("call onFinish to inform parent flow of result") {
+    val sut = NavigationService(
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          f:app
+            f:onboarding
+              intro
+            f:login
+              credentials
+        """.trimIndent()
+      ),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = FlowTarget(
+              path = Path("onboarding"),
+              onFinish = { r: Int ->
+                if (r == 42) {
+                  NavigateTo(
+                    FlowTarget(
+                      Path("login"),
+                      onFinish = { _: Unit -> Finish(Unit) }
+                    )
+                  )
+                } else {
+                  Finish(Unit)
+                }
+              }
+            )
+          ),
+          "app.onboarding" to TestFlowNodeWithResult(
+            initialScreen = "intro",
+            dismissResult = 33,
+            transitions = listOf(
+              tr_finish(on = "A", result = 42)
+            )
+          ),
+          "app.onboarding.intro" to TestScreenNode(),
+          "app.login" to TestFlowNode(
+            initialScreen = "credentials",
+          ),
+          "app.login.credentials" to TestScreenNode()
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+
+      sut.sendEvent(TestEvent("A"))
+
+      awaitItem().active shouldBe "app.login.credentials"
+    }
+  }
+
+  should("call onFinish to inform parent flow of result from non-initial node in the sub-flow") {
+    val sut = NavigationService(
+      TestSchema.fromIndentedText(
+        regionId = "app",
+        """
+          f:app
+            f:onboarding
+              intro
+              page1
+            f:login
+              credentials
+        """.trimIndent()
+      ),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = FlowTarget(
+              path = Path("onboarding"),
+              onFinish = { r: Int ->
+                if (r == 42) {
+                  NavigateTo(
+                    FlowTarget(
+                      Path("login"),
+                      onFinish = { _: Unit -> Finish(Unit) }
+                    )
+                  )
+                } else {
+                  Finish(Unit)
+                }
+              }
+            )
+          ),
+          "app.onboarding" to TestFlowNodeWithResult(
+            initialScreen = "intro",
+            dismissResult = 33,
+            transitions = listOf(
+              tr_s(on = "A", target = "page1"),
+              tr_finish(on = "B", result = 42)
+            )
+          ),
+          "app.onboarding.intro" to TestScreenNode(),
+          "app.onboarding.page1" to TestScreenNode(),
+          "app.login" to TestFlowNode(
+            initialScreen = "credentials",
+          ),
+          "app.login.credentials" to TestScreenNode()
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.onboarding.page1"
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().active shouldBe "app.login.credentials"
     }
   }
 })

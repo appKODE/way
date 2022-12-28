@@ -29,10 +29,22 @@ class Region internal constructor(
   internal val _nodes: MutableMap<Path, Node>,
   internal var _active: Path,
   internal var _alive: MutableList<Path>,
+  /**
+   * A mapping from a path to a flow to its finish handler.
+   * For example if "app.main" flow node transitions to "app.main.onboarding" flow, then
+   * this will result in a mapping from "app.main.onboarding" to "onFinish" callback provided by "app.main" flow
+   * when defining an "app.main" node
+   */
+  internal val _finishHandlers: MutableMap<Path, OnFinishHandler<Any, Any>>,
 ) {
   val nodes: Map<Path, Node> = _nodes
   val active: Path get() = _active
   val activeNode get() = nodes[active] ?: error("internal error: no node at path $active")
+
+  /**
+   * @see _finishHandlers documentation
+   */
+  val finishHandlers: Map<Path, OnFinishHandler<Any, Any>> = _finishHandlers
 
   // TODO rename active -> attached/top/current, alive -> active?
   val alive: List<Path> get() = _alive

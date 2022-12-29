@@ -2,15 +2,12 @@ import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper
 
-buildscript {
-  val compose_ui_version by extra("1.1.1")
-}
 plugins {
   alias(libs.plugins.spotless)
   alias(libs.plugins.kotlinMultiplatform) apply false
   alias(libs.plugins.dokka) apply false
   id("com.android.library") version "7.3.1" apply false
-  id("org.jetbrains.kotlin.android") version "1.7.20" apply false
+  id("org.jetbrains.kotlin.android") version libs.versions.kotlin.get() apply false
 }
 
 subprojects {
@@ -37,8 +34,6 @@ subprojects {
             artifact(javadocJar.get())
           }
         }
-
-        ios()
       }
     }
 

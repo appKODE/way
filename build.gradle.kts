@@ -8,7 +8,8 @@ plugins {
   alias(libs.plugins.kotlinMultiplatform) apply false
   alias(libs.plugins.dokka) apply false
   id("com.android.library") version "7.3.1" apply false
-  id("org.jetbrains.kotlin.android") version libs.versions.kotlin.get() apply false
+  alias(libs.plugins.kotlinAndroid) apply false
+  alias(libs.plugins.kotlinJvm) apply false
 }
 
 subprojects {

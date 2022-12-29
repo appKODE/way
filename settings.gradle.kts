@@ -18,5 +18,6 @@ rootProject.name = "way"
 
 include(":way")
 include(":way-compose")
+include(":way-gradle-plugin")
 include(":sample")
 include(":sample-compose")

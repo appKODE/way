@@ -1,4 +1,4 @@
-package ru.kode.way.sample.permissions.routing
+package ru.kode.way.sample.compose.permissions.routing
 
 import ru.kode.way.Path
 import ru.kode.way.ScreenTarget

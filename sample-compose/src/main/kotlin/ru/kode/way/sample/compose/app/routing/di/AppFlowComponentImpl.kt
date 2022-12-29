@@ -4,7 +4,7 @@ import ru.kode.way.NodeBuilder
 import ru.kode.way.sample.compose.app.routing.AppFlowNode
 import ru.kode.way.sample.compose.app.routing.AppFlowNodeBuilder
 import ru.kode.way.sample.compose.permissions.routing.di.PermissionsFlowComponentImpl
-import ru.kode.way.sample.permissions.routing.di.PermissionsFlowComponent
+import ru.kode.way.sample.compose.permissions.routing.di.PermissionsFlowComponent
 
 class AppFlowComponentImpl : AppFlowComponent {
   override fun nodeBuilder(): NodeBuilder {

@@ -1,11 +1,10 @@
-package ru.kode.way.sample.permissions.routing
+package ru.kode.way.sample.compose.permissions.routing
 
 import ru.kode.way.Event
 import ru.kode.way.Finish
 import ru.kode.way.FlowNode
 import ru.kode.way.FlowTransition
 import ru.kode.way.NavigateTo
-import ru.kode.way.Path
 import ru.kode.way.sample.compose.core.routing.FlowResult
 
 sealed interface PermissionsEvent : Event {
@@ -14,11 +13,11 @@ sealed interface PermissionsEvent : Event {
 }
 
 class PermissionsFlowNode : FlowNode<PermissionsEvent, FlowResult> {
-  override val initial = Path.permissions.intro
+  override val initial = PermissionsPaths.intro
 
   override fun transition(event: PermissionsEvent): FlowTransition<FlowResult> {
     return when (event) {
-      PermissionsEvent.IntroDone -> NavigateTo(Path.permissions.request)
+      PermissionsEvent.IntroDone -> NavigateTo(PermissionsPaths.request)
       PermissionsEvent.AllGranted -> Finish(FlowResult.Dismissed)
     }
   }

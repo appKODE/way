@@ -2,6 +2,7 @@ import org.jetbrains.dokka.gradle.DokkaTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinMultiplatformPluginWrapper
 
+@Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   alias(libs.plugins.spotless)
   alias(libs.plugins.kotlinMultiplatform) apply false

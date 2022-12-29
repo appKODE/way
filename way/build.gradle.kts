@@ -11,7 +11,7 @@ kotlin {
       compilations.all {
         kotlinOptions {
           jvmTarget = "1.8"
-          moduleName = "remo-library"
+          moduleName = "way-library"
         }
       }
     }

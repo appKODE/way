@@ -1,0 +1,11 @@
+r:app
+  f:app
+    f:login
+      f:onboarding
+        page1
+          page2
+      credentials
+        otp
+    f:main
+      intro
+      home

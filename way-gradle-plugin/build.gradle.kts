@@ -3,6 +3,7 @@ plugins {
   id(libs.plugins.kotlinJvm.get().pluginId)
   `java-gradle-plugin`
   `maven-publish`
+  antlr
 }
 
 gradlePlugin {
@@ -18,4 +19,16 @@ gradlePlugin {
 dependencies {
   implementation(libs.kotlinPoet)
   implementation(libs.kotlin.plugin)
+  testImplementation(libs.bundles.koTestJvm)
+
+  antlr(libs.antlr)
+}
+
+tasks.withType<JavaCompile> {
+  sourceCompatibility = JavaVersion.VERSION_1_8.toString()
+  targetCompatibility = JavaVersion.VERSION_1_8.toString()
+}
+
+tasks.withType<Test>().configureEach {
+  useJUnitPlatform()
 }

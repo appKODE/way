@@ -1,6 +1,6 @@
 digraph {
     subgraph app {
-      navigation = parallel
+      navigation = region
 
       app [navigation = flow, shape=hexagon]
       app -> login

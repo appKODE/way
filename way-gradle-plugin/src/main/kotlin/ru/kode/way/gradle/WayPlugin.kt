@@ -11,7 +11,7 @@ class WayPlugin : Plugin<Project> {
       it.source(
         "src/commonMain/way"
       )
-      it.include("**/*.txt")
+      it.include("**/*.dot")
     }
     project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.let {
       it.sourceSets.getByName("commonMain").kotlin.srcDir(provider)

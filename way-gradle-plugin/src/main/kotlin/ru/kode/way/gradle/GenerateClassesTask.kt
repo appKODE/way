@@ -52,6 +52,7 @@ open class GenerateClassesTask : SourceTask() {
   fun generate() {
     logger.warn("generation started")
     source.forEach { file ->
+      parseSchemeDotFile(file)
       generate(
         file,
         CodeGenConfig(

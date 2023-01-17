@@ -11,6 +11,7 @@ composeCompiler = "1.3.2"
 androidExtensions = "1.6.1"
 agp = "7.3.1"
 kotlinPoet = "1.12.0"
+antlr = "4.11.1"
 
 [libraries]
 kotest-junit-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "koTest" }
@@ -27,17 +28,18 @@ composeMaterial = { module = "androidx.compose.material:material", version.ref =
 activityCompose = { module = "androidx.activity:activity-compose", version.ref = "androidExtensions" }
 kotlinPoet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinPoet" }
 kotlin-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+antlr = { module = "org.antlr:antlr4", version.ref = "antlr" }
 
 [bundles]
-koTestCommon = [ "kotest-assertions-core", "kotest-property", "kotest-framework-engine" ]
-koTestJvm = [ "kotest-junit-runner" ]
-coroutines = [ "coroutines-core" ]
+koTestCommon = ["kotest-assertions-core", "kotest-property", "kotest-framework-engine"]
+koTestJvm = ["kotest-junit-runner"]
+coroutines = ["coroutines-core"]
 
 [plugins]
-kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin"}
-kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin"}
-kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin"}
-kotestMultiplatform = { id = "io.kotest.multiplatform", version.ref = "koTest"}
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotestMultiplatform = { id = "io.kotest.multiplatform", version.ref = "koTest" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }

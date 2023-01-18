@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinJvm.get().pluginId)
@@ -20,8 +22,17 @@ dependencies {
   implementation(libs.kotlinPoet)
   implementation(libs.kotlin.plugin)
   testImplementation(libs.bundles.koTestJvm)
+  testImplementation(libs.okio)
 
   antlr(libs.antlr)
+}
+
+tasks.generateGrammarSource {
+  arguments = arguments + "-visitor" + "-long-messages"
+}
+
+tasks.withType<KotlinCompile> {
+  dependsOn(tasks.generateGrammarSource)
 }
 
 tasks.withType<JavaCompile> {
@@ -31,4 +42,16 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Test>().configureEach {
   useJUnitPlatform()
+  testLogging {
+    showExceptions = true
+    showStandardStreams = true
+    events = setOf(
+      org.gradle.api.tasks.testing.logging.TestLogEvent.STANDARD_OUT,
+      org.gradle.api.tasks.testing.logging.TestLogEvent.STARTED,
+      org.gradle.api.tasks.testing.logging.TestLogEvent.SKIPPED,
+      org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED,
+      org.gradle.api.tasks.testing.logging.TestLogEvent.PASSED
+    )
+    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+  }
 }

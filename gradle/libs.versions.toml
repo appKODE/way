@@ -12,6 +12,7 @@ androidExtensions = "1.6.1"
 agp = "7.3.1"
 kotlinPoet = "1.12.0"
 antlr = "4.11.1"
+okio = "3.3.0"
 
 [libraries]
 kotest-junit-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "koTest" }
@@ -29,6 +30,7 @@ activityCompose = { module = "androidx.activity:activity-compose", version.ref =
 kotlinPoet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinPoet" }
 kotlin-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 antlr = { module = "org.antlr:antlr4", version.ref = "antlr" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 
 [bundles]
 koTestCommon = ["kotest-assertions-core", "kotest-property", "kotest-framework-engine"]

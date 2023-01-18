@@ -1,0 +1,26 @@
+digraph {
+    main_region [navigation = parallel]
+    main_region -> app
+
+    app [navigation = flow, shape = hexagon]
+    app -> login
+    app -> main
+
+    login [navigation = flow, shape = hexagon]
+    login -> onboarding
+    login -> credentials -> otp
+
+    onboarding [navigation = flow, shape = hexagon]
+    onboarding -> page1 -> page2
+
+    main [navigation = flow, shape = hexagon]
+    main -> intro
+    main -> home
+
+    bottom_sheet_region [navigation = parallel]
+    bottom_sheet_region -> sheet
+
+    sheet [navigation = flow, shape = hexagon]
+    sheet -> options
+    sheet -> more -> more_page1 -> more_page2
+}

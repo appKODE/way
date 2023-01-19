@@ -1,0 +1,8 @@
+digraph TestApp {
+    schemaFileName = "schema-composition02"
+
+    app [type = schema]
+
+    login [type = flow]
+    login -> onboarding
+}

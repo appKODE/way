@@ -105,7 +105,8 @@ subprojects {
 spotless {
   kotlin {
     target("**/*.kt")
-    targetExclude("!**/build/**/*.*")
+    targetExclude("**/build/**/*.*")
+    targetExclude("**/resources/*.kt")
     ktlint(libs.versions.ktlint.get()).userData(mapOf("indent_size" to "2", "max_line_length" to "120"))
     trimTrailingWhitespace()
     endWithNewline()

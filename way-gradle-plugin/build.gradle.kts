@@ -40,7 +40,7 @@ tasks.withType<JavaCompile> {
   targetCompatibility = JavaVersion.VERSION_1_8.toString()
 }
 
-tasks.withType<Test>().configureEach {
+tasks.withType<Test> {
   useJUnitPlatform()
   testLogging {
     showExceptions = true

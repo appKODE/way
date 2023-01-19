@@ -1,20 +1,16 @@
-digraph {
-    subgraph app {
-      navigation = parallel
+digraph SampleApp {
+  app [type = flow, shape=hexagon]
+  app -> login
+  app -> main
 
-      app [navigation = flow, shape=hexagon]
-      app -> login
-      app -> main
+  login [type = flow, shape=hexagon]
+  login -> onboarding
+  login -> credentials -> otp
 
-      login [navigation = flow, shape=hexagon]
-      login -> onboarding
-      login -> credentials -> otp
+  onboarding [type = flow, shape=hexagon]
+  onboarding -> page1 -> page2 -> page3
 
-      onboarding [navigation = flow, shape=hexagon]
-      onboarding -> page1 -> page2
-
-      main [navigation = flow, shape=hexagon]
-      main -> intro
-      main -> home
-    }
+  main [type = flow, shape=hexagon]
+  main -> intro
+  main -> home
 }

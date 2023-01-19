@@ -1,0 +1,7 @@
+digraph TestApp {
+    schemaFileName = "schema-composition01"
+
+    app [type = schema]
+    login [type = schema]
+    main [type = schema]
+}

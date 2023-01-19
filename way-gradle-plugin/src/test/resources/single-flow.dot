@@ -1,6 +1,5 @@
 digraph TestApp {
-    schemeFileName = "single-flow-scheme";
-    otherAtter  = "hello";
+    schemaFileName = "single-flow-schema"
 
     app [type = flow, shape = hexagon]
     app -> screen1 -> screen2

@@ -3,4 +3,5 @@ digraph TestApp {
 
     app [type = flow, shape = hexagon]
     app -> screen1 -> screen2
+    screen2 -> screen3
 }

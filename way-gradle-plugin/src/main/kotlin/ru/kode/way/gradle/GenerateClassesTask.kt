@@ -46,6 +46,7 @@ open class GenerateClassesTask : SourceTask() {
   fun generate() {
     logger.warn("generation started")
     source.forEach { file ->
+      logger.warn("generating classes from schema file: $file")
       generate(
         file,
         outputDirectory,

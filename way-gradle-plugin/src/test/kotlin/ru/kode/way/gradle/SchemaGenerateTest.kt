@@ -19,10 +19,11 @@ class SchemaGenerateTest : ShouldSpec({
     val schema = File("src/test/resources/$testCaseName.dot")
     val expectedResults = expectedOutputFiles.map { File("src/test/resources/$it") }
     val outputDirectory = FileSystem.SYSTEM_TEMPORARY_DIRECTORY
-    parseSchemaDotFile(
+    buildSpecs(
       file = schema,
-      packageName = SCHEME_GENERATION_PACKAGE,
+      config = createConfig()
     )
+      .schemaFileSpec
       .writeTo(outputDirectory.toNioPath())
     expectedResults.forEach { expectedFile ->
       FileSystem.SYSTEM.apply {
@@ -46,4 +47,8 @@ class SchemaGenerateTest : ShouldSpec({
   }
 })
 
+private fun createConfig() = CodeGenConfig(
+  outputPackageName = SCHEME_GENERATION_PACKAGE,
+  outputSchemaClassName = "DefaultTestNavSchema"
+)
 private const val SCHEME_GENERATION_PACKAGE = "ru.kode.test.app.scheme"

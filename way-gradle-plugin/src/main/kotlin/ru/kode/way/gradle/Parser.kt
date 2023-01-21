@@ -75,6 +75,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
     super.visitEdge_stmt(ctx)
     val rhsFirstNode = ctx.edgeRHS().node_id(0).text
     adjacencyList.getOrPut(nodeId) { mutableListOf() }
+    adjacencyList.getOrPut(rhsFirstNode) { mutableListOf() }
     adjacencyList[nodeId]?.add(rhsFirstNode)
   }
 
@@ -82,6 +83,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
     val nodeIds = ctx.node_id()
     nodeIds.windowed(2).forEach { (id1, id2) ->
       adjacencyList.getOrPut(id1.text) { mutableListOf() }
+      adjacencyList.getOrPut(id2.text) { mutableListOf() }
       adjacencyList[id1.text]?.add(id2.text)
     }
     super.visitEdgeRHS(ctx)
@@ -91,8 +93,10 @@ private class Visitor : DotBaseVisitor<Unit>() {
 internal data class SchemaParseResult(
   val graphId: String?,
   val customSchemaFileName: String?,
-  val adjacencyList: Map<Node, List<Node>>,
+  val adjacencyList: AdjacencyList,
 )
+
+internal typealias AdjacencyList = Map<Node, List<Node>>
 
 internal sealed class Node {
   abstract val id: String

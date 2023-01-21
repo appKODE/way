@@ -2,6 +2,7 @@
 plugins {
   id(libs.plugins.kotlinMultiplatform.get().pluginId)
   id(libs.plugins.dokka.get().pluginId)
+  alias(libs.plugins.way)
   `maven-publish`
 }
 

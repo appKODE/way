@@ -9,12 +9,14 @@ class WayPlugin : Plugin<Project> {
     val provider = project.tasks.register("generateWayClasses", GenerateClassesTask::class.java) {
       it.group = "way"
       it.source(
-        "src/commonMain/way"
+        "src/commonMain/way",
+        "src/commonTest/way",
       )
       it.include("**/*.dot")
     }
-    project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.let {
-      it.sourceSets.getByName("commonMain").kotlin.srcDir(provider)
+    project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.run {
+      // TODO schemas from commonTest must go into commonTest here!
+      sourceSets.getByName("commonMain").kotlin.srcDir(provider)
     }
   }
 }

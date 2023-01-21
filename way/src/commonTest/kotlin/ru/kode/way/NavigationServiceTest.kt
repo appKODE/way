@@ -11,13 +11,7 @@ import kotlinx.coroutines.flow.callbackFlow
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            intro
-        """.trimIndent()
-      ),
+      NavService01Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(initialScreen = "intro"),
@@ -33,14 +27,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("switch to initial state requiring sub-flow transition") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:permissions
-              intro
-        """.trimIndent()
-      ),
+      NavService02Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -61,15 +48,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("switch to initial state creating all nested child screen nodes") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:login
-              f:onboarding
-                intro
-        """.trimIndent()
-      ),
+      NavService03Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(

@@ -1,7 +1,7 @@
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinMultiplatform.get().pluginId)
-  id("ru.kode.way") version "0.8.0"
+  alias(libs.plugins.way)
   id("application")
 }
 

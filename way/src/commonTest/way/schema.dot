@@ -1,0 +1,16 @@
+digraph SampleApp {
+  app [type = flow, shape=hexagon]
+  app -> login
+  app -> main
+
+  login [type = flow, shape=hexagon]
+  login -> onboarding
+  login -> credentials -> otp
+
+  onboarding [type = flow, shape=hexagon]
+  onboarding -> page1 -> page2 -> page3
+
+  main [type = flow, shape=hexagon]
+  main -> intro
+  main -> home
+}

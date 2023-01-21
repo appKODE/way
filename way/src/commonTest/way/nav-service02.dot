@@ -1,0 +1,5 @@
+digraph NavService02 {
+  app [type = flow]
+  permissions [type = flow]
+  app -> permissions -> intro
+}

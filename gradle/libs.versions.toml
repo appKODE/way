@@ -9,10 +9,11 @@ turbine = "0.7.0"
 compose = "1.3.1"
 composeCompiler = "1.3.2"
 androidExtensions = "1.6.1"
-agp = "7.3.1"
+agp = "7.4.0"
 kotlinPoet = "1.12.0"
 antlr = "4.11.1"
 okio = "3.3.0"
+wayPlugin = "0.8.0"
 
 [libraries]
 kotest-junit-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "koTest" }
@@ -46,3 +47,4 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
 androidApplication = { id = "com.android.application", version.ref = "agp" }
+way = { id = "ru.kode.way", version.ref = "wayPlugin" }

@@ -21,6 +21,7 @@ gradlePlugin {
 dependencies {
   implementation(libs.kotlinPoet)
   implementation(libs.kotlin.plugin)
+  testImplementation(libs.bundles.koTestCommon)
   testImplementation(libs.bundles.koTestJvm)
   testImplementation(libs.okio)
 

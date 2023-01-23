@@ -1,0 +1,11 @@
+digraph NavService04 {
+  app [type = flow]
+  permissions [type = flow]
+  profile [type = flow]
+
+  app -> permissions
+  permissions -> intro
+  permissions -> request
+
+  app -> profile -> main
+}

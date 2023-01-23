@@ -1,0 +1,8 @@
+digraph NavService07 {
+  app [type = flow]
+  onboarding [type = flow]
+  login [type = flow]
+
+  app -> onboarding -> intro
+  app -> login -> credentials
+}

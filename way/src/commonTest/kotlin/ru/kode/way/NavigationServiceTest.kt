@@ -72,14 +72,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("ignore event completely if no node defines an actionable transition") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:permissions
-              intro
-        """.trimIndent()
-      ),
+      NavService02Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -108,17 +101,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("process events in a bottom-up order") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:permissions
-              intro
-              request
-            f:profile
-              main
-        """.trimIndent()
-      ),
+      NavService04Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -163,15 +146,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("replace nodes when transitioning between sibling nodes") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            intro
-            main
-            test
-        """.trimIndent()
-      ),
+      NavService05Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -216,15 +191,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("append to live nodes when transitioning to child screen node sequentially") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            intro
-              main
-                test
-        """.trimIndent()
-      ),
+      NavService06Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -263,15 +230,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("append to live nodes when transitioning to grand child screen node") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            intro
-              main
-                test
-        """.trimIndent()
-      ),
+      NavService06Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -303,16 +262,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("call onFinish to inform parent flow of result") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:onboarding
-              intro
-            f:login
-              credentials
-        """.trimIndent()
-      ),
+      NavService07Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
@@ -359,17 +309,7 @@ class NavigationServiceTest : ShouldSpec({
 
   should("call onFinish to inform parent flow of result from non-initial node in the sub-flow") {
     val sut = NavigationService(
-      TestSchema.fromIndentedText(
-        regionId = "app",
-        """
-          f:app
-            f:onboarding
-              intro
-              page1
-            f:login
-              credentials
-        """.trimIndent()
-      ),
+      NavService08Schema(),
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(

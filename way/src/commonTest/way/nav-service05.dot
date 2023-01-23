@@ -1,0 +1,7 @@
+digraph NavService05 {
+  app [type = flow]
+
+  app -> intro
+  app -> main
+  app -> test
+}

@@ -2,6 +2,8 @@ package ru.kode.way
 
 sealed interface Target {
   val path: Path
+
+  companion object
 }
 
 data class ScreenTarget(override val path: Path) : Target

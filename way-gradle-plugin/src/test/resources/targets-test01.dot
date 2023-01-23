@@ -1,0 +1,14 @@
+digraph TestApp {
+    schemaFileName = "targets-test01-schema"
+    targetsFileName = "targets-test01-targets"
+
+    app [type = flow, resultType = ru.kode.test.app.FlowResult, shape = hexagon]
+    permissions [type = flow, resultType = ru.kode.test.permissions.PermissionFlowResult, shape = hexagon]
+
+    app -> screen1 -> screen2
+    screen2 -> screen3
+    app -> screen4
+
+    app -> permissions -> intro -> page1
+    app -> permissions -> finish
+}

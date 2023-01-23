@@ -7,7 +7,6 @@ import java.io.File
 
 internal fun parseSchemaDotFile(
   file: File,
-  packageName: String,
 ): SchemaParseResult {
   val stream = CommonTokenStream(DotLexer(CharStreams.fromPath(file.toPath())))
   val parser = DotParser(stream)

@@ -23,7 +23,7 @@ internal fun buildSpecs(
   file: File,
   config: CodeGenConfig
 ): SchemaOutputSpecs {
-  val parseResult = parseSchemaDotFile(file = file, packageName = config.outputPackageName)
+  val parseResult = parseSchemaDotFile(file = file)
   return SchemaOutputSpecs(
     schemaFileSpec = buildSchemaFileSpec(parseResult, config),
     nodeBuilderSpecs = emptyList()
@@ -77,7 +77,7 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
       buildSchemaTargetsSpec(regions, parseResult)
     )
     .addFunction(
-      buildSchemaNodeTypeSpec(regions, parseResult)
+      buildSchemaNodeTypeSpec(parseResult)
     )
   return schemaFileSpec.addType(schemaTypeSpec.build()).build()
 }
@@ -124,7 +124,7 @@ private fun buildSchemaTargetsSpec(regions: List<String>, parseResult: SchemaPar
     .build()
 }
 
-internal fun buildSchemaNodeTypeSpec(regions: List<String>, parseResult: SchemaParseResult): FunSpec {
+internal fun buildSchemaNodeTypeSpec(parseResult: SchemaParseResult): FunSpec {
   return FunSpec.builder("nodeType")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))

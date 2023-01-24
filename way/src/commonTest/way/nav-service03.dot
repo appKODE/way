@@ -1,4 +1,6 @@
 digraph NavService03 {
+  package = "ru.kode.way.nav03"
+
   app [type = flow]
   login [type = flow]
   onboarding [type = flow]

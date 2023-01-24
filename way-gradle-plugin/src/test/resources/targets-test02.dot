@@ -1,0 +1,11 @@
+// deeply nested flows should generate proper target paths
+digraph TargetsTest02 {
+  schemaFileName = "targets-test02-schema"
+  targetsFileName = "targets-test02-targets"
+
+  app [type = flow]
+  login [type = flow]
+  onboarding [type = flow]
+
+  app -> login -> onboarding -> intro
+}

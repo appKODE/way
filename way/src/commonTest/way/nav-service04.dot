@@ -1,4 +1,6 @@
 digraph NavService04 {
+  package = "ru.kode.way.nav04"
+
   app [type = flow]
   permissions [type = flow]
   profile [type = flow]

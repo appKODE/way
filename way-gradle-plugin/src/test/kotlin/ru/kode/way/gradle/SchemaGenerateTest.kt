@@ -20,9 +20,10 @@ class SchemaGenerateTest : ShouldSpec({
     buildSpecs(
       file = schema,
       config = createConfig()
-    )
-      .schemaFileSpec
-      .writeTo(outputDirectory.toNioPath())
+    ).apply {
+      schemaFileSpec.writeTo(outputDirectory.toNioPath())
+      targetsFileSpec.writeTo(outputDirectory.toNioPath())
+    }
     expectedResults.forEach { expectedFile ->
       FileSystem.SYSTEM.apply {
         val outputFile = outputDirectory /
@@ -43,6 +44,10 @@ class SchemaGenerateTest : ShouldSpec({
         expectedOutputFiles = listOf("single-flow-schema.kt"),
       ),
       TestCase(
+        schemaFile = "single-flow-attr-order.dot",
+        expectedOutputFiles = listOf("single-flow-attr-order-schema.kt"),
+      ),
+      TestCase(
         schemaFile = "schema-composition01.dot",
         expectedOutputFiles = listOf("schema-composition01.kt"),
       ),
@@ -56,16 +61,12 @@ class SchemaGenerateTest : ShouldSpec({
   context("target generation tests") {
     withData(
       TestCase(
-        schemaFile = "single-flow.dot",
-        expectedOutputFiles = listOf("single-flow-targets.kt"),
+        schemaFile = "targets-test01.dot",
+        expectedOutputFiles = listOf("targets-test01-targets.kt"),
       ),
       TestCase(
-        schemaFile = "schema-composition01.dot",
-        expectedOutputFiles = listOf("schema-composition01.kt"),
-      ),
-      TestCase(
-        schemaFile = "schema-composition02.dot",
-        expectedOutputFiles = listOf("schema-composition02.kt"),
+        schemaFile = "targets-test02.dot",
+        expectedOutputFiles = listOf("targets-test02-targets.kt"),
       ),
     ) { runTest(it) }
   }
@@ -76,7 +77,7 @@ private fun createConfig() = CodeGenConfig(
   outputSchemaClassName = "DefaultTestNavSchema"
 )
 
-private const val SCHEME_GENERATION_PACKAGE = "ru.kode.test.app.scheme"
+private const val SCHEME_GENERATION_PACKAGE = "ru.kode.test.app.schema"
 
 private data class TestCase(
   val schemaFile: String,

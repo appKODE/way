@@ -7,6 +7,31 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import ru.kode.way.nav01.NavService01Schema
+import ru.kode.way.nav02.NavService02Schema
+import ru.kode.way.nav03.NavService03Schema
+import ru.kode.way.nav04.NavService04Schema
+import ru.kode.way.nav05.NavService05Schema
+import ru.kode.way.nav06.NavService06Schema
+import ru.kode.way.nav07.NavService07Schema
+import ru.kode.way.nav08.NavService08Schema
+import ru.kode.way.nav01.app as app01
+import ru.kode.way.nav02.app as app02
+import ru.kode.way.nav02.permissions as permissions02
+import ru.kode.way.nav03.app as app03
+import ru.kode.way.nav03.login as login03
+import ru.kode.way.nav03.onboarding as onboarding03
+import ru.kode.way.nav04.app as app04
+import ru.kode.way.nav04.permissions as permissions04
+import ru.kode.way.nav04.profile as profile04
+import ru.kode.way.nav05.app as app05
+import ru.kode.way.nav06.app as app06
+import ru.kode.way.nav07.app as app07
+import ru.kode.way.nav07.login as login07
+import ru.kode.way.nav07.onboarding as onboarding07
+import ru.kode.way.nav08.app as app08
+import ru.kode.way.nav08.login as login08
+import ru.kode.way.nav08.onboarding as onboarding08
 
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
@@ -14,7 +39,7 @@ class NavigationServiceTest : ShouldSpec({
       NavService01Schema(),
       TestNodeBuilder(
         mapOf(
-          "app" to TestFlowNode(initialScreen = "intro"),
+          "app" to TestFlowNode(initialTarget = Target.app01.intro),
           "app.intro" to TestScreenNode(),
         )
       ),
@@ -31,10 +56,10 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(Path("permissions"), onFinish = { _: Int -> Finish(Unit) })
+            initialTarget = Target.app02.permissions { Finish(Unit) }
           ),
           "app.permissions" to TestFlowNode(
-            initialScreen = "intro"
+            initialTarget = Target.permissions02.intro
           ),
           "app.permissions.intro" to TestScreenNode()
         )
@@ -52,13 +77,13 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(Path("login"), onFinish = { _: Int -> Finish(Unit) })
+            initialTarget = Target.app03.login { Finish(Unit) }
           ),
           "app.login" to TestFlowNode(
-            initialTarget = FlowTarget(Path("onboarding"), onFinish = { _: Int -> Finish(Unit) })
+            initialTarget = Target.login03.onboarding { Finish(Unit) }
           ),
           "app.login.onboarding" to TestFlowNode(
-            initialScreen = "intro"
+            initialTarget = Target.onboarding03.intro
           ),
           "app.login.onboarding.intro" to TestScreenNode()
         )
@@ -76,12 +101,12 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(Path("permissions"), onFinish = { _: Int -> Finish(Unit) })
+            initialTarget = Target.app02.permissions { Finish(Unit) }
           ),
           "app.permissions" to TestFlowNode(
-            initialScreen = "intro",
+            initialTarget = Target.permissions02.intro,
             transitions = listOf(
-              tr_s(on = "A", target = "intro")
+              tr(on = "A", target = Target.permissions02.intro)
             )
           ),
           "app.permissions.intro" to TestScreenNode()
@@ -105,25 +130,25 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(Path("permissions"), onFinish = { _: Int -> Finish(Unit) }),
+            initialTarget = Target.app04.permissions { Finish(Unit) },
             transitions = listOf(
-              tr_f(on = "C", target = "profile")
+              tr(on = "C", target = Target.app04.profile { Ignore })
             )
           ),
           "app.permissions" to TestFlowNode(
-            initialScreen = "intro",
+            initialTarget = Target.permissions04.intro,
             transitions = listOf(
-              tr_s(on = "B", target = "intro")
+              tr(on = "B", target = Target.permissions04.intro)
             )
           ),
           "app.permissions.intro" to TestScreenNode(
             transitions = listOf(
-              tr_s(on = "A", target = "request")
+              tr(on = "A", target = Target.permissions04.request)
             )
           ),
           "app.permissions.request" to TestScreenNode(),
           "app.profile" to TestFlowNode(
-            initialScreen = "main",
+            initialTarget = Target.profile04.main,
           ),
           "app.profile.main" to TestScreenNode()
         )
@@ -150,11 +175,11 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialScreen = "intro",
+            initialTarget = Target.app05.intro,
             transitions = listOf(
-              tr_s(on = "A", target = "main"),
-              tr_s(on = "B", target = "test"),
-              tr_s(on = "C", target = "main"),
+              tr(on = "A", target = Target.app05.main),
+              tr(on = "B", target = Target.app05.test),
+              tr(on = "C", target = Target.app05.main),
             )
           ),
           "app.intro" to TestScreenNode(),
@@ -195,10 +220,10 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialScreen = "intro",
+            initialTarget = Target.app06.intro,
             transitions = listOf(
-              tr_s(on = "A", target = "main"),
-              tr_s(on = "B", target = "test"),
+              tr(on = "A", target = Target.app06.main),
+              tr(on = "B", target = Target.app06.test),
             )
           ),
           "app.intro" to TestScreenNode(),
@@ -234,9 +259,9 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialScreen = "intro",
+            initialTarget = Target.app06.intro,
             transitions = listOf(
-              tr_s(on = "A", target = "test"),
+              tr(on = "A", target = Target.app06.test),
             )
           ),
           "app.intro" to TestScreenNode(),
@@ -266,24 +291,16 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(
-              path = Path("onboarding"),
-              onFinish = { r: Int ->
-                if (r == 42) {
-                  NavigateTo(
-                    FlowTarget(
-                      Path("login"),
-                      onFinish = { _: Unit -> Finish(Unit) }
-                    )
-                  )
-                } else {
-                  Finish(Unit)
-                }
+            initialTarget = Target.app07.onboarding { r: Int ->
+              if (r == 42) {
+                NavigateTo(Target.app07.login { Finish(Unit) })
+              } else {
+                Finish(Unit)
               }
-            )
+            }
           ),
           "app.onboarding" to TestFlowNodeWithResult(
-            initialScreen = "intro",
+            initialTarget = Target.onboarding07.intro,
             dismissResult = 33,
             transitions = listOf(
               tr_finish(on = "A", result = 42)
@@ -291,7 +308,7 @@ class NavigationServiceTest : ShouldSpec({
           ),
           "app.onboarding.intro" to TestScreenNode(),
           "app.login" to TestFlowNode(
-            initialScreen = "credentials",
+            initialTarget = Target.login07.credentials,
           ),
           "app.login.credentials" to TestScreenNode()
         )
@@ -313,34 +330,26 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = FlowTarget(
-              path = Path("onboarding"),
-              onFinish = { r: Int ->
-                if (r == 42) {
-                  NavigateTo(
-                    FlowTarget(
-                      Path("login"),
-                      onFinish = { _: Unit -> Finish(Unit) }
-                    )
-                  )
-                } else {
-                  Finish(Unit)
-                }
+            initialTarget = Target.app08.onboarding { r: Int ->
+              if (r == 42) {
+                NavigateTo(Target.app08.login { Finish(Unit) })
+              } else {
+                Finish(Unit)
               }
-            )
+            }
           ),
           "app.onboarding" to TestFlowNodeWithResult(
-            initialScreen = "intro",
+            initialTarget = Target.onboarding08.intro,
             dismissResult = 33,
             transitions = listOf(
-              tr_s(on = "A", target = "page1"),
+              tr(on = "A", target = Target.onboarding08.page1),
               tr_finish(on = "B", result = 42)
             )
           ),
           "app.onboarding.intro" to TestScreenNode(),
           "app.onboarding.page1" to TestScreenNode(),
           "app.login" to TestFlowNode(
-            initialScreen = "credentials",
+            initialTarget = Target.login08.credentials,
           ),
           "app.login.credentials" to TestScreenNode()
         )

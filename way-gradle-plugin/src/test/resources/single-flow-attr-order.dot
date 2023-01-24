@@ -1,0 +1,7 @@
+digraph TestApp {
+    schemaFileName = "single-flow-attr-order-schema"
+
+    app [shape = hexagon, type = flow]
+    app -> screen1 -> screen2
+    screen2 -> screen3
+}

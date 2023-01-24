@@ -1,4 +1,6 @@
 digraph NavService06 {
+  package = "ru.kode.way.nav06"
+
   app [type = flow]
 
   app -> intro -> main -> test

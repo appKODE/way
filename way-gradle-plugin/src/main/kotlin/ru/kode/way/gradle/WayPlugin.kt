@@ -23,3 +23,4 @@ class WayPlugin : Plugin<Project> {
 
 internal const val LIBRARY_PACKAGE = "ru.kode.way"
 internal const val DEFAULT_SCHEMA_CLASS_NAME = "NavigationSchema"
+internal const val DEFAULT_TARGETS_FILE_NAME = "Targets"

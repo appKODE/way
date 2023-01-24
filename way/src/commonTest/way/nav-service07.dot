@@ -1,6 +1,8 @@
 digraph NavService07 {
+  package = "ru.kode.way.nav07"
+
   app [type = flow]
-  onboarding [type = flow]
+  onboarding [type = flow, resultType = "kotlin.Int"]
   login [type = flow]
 
   app -> onboarding -> intro

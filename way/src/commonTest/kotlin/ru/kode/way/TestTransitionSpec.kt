@@ -2,25 +2,20 @@ package ru.kode.way
 
 data class TestTransitionSpec(
   val event: String,
-  val targetScreen: String?,
-  val targetFlow: String?,
-  val finishResult: Any?,
+  val target: Target? = null,
+  val finishResult: Any? = null,
 ) {
   init {
-    check(targetScreen != null || targetFlow != null || finishResult != null) {
-      "targetScreen or targetFlow or finishResult must not be empty"
+    check(target != null || finishResult != null) {
+      "target finishResult must not be null"
     }
   }
 }
 
-fun tr_s(on: String, target: String): TestTransitionSpec {
-  return TestTransitionSpec(event = on, targetScreen = target, targetFlow = null, finishResult = null)
-}
-
-fun tr_f(on: String, target: String): TestTransitionSpec {
-  return TestTransitionSpec(event = on, targetScreen = null, targetFlow = target, finishResult = null)
+fun tr(on: String, target: Target): TestTransitionSpec {
+  return TestTransitionSpec(event = on, target)
 }
 
 fun tr_finish(on: String, result: Any): TestTransitionSpec {
-  return TestTransitionSpec(event = on, targetScreen = null, targetFlow = null, finishResult = result)
+  return TestTransitionSpec(event = on, finishResult = result)
 }

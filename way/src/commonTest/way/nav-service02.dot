@@ -1,5 +1,7 @@
 digraph NavService02 {
+  package = "ru.kode.way.nav02"
+
   app [type = flow]
-  permissions [type = flow]
+  permissions [type = flow, resultType = "kotlin.Int" ]
   app -> permissions -> intro
 }

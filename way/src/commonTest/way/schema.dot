@@ -1,4 +1,6 @@
 digraph SampleApp {
+  package = "ru.kode.way.sample"
+
   app [type = flow, shape=hexagon]
   app -> login
   app -> main

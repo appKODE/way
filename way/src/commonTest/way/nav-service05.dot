@@ -1,4 +1,6 @@
 digraph NavService05 {
+  package = "ru.kode.way.nav05"
+
   app [type = flow]
 
   app -> intro

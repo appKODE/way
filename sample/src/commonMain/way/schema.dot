@@ -1,16 +1,11 @@
 digraph SampleApp {
-  app [type = flow, shape=hexagon]
-  app -> login
+  package = "ru.kode.way.sample"
+
+  app [type = flow, shape=hexagon, resultType = "ru.kode.way.sample.app.routing.AppFlowResult"]
+  permissions [type = flow, shape=hexagon, resultType = "ru.kode.way.sample.core.routing.FlowResult"]
+  main [type = flow]
+
+  app -> permissions -> intro -> request
+
   app -> main
-
-  login [type = flow, shape=hexagon]
-  login -> onboarding
-  login -> credentials -> otp
-
-  onboarding [type = flow, shape=hexagon]
-  onboarding -> page1 -> page2 -> page3
-
-  main [type = flow, shape=hexagon]
-  main -> intro
-  main -> home
 }

@@ -23,6 +23,7 @@ class SchemaGenerateTest : ShouldSpec({
     ).apply {
       schemaFileSpec.writeTo(outputDirectory.toNioPath())
       targetsFileSpec.writeTo(outputDirectory.toNioPath())
+      nodeBuilderSpecs.forEach { it.writeTo(outputDirectory.toNioPath()) }
     }
     expectedResults.forEach { expectedFile ->
       FileSystem.SYSTEM.apply {

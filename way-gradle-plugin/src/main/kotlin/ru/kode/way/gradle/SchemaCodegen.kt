@@ -54,17 +54,17 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
         .build()
     )
     .addFunction(
-      buildSchemaTargetsSpec(regions, parseResult)
+      buildSchemaTargetsSpec(regions, parseResult.adjacencyList)
     )
     .addFunction(
-      buildSchemaNodeTypeSpec(parseResult)
+      buildSchemaNodeTypeSpec(parseResult.adjacencyList)
     )
   return schemaFileSpec.addType(schemaTypeSpec.build()).build()
 }
 
-private fun buildSchemaTargetsSpec(regions: List<String>, parseResult: SchemaParseResult): FunSpec {
+private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: AdjacencyList): FunSpec {
   val regionRoot = if (regions.size == 1) {
-    parseResult.adjacencyList.findRootNode()
+    adjacencyList.findRootNode()
   } else {
     // children of a parallel node a region roots
     TODO()
@@ -82,13 +82,13 @@ private fun buildSchemaTargetsSpec(regions: List<String>, parseResult: SchemaPar
           // TODO @AdjacencyMatrix
           //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
           //   adjacency matrix would allow to find parent nodes more easily
-          dfs(parseResult.adjacencyList, regionRoot) { node ->
+          dfs(adjacencyList, regionRoot) { node ->
             addStatement(
               "%T(%S) to %T(%L),",
               libraryClassName("Segment"),
               node.id,
               libraryClassName("Path"),
-              parseResult.adjacencyList
+              adjacencyList
                 .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" }
             )
           }
@@ -104,7 +104,7 @@ private fun buildSchemaTargetsSpec(regions: List<String>, parseResult: SchemaPar
     .build()
 }
 
-private fun buildSchemaNodeTypeSpec(parseResult: SchemaParseResult): FunSpec {
+private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
   return FunSpec.builder("nodeType")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
@@ -116,7 +116,7 @@ private fun buildSchemaNodeTypeSpec(parseResult: SchemaParseResult): FunSpec {
         .beginControlFlow("regions[0] -> {")
         .beginControlFlow("when (path.segments.last().name) {")
         .apply {
-          parseResult.adjacencyList.keys.forEach { node ->
+          adjacencyList.keys.forEach { node ->
             when (node) {
               is Node.Flow -> {
                 addStatement("%S -> %T.NodeType.Flow", node.id, libraryClassName("Schema"))

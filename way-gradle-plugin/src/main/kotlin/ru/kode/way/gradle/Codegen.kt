@@ -10,6 +10,9 @@ internal fun generate(file: File, outputDirectory: File, config: CodeGenConfig) 
   buildSpecs(file, config).apply {
     schemaFileSpec.writeTo(outputDirectory)
     targetsFileSpec.writeTo(outputDirectory)
+    nodeBuilderSpecs.forEach {
+      it.writeTo(outputDirectory)
+    }
   }
 }
 
@@ -21,7 +24,7 @@ internal fun buildSpecs(
   return SchemaOutputSpecs(
     schemaFileSpec = buildSchemaFileSpec(parseResult, config),
     targetsFileSpec = buildTargetsFileSpec(parseResult, config),
-    nodeBuilderSpecs = emptyList()
+    nodeBuilderSpecs = buildNodeBuilderFileSpecs(parseResult, config)
   )
 }
 
@@ -39,6 +42,10 @@ internal fun libraryMemberName(name: String): MemberName {
   return MemberName(LIBRARY_PACKAGE, name)
 }
 
-internal fun String.toCamelCase(): String {
+internal fun String.toPascalCase(): String {
   return this.capitalized()
+}
+
+internal fun String.toCamelCase(): String {
+  return this
 }

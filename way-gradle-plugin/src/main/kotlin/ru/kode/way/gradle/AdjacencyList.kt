@@ -10,6 +10,17 @@ internal inline fun AdjacencyList.forEachFlow(action: (Node.Flow, List<Node>) ->
   }
 }
 
+internal inline fun <T : Any> AdjacencyList.mapFlow(action: (Node.Flow, List<Node>) -> T): List<T> {
+  val out = mutableListOf<T>()
+  this.forEach { (node, adjacent) ->
+    if (node is Node.Flow) {
+      out.add(action(node, adjacent))
+    }
+  }
+  return out
+}
+
+
 internal fun AdjacencyList.findRootNode(): Node {
   keys.forEach {
     if (findParent(it) == null) return it

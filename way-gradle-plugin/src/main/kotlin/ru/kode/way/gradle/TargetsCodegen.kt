@@ -142,5 +142,5 @@ private fun buildScreenTargetSpec(
 }
 
 private fun targetsClassName(node: Node.Flow): String {
-  return node.id.toCamelCase() + "Targets"
+  return node.id.toPascalCase() + "Targets"
 }

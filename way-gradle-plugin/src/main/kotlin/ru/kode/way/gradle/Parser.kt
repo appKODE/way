@@ -115,8 +115,6 @@ internal data class SchemaParseResult(
   val adjacencyList: AdjacencyList,
 )
 
-internal typealias AdjacencyList = Map<Node, List<Node>>
-
 internal sealed class Node {
   abstract val id: String
 

@@ -1,6 +1,7 @@
 package ru.kode.way.gradle
 
 import io.kotest.core.spec.style.ShouldSpec
+import io.kotest.datatest.WithDataTestName
 import io.kotest.datatest.withData
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
@@ -43,18 +44,22 @@ class SchemaGenerateTest : ShouldSpec({
       TestCase(
         schemaFile = "single-flow.dot",
         expectedOutputFiles = listOf("single-flow-schema.kt"),
+        testName = "single flow schema",
       ),
       TestCase(
         schemaFile = "single-flow-attr-order.dot",
         expectedOutputFiles = listOf("single-flow-attr-order-schema.kt"),
+        testName = "single flow schema with non default attr order",
       ),
       TestCase(
         schemaFile = "schema-composition01.dot",
         expectedOutputFiles = listOf("schema-composition01.kt"),
+        testName = "schema composition: only schemas",
       ),
       TestCase(
         schemaFile = "schema-composition02.dot",
         expectedOutputFiles = listOf("schema-composition02.kt"),
+        testName = "schema composition: schemas mixed with nodes",
       ),
     ) { runTest(it) }
   }
@@ -64,10 +69,33 @@ class SchemaGenerateTest : ShouldSpec({
       TestCase(
         schemaFile = "targets-test01.dot",
         expectedOutputFiles = listOf("targets-test01-targets.kt"),
+        testName = "multiple flows and screens",
       ),
       TestCase(
         schemaFile = "targets-test02.dot",
         expectedOutputFiles = listOf("targets-test02-targets.kt"),
+        testName = "deeply nested flows",
+      ),
+    ) { runTest(it) }
+  }
+
+  context("node builder generation tests") {
+    withData(
+      TestCase(
+        schemaFile = "node-builders-multiple-flows.dot",
+        expectedOutputFiles = listOf(
+          "Nb01appNodeBuilder.kt",
+          "Nb01loginNodeBuilder.kt",
+          "Nb01onboardingNodeBuilder.kt"
+        ),
+        testName = "multiple flows",
+      ),
+      TestCase(
+        schemaFile = "node-builders-single-flow.dot",
+        expectedOutputFiles = listOf(
+          "Nb02appNodeBuilder.kt",
+        ),
+        testName = "single flow",
       ),
     ) { runTest(it) }
   }
@@ -83,4 +111,9 @@ private const val SCHEME_GENERATION_PACKAGE = "ru.kode.test.app.schema"
 private data class TestCase(
   val schemaFile: String,
   val expectedOutputFiles: List<String>,
-)
+  val testName: String,
+) : WithDataTestName {
+  override fun dataTestName(): String {
+    return testName
+  }
+}

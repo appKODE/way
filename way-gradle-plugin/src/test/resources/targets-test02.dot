@@ -3,9 +3,9 @@ digraph TargetsTest02 {
   schemaFileName = "targets-test02-schema"
   targetsFileName = "targets-test02-targets"
 
-  app [type = flow]
-  login [type = flow]
-  onboarding [type = flow]
+  app [type = flow, resultType = "ru.kode.test.app.AppFlowResult"]
+  login [type = flow, resultType = "ru.kode.test.app.LoginFlowResult"]
+  onboarding [type = flow, resultType = "ru.kode.test.app.OnboardingFlowResult"]
 
-  app -> login -> onboarding -> intro
+  app -> login -> credentials -> onboarding -> intro
 }

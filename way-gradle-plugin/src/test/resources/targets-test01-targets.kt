@@ -12,8 +12,6 @@ import ru.kode.way.append
 public class AppTargets(
   private val prefix: Path? = null,
 ) {
-  public val permissions: PermissionsTargets = PermissionsTargets(flowPath(Path("permissions")))
-
   public val screen4: ScreenTarget = ScreenTarget(flowPath(Path("screen4")))
 
   public val screen1: ScreenTarget = ScreenTarget(flowPath(Path("screen1")))

@@ -46,6 +46,10 @@ fun Path.take(count: Int): Path {
   return Path(segments.take(count))
 }
 
+fun Path.startsWith(other: Path): Boolean {
+  return this.take(other.segments.size) == other
+}
+
 fun Path.prepend(path: Path): Path {
   return Path(path.segments + segments)
 }

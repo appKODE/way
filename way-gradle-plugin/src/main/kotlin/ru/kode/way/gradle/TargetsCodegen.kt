@@ -13,17 +13,18 @@ import com.squareup.kotlinpoet.TypeSpec
 internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val targetsFileName = parseResult.graphId?.let { "${it}Targets" } ?: DEFAULT_TARGETS_FILE_NAME
   val packageName = parseResult.customPackage ?: config.outputPackageName
+  val rootNode = parseResult.adjacencyList.findRootNode()
   return FileSpec.builder(
     packageName,
     parseResult.customTargetsFileName ?: targetsFileName
   )
     .apply {
       parseResult.adjacencyList.forEachFlow { node, _ ->
-        addType(buildFlowTargets(node, parseResult.adjacencyList, packageName))
+        addType(buildFlowTargets(node, parseResult.adjacencyList, packageName, isRootNode = node == rootNode))
       }
     }
     .apply {
-      dfs(parseResult.adjacencyList, parseResult.adjacencyList.findRootNode()) { node ->
+      dfs(parseResult.adjacencyList, rootNode) { node ->
         when (node) {
           is Node.Flow -> addProperty(buildTargetExtensionSpec(node, packageName))
           is Node.Screen,
@@ -46,7 +47,12 @@ private fun buildTargetExtensionSpec(node: Node.Flow, packageName: String): Prop
     .build()
 }
 
-private fun buildFlowTargets(node: Node.Flow, adjacencyList: AdjacencyList, packageName: String): TypeSpec {
+private fun buildFlowTargets(
+  node: Node.Flow,
+  adjacencyList: AdjacencyList,
+  packageName: String,
+  isRootNode: Boolean
+): TypeSpec {
   return TypeSpec.classBuilder(targetsClassName(node))
     .primaryConstructor(
       FunSpec.constructorBuilder()
@@ -65,13 +71,15 @@ private fun buildFlowTargets(node: Node.Flow, adjacencyList: AdjacencyList, pack
     .apply {
       dfs(adjacencyList, node) { targetNode ->
         if (targetNode == node) return@dfs
+        // See NOTE_GROUPING_NODES_BY_FLOW_RULE
+        if (targetNode is Node.Screen && adjacencyList.findParentFlow(targetNode) != node) return@dfs
 
         when (targetNode) {
           is Node.Flow -> {
-            if (adjacencyList.findParentFlow(targetNode) == node) {
-              addFunction(buildFlowTargetSpec(node, targetNode))
-              addProperty(buildFlowTargetsPropertySpec(targetNode, packageName))
+            if (isRootNode) {
+              addFunction(buildFlowTargetSpec(node, targetNode, adjacencyList))
             }
+            // addProperty(buildFlowTargetsPropertySpec(targetNode, packageName))
           }
           is Node.Screen -> {
             if (adjacencyList.findParentFlow(targetNode) == node) {
@@ -93,7 +101,7 @@ private fun buildFlowTargets(node: Node.Flow, adjacencyList: AdjacencyList, pack
     .build()
 }
 
-private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow): FunSpec {
+private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow, adjacencyList: AdjacencyList): FunSpec {
   val resultTypeName = ClassName.bestGuess(node.resultType)
   val targetResultTypeName = ClassName.bestGuess(targetNode.resultType)
   return FunSpec.builder(targetNode.id)
@@ -110,7 +118,14 @@ private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow): FunSpec
     )
     .returns(libraryClassName("FlowTarget").parameterizedBy(targetResultTypeName, resultTypeName))
     .addCode(
-      "return %T(flowPath(%T(%S)), onFinish)", libraryClassName("FlowTarget"), libraryClassName("Path"), targetNode.id
+      "return %T(flowPath(%T(%L)), onFinish)",
+      libraryClassName("FlowTarget"),
+      libraryClassName("Path"),
+      adjacencyList
+        .findAllParents(targetNode, includeThis = true)
+        .takeWhile { it != node }
+        .reversed()
+        .joinToString(",") { "\"${it.id}\"" }
     )
     .build()
 }
@@ -141,6 +156,6 @@ private fun buildScreenTargetSpec(
     .build()
 }
 
-private fun targetsClassName(node: Node.Flow): String {
+internal fun targetsClassName(node: Node.Flow): String {
   return node.id.toPascalCase() + "Targets"
 }

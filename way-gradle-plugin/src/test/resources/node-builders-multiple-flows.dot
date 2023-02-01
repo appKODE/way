@@ -1,0 +1,10 @@
+digraph NodeBuildersTest01 {
+  schemaFileName = "node-builders-test01-schema"
+  targetsFileName = "node-builders-test01-targets"
+
+  nb01app [type = flow, resultType = "ru.kode.test.app.AppFlowResult"]
+  nb01login [type = flow, resultType = "ru.kode.test.app.LoginFlowResult"]
+  nb01onboarding [type = flow, resultType = "ru.kode.test.app.OnboardingFlowResult"]
+
+  nb01app -> nb01login -> nb01credentials -> nb01onboarding -> nb01intro
+}

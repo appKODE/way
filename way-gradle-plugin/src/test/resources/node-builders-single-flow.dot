@@ -1,0 +1,9 @@
+digraph NodeBuildersTest02 {
+  schemaFileName = "node-builders-test02-schema"
+  targetsFileName = "node-builders-test02-targets"
+
+  nb02app [type = flow, resultType = "ru.kode.test.app.AppFlowResult"]
+
+  nb02app -> nb02screen1 -> nb02screen2
+  nb02app -> nb02screen3
+}

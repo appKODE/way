@@ -20,7 +20,6 @@ internal inline fun <T : Any> AdjacencyList.mapFlow(action: (Node.Flow, List<Nod
   return out
 }
 
-
 internal fun AdjacencyList.findRootNode(): Node {
   keys.forEach {
     if (findParent(it) == null) return it
@@ -57,13 +56,13 @@ internal fun AdjacencyList.findAllParents(node: Node, includeThis: Boolean = fal
   return parents
 }
 
-internal fun AdjacencyList.findParentFlow(node: Node): Node {
+internal fun AdjacencyList.findParentFlow(node: Node): Node? {
   var next: Node? = findParent(node)
   while (next != null) {
     if (next is Node.Flow) return next
     next = findParent(next)
   }
-  error("internal error: screen node $node has no parent flow")
+  return null
 }
 
 internal fun dfs(adjacencyList: AdjacencyList, root: Node, action: (Node) -> Unit) {

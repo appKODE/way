@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import ru.kode.way.nav01.NavService01Schema
 import ru.kode.way.nav02.NavService02Schema
-import ru.kode.way.nav03.NavService03Schema
 import ru.kode.way.nav04.NavService04Schema
 import ru.kode.way.nav05.NavService05Schema
 import ru.kode.way.nav06.NavService06Schema
@@ -18,9 +17,6 @@ import ru.kode.way.nav08.NavService08Schema
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
-import ru.kode.way.nav03.app as app03
-import ru.kode.way.nav03.login as login03
-import ru.kode.way.nav03.onboarding as onboarding03
 import ru.kode.way.nav04.app as app04
 import ru.kode.way.nav04.permissions as permissions04
 import ru.kode.way.nav04.profile as profile04
@@ -71,29 +67,34 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("switch to initial state creating all nested child screen nodes") {
-    val sut = NavigationService(
-      NavService03Schema(),
-      TestNodeBuilder(
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app03.login { Finish(Unit) }
-          ),
-          "app.login" to TestFlowNode(
-            initialTarget = Target.login03.onboarding { Finish(Unit) }
-          ),
-          "app.login.onboarding" to TestFlowNode(
-            initialTarget = Target.onboarding03.intro
-          ),
-          "app.login.onboarding.intro" to TestScreenNode()
-        )
-      ),
-    )
-
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.login.onboarding.intro"
-    }
-  }
+  // TODO re-enable and adapt when compound-schema import will be done
+  //   currently this is impossible because we can't have onboarding as a child **flow**-node of login,
+  //   because they are described in a single dot file (enforced by NOTE_GROUPING_NODES_BY_FLOW_RULE)
+  //   Once schema composition will be available login + onboarding can be extracted into a different file
+  //   and then this test can be performed
+//  should("switch to initial state creating all nested child screen nodes") {
+//    val sut = NavigationService(
+//      NavService03Schema(),
+//      TestNodeBuilder(
+//        mapOf(
+//          "app" to TestFlowNode(
+//            initialTarget = Target.app03.login { Finish(Unit) }
+//          ),
+//          "app.login" to TestFlowNode(
+//            initialTarget = Target.login03.onboarding { Finish(Unit) }
+//          ),
+//          "app.login.onboarding" to TestFlowNode(
+//            initialTarget = Target.onboarding03.intro
+//          ),
+//          "app.login.onboarding.intro" to TestScreenNode()
+//        )
+//      ),
+//    )
+//
+//    sut.collectTransitions().test {
+//      awaitItem().active shouldBe "app.login.onboarding.intro"
+//    }
+//  }
 
   should("ignore event completely if no node defines an actionable transition") {
     val sut = NavigationService(

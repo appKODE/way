@@ -1,6 +1,10 @@
 package ru.kode.way.gradle
 
+import com.android.build.gradle.AppExtension
 import com.android.build.gradle.BaseExtension
+import com.android.build.gradle.LibraryExtension
+import com.android.build.gradle.api.BaseVariant
+import org.gradle.api.DomainObjectSet
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -52,6 +56,16 @@ class WayPlugin : Plugin<Project> {
     }
     mainSourceSets.forEach { sourceSet ->
       sourceSet.kotlin.srcDir(mainTask)
+    }
+    (project.extensions.findByName("android") as BaseExtension?)?.run {
+      val variants: DomainObjectSet<out BaseVariant> = when (this) {
+        is AppExtension -> applicationVariants
+        is LibraryExtension -> libraryVariants
+        else -> error("unknown Android plugin $this")
+      }
+      variants.forEach { variant ->
+        variant.addJavaSourceFoldersToModel(mainTask.get().outputDirectory)
+      }
     }
 
     val testSourceSets = findTestSourceSets()

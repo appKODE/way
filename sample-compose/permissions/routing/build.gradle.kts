@@ -20,4 +20,5 @@ android {
 
 dependencies {
   implementation(project(":way"))
+  implementation(project(":sample-compose:permissions:ui")) // TODO remove from deps list
 }

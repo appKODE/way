@@ -41,4 +41,5 @@ dependencies {
   implementation(libs.activityCompose)
   implementation(project(":way"))
   implementation(project(":way-compose"))
+  implementation(project(":sample-compose:permissions:routing"))
 }

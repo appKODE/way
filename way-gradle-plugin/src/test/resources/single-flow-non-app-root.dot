@@ -1,0 +1,7 @@
+digraph TestApp {
+    schemaFileName = "single-flow-non-app-root-schema"
+
+    permissions [type = flow, shape = hexagon]
+    permissions -> screen1 -> screen2
+    screen2 -> screen3
+}

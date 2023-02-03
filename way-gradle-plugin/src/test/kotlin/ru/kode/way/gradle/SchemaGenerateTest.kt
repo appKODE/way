@@ -52,6 +52,11 @@ class SchemaGenerateTest : ShouldSpec({
         testName = "single flow schema with non default attr order",
       ),
       TestCase(
+        schemaFile = "single-flow-non-app-root.dot",
+        expectedOutputFiles = listOf("single-flow-non-app-root-schema.kt"),
+        testName = "single flow with non 'app' root node",
+      ),
+      TestCase(
         schemaFile = "schema-composition01.dot",
         expectedOutputFiles = listOf("schema-composition01.kt"),
         testName = "schema composition: only schemas",

@@ -17,7 +17,9 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
     parseResult.customPackage ?: config.outputPackageName,
     parseResult.customSchemaFileName ?: schemaClassName
   )
-  val regions = listOf("app")
+  // TODO proper regions. NOTE it's likely that there will always be one root node, it will be a ParallelNode,
+  val regionRoots = listOf(parseResult.adjacencyList.findRootNode())
+  val regions = regionRoots.map { it.id }
   val schemaTypeSpec = TypeSpec.classBuilder(name = schemaClassName)
     .addSuperinterface(libraryClassName("Schema"))
     .addProperty(
@@ -66,7 +68,7 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
   val regionRoot = if (regions.size == 1) {
     adjacencyList.findRootNode()
   } else {
-    // children of a parallel node a region roots
+    // children of a parallel node as region roots
     TODO()
   }
   return FunSpec.builder("targets")

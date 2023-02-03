@@ -2,8 +2,8 @@
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
   id(libs.plugins.kotlinAndroid.get().pluginId)
-  alias(libs.plugins.way)
   id("kotlin-kapt")
+  alias(libs.plugins.way)
 }
 
 android {
@@ -17,21 +17,11 @@ android {
   kotlinOptions {
     jvmTarget = "1.8"
   }
-
-  buildFeatures {
-    compose = true
-  }
-
-  composeOptions {
-    kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-  }
 }
 
 dependencies {
   implementation(project(":way"))
-  implementation(project(":way-compose"))
-  implementation(project(":sample-compose:permissions:ui"))
-  api(project(":sample-compose:permissions:domain"))
+  api(project(":sample-compose:permissions:routing")) // TODO replace with login
 
   implementation(libs.dagger)
   kapt(libs.daggerCompiler)

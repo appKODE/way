@@ -2,6 +2,7 @@
 plugins {
   id(libs.plugins.androidApplication.get().pluginId)
   id(libs.plugins.kotlinAndroid.get().pluginId)
+  id("kotlin-kapt")
 }
 
 android {
@@ -41,5 +42,8 @@ dependencies {
   implementation(libs.activityCompose)
   implementation(project(":way"))
   implementation(project(":way-compose"))
-  implementation(project(":sample-compose:permissions:routing"))
+  implementation(project(":sample-compose:app:routing"))
+
+  implementation(libs.dagger)
+  kapt(libs.daggerCompiler)
 }

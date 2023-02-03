@@ -14,6 +14,7 @@ kotlinPoet = "1.12.0"
 antlr = "4.11.1"
 okio = "3.3.0"
 wayPlugin = "0.8.0"
+dagger = "2.43"
 
 [libraries]
 kotest-junit-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "koTest" }
@@ -34,6 +35,8 @@ kotlin-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.
 android-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 antlr = { module = "org.antlr:antlr4", version.ref = "antlr" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+dagger = { module = "com.google.dagger:dagger", version.ref = "dagger" }
+daggerCompiler = { module = "com.google.dagger:dagger-compiler", version.ref = "dagger" }
 
 [bundles]
 koTestCommon = ["kotest-assertions-core", "kotest-property", "kotest-framework-engine", "kotest-data"]

@@ -21,6 +21,7 @@ gradlePlugin {
 dependencies {
   implementation(libs.kotlinPoet)
   implementation(libs.kotlin.plugin)
+  compileOnly(libs.android.plugin)
   testImplementation(libs.bundles.koTestCommon)
   testImplementation(libs.bundles.koTestJvm)
   testImplementation(libs.okio)
@@ -34,11 +35,6 @@ tasks.generateGrammarSource {
 
 tasks.withType<KotlinCompile> {
   dependsOn(tasks.generateGrammarSource)
-}
-
-tasks.withType<JavaCompile> {
-  sourceCompatibility = JavaVersion.VERSION_1_8.toString()
-  targetCompatibility = JavaVersion.VERSION_1_8.toString()
 }
 
 tasks.withType<Test> {

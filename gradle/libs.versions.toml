@@ -31,6 +31,7 @@ composeMaterial = { module = "androidx.compose.material:material", version.ref =
 activityCompose = { module = "androidx.activity:activity-compose", version.ref = "androidExtensions" }
 kotlinPoet = { module = "com.squareup:kotlinpoet", version.ref = "kotlinPoet" }
 kotlin-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+android-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 antlr = { module = "org.antlr:antlr4", version.ref = "antlr" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 

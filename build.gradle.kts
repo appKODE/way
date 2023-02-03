@@ -7,7 +7,7 @@ plugins {
   alias(libs.plugins.spotless)
   alias(libs.plugins.kotlinMultiplatform) apply false
   alias(libs.plugins.dokka) apply false
-  id("com.android.library") version "7.3.1" apply false
+  alias(libs.plugins.androidApplication) apply false
   alias(libs.plugins.kotlinAndroid) apply false
   alias(libs.plugins.kotlinJvm) apply false
 }

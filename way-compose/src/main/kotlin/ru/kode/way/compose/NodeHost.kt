@@ -9,31 +9,38 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import ru.kode.way.NavigationService
 import ru.kode.way.NavigationState
+import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
 import ru.kode.way.Schema
 
 @Composable
-fun NodeHost(schema: Schema, nodeBuilder: NodeBuilder) {
-  val service = remember(schema) {
-    NavigationService(schema, nodeBuilder)
-  }
-  LaunchedEffect(schema) {
+fun NodeHost(service: NavigationService) {
+  LaunchedEffect(service) {
     service.start()
   }
-  val navigationState by collectNavigationState(service)
-  if (navigationState != null) {
-    // TODO figure out how to render multiple regions
-    val activeNode = navigationState!!.regions.values.first().activeNode
+  val activeNode by collectActiveNode(service)
+  if (activeNode != null) {
     if (activeNode is ComposableNode) {
-      activeNode.Content(Modifier)
+      (activeNode as ComposableNode).Content(Modifier)
     }
   }
 }
 
 @Composable
-private fun collectNavigationState(service: NavigationService): State<NavigationState?> {
-  return produceState<NavigationState?>(initialValue = null, service) {
-    val listener = { s: NavigationState -> value = s }
+fun NodeHost(schema: Schema, nodeBuilder: NodeBuilder) {
+  val service = remember(schema) { NavigationService(schema, nodeBuilder) }
+  NodeHost(service)
+}
+
+@Composable
+private fun collectActiveNode(service: NavigationService): State<Node?> {
+  return produceState<Node?>(initialValue = null, service) {
+    val listener = { s: NavigationState ->
+      // TODO figure out how to render multiple regions
+      println("alive nodes: ${s.regions.values.first().alive}")
+      println("nodes: ${s.regions.values.first().nodes}")
+      value = s.regions.values.first().activeNode
+    }
     service.addTransitionListener(listener)
     awaitDispose {
       service.removeTransitionListener(listener)

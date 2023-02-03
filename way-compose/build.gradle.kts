@@ -32,7 +32,6 @@ android {
 }
 
 dependencies {
-  implementation(libs.composeUi)
-  implementation(libs.composeRuntime)
+  api(libs.composeUi)
   implementation(project(":way"))
 }

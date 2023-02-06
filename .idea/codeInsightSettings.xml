@@ -4,6 +4,7 @@
     <excluded-names>
       <name>com.sun</name>
       <name>java.util.concurrent.Flow</name>
+      <name>kotlin.annotation.Target</name>
       <name>org.intellij.lang.annotations</name>
     </excluded-names>
   </component>

@@ -31,7 +31,9 @@ class IntroNode @Inject constructor(
   }
 }
 
-class RequestNode @Inject constructor() : ScreenNode<PermissionsFlowEvent>, ComposableNode {
+class RequestNode @Inject constructor(
+  private val eventSink: FlowEventSink
+) : ScreenNode<PermissionsFlowEvent>, ComposableNode {
   override fun transition(event: PermissionsFlowEvent): ScreenTransition {
     return Ignore
   }
@@ -40,6 +42,6 @@ class RequestNode @Inject constructor() : ScreenNode<PermissionsFlowEvent>, Comp
   override fun Content(modifier: Modifier) {
     // viewModel could be injected with dagger into this screen node class and passed as
     // an argument to screen function
-    RequestScreen()
+    RequestScreen(eventSink::sendEvent)
   }
 }

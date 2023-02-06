@@ -29,7 +29,6 @@ dependencies {
   implementation(libs.composeUi)
   implementation(libs.composeRuntime)
   implementation(libs.composeMaterial)
-  implementation(project(":sample-compose:core:ui"))
+  implementation(libs.kotlinReflect)
   implementation(project(":way"))
-  implementation(project(":way-compose"))
 }

@@ -13,7 +13,7 @@ class PermissionsFlowNode @Inject constructor(
   private val service: PermissionsService,
 ) : FlowNode<PermissionsFlowEvent, PermissionsFlowResult> {
 
-  override val initial = Target.permissions.request
+  override val initial = Target.permissions.intro
   override val dismissResult = PermissionsFlowResult.Dismissed
 
   override fun transition(event: PermissionsFlowEvent): FlowTransition<PermissionsFlowResult> {

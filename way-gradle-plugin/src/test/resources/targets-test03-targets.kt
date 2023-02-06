@@ -1,0 +1,26 @@
+package ru.kode.test.app.schema
+
+import ru.kode.test.app.AppFlowResult
+import ru.kode.test.app.PermissionsFlowResult
+import ru.kode.way.FlowTarget
+import ru.kode.way.FlowTransition
+import ru.kode.way.Path
+import ru.kode.way.ScreenTarget
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class AppTargets(
+  private val prefix: Path? = null,
+) {
+  public val intro: ScreenTarget = ScreenTarget(flowPath(Path("intro")))
+
+  public
+      fun permissions(onFinish: (result: PermissionsFlowResult) -> FlowTransition<AppFlowResult>):
+      FlowTarget<PermissionsFlowResult, AppFlowResult> =
+      FlowTarget(flowPath(Path("intro","permissions")), onFinish)
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.app: AppTargets
+  get() = AppTargets()

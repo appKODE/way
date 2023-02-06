@@ -1,0 +1,10 @@
+// deeply nested flows should generate proper target paths
+digraph TargetsTest02 {
+  schemaFileName = "targets-test03-schema"
+  targetsFileName = "targets-test03-targets"
+
+  app [type = flow, resultType = "ru.kode.test.app.AppFlowResult"]
+  permissions [type = schema, resultType = "ru.kode.test.app.PermissionsFlowResult"]
+
+  app -> intro -> permissions
+}

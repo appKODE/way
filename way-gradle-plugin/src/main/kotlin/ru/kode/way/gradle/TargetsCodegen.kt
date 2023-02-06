@@ -26,7 +26,8 @@ internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGe
     .apply {
       dfs(parseResult.adjacencyList, rootNode) { node ->
         when (node) {
-          is Node.Flow -> addProperty(buildTargetExtensionSpec(node, packageName))
+          is Node.Flow.Local -> addProperty(buildTargetExtensionSpec(node, packageName))
+          is Node.Flow.Imported,
           is Node.Screen,
           is Node.Parallel -> Unit
         }

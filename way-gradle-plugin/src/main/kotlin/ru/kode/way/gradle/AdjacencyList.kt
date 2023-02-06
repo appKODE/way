@@ -4,7 +4,7 @@ internal typealias AdjacencyList = Map<Node, List<Node>>
 
 internal inline fun AdjacencyList.forEachFlow(action: (Node.Flow, List<Node>) -> Unit) {
   this.forEach { (node, adjacent) ->
-    if (node is Node.Flow) {
+    if (node is Node.Flow.Local) {
       action(node, adjacent)
     }
   }
@@ -13,7 +13,7 @@ internal inline fun AdjacencyList.forEachFlow(action: (Node.Flow, List<Node>) ->
 internal inline fun <T : Any> AdjacencyList.mapFlow(action: (Node.Flow, List<Node>) -> T): List<T> {
   val out = mutableListOf<T>()
   this.forEach { (node, adjacent) ->
-    if (node is Node.Flow) {
+    if (node is Node.Flow.Local) {
       out.add(action(node, adjacent))
     }
   }

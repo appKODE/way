@@ -15,5 +15,10 @@ class TargetGenerateTest : ShouldSpec({
       expectedOutputFiles = listOf("targets-test02-targets.kt"),
       testName = "deeply nested flows",
     ),
+    TestCase(
+      schemaFile = "targets-test03.dot",
+      expectedOutputFiles = listOf("targets-test03-targets.kt"),
+      testName = "linked schema",
+    ),
   ) { runTest(it) }
 })

@@ -49,7 +49,7 @@ internal fun buildNodeBuilderTypeSpec(
   val typeSpecBuilder = TypeSpec.classBuilder(className)
   val constructorBuilder = FunSpec.constructorBuilder()
   val nodeProperties = mutableMapOf<Node, PropertySpec>()
-  val lazyBuilderProperties = mutableMapOf<Node.Flow, PropertySpec>()
+  val lazyBuilderProperties = mutableMapOf<Node, PropertySpec>()
   val flowNodeParameter = ParameterSpec
     .builder(
       FLOW_NODE_PARAMETER_NAME,
@@ -148,10 +148,10 @@ internal fun buildNodeBuilderTypeSpec(
 }
 
 private fun createBuildFunctionBody(
-  flow: Node.Flow,
+  flow: Node,
   adjacencyList: Map<Node, List<Node>>,
   targetsProperty: PropertySpec,
-  lazyBuilderProperties: Map<Node.Flow, PropertySpec>,
+  lazyBuilderProperties: Map<Node, PropertySpec>,
   nodeProperties: Map<Node, PropertySpec>,
   isRootNode: Boolean,
 ): CodeBlock {

@@ -144,7 +144,7 @@ class NavigationServiceTest : ShouldSpec({
           ),
           "app.permissions.intro" to TestScreenNode(
             transitions = listOf(
-              tr(on = "A", target = Target.permissions04.request)
+              trs(on = "A", target = Target.permissions04.request)
             )
           ),
           "app.permissions.request" to TestScreenNode(),
@@ -304,7 +304,7 @@ class NavigationServiceTest : ShouldSpec({
             initialTarget = Target.onboarding07.intro,
             dismissResult = 33,
             transitions = listOf(
-              tr_finish(on = "A", result = 42)
+              tr(on = "A", Finish(42))
             )
           ),
           "app.onboarding.intro" to TestScreenNode(),
@@ -344,7 +344,7 @@ class NavigationServiceTest : ShouldSpec({
             dismissResult = 33,
             transitions = listOf(
               tr(on = "A", target = Target.onboarding08.page1),
-              tr_finish(on = "B", result = 42)
+              tr(on = "B", Finish(42))
             )
           ),
           "app.onboarding.intro" to TestScreenNode(),

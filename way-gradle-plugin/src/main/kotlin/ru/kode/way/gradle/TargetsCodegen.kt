@@ -20,7 +20,7 @@ internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGe
   )
     .apply {
       parseResult.adjacencyList.forEachFlow { node, _ ->
-        addType(buildFlowTargets(node, parseResult.adjacencyList, packageName, isRootNode = node == rootNode))
+        addType(buildFlowTargets(node, parseResult.adjacencyList, isRootNode = node == rootNode))
       }
     }
     .apply {
@@ -51,7 +51,6 @@ private fun buildTargetExtensionSpec(node: Node.Flow, packageName: String): Prop
 private fun buildFlowTargets(
   node: Node.Flow,
   adjacencyList: AdjacencyList,
-  packageName: String,
   isRootNode: Boolean
 ): TypeSpec {
   return TypeSpec.classBuilder(targetsClassName(node))
@@ -80,7 +79,6 @@ private fun buildFlowTargets(
             if (isRootNode) {
               addFunction(buildFlowTargetSpec(node, targetNode, adjacencyList))
             }
-            // addProperty(buildFlowTargetsPropertySpec(targetNode, packageName))
           }
           is Node.Screen -> {
             if (adjacencyList.findParentFlow(targetNode) == node) {
@@ -128,13 +126,6 @@ private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow, adjacenc
         .reversed()
         .joinToString(",") { "\"${it.id}\"" }
     )
-    .build()
-}
-
-private fun buildFlowTargetsPropertySpec(targetNode: Node.Flow, packageName: String): PropertySpec {
-  val type = ClassName(packageName, targetsClassName(targetNode))
-  return PropertySpec.builder(targetNode.id, type)
-    .initializer("%T(flowPath(%T(%S)))", type, libraryClassName("Path"), targetNode.id)
     .build()
 }
 

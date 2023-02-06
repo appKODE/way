@@ -34,7 +34,7 @@ dependencies {
   api(project(":sample-compose:login:domain"))
 
   implementation(project(":sample-compose:core:routing"))
-  implementation(project(":sample-compose:permissions:routing"))
+  api(project(":sample-compose:permissions:routing"))
 
   implementation(libs.dagger)
   kapt(libs.daggerCompiler)

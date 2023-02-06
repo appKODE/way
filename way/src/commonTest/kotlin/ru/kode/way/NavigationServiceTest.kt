@@ -367,6 +367,38 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().active shouldBe "app.login.credentials"
     }
   }
+
+  should("stay on current child node when Stay transition is returned") {
+    val sut = NavigationService(
+      NavService06Schema(),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app06.intro,
+            transitions = listOf(
+              tr(on = "A", Target.app06.test),
+              tr(on = "B", Stay),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.intro.main" to TestScreenNode(),
+          "app.intro.main.test" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test"
+      }
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test"
+      }
+    }
+  }
 })
 
 private val NavigationState.active get() = this.regions.values.first().active.toString()

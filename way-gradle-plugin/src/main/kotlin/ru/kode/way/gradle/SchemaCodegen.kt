@@ -5,7 +5,6 @@ import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.LIST
-import com.squareup.kotlinpoet.MAP
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.SET
@@ -71,31 +70,33 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
     // children of a parallel node as region roots
     TODO()
   }
-  return FunSpec.builder("targets")
+  return FunSpec.builder("target")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
-    .returns(MAP.parameterizedBy(libraryClassName("Segment"), libraryClassName("Path")))
+    .addParameter("segment", libraryClassName("Segment"))
+    .returns(libraryClassName("Path"))
     .addCode(
       CodeBlock.builder()
-        .beginControlFlow("return when (regionId) {")
+        .beginControlFlow("return·when·(regionId)·{")
         .beginControlFlow("regions[0] -> {")
-        .addStatement("mapOf(")
+        .beginControlFlow("when(segment.name) {")
         .apply {
           // TODO @AdjacencyMatrix
           //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
-          //   adjacency matrix would allow to find parent nodes more easily
+          //  adjacency matrix would allow to find parent nodes more easily.
+          //  This stuff is going on in many places during codegen, search for them if will be optimizing
           dfs(adjacencyList, regionRoot) { node ->
             addStatement(
-              "%T(%S) to %T(%L),",
-              libraryClassName("Segment"),
+              "%S -> %T(%L)",
               node.id,
               libraryClassName("Path"),
               adjacencyList
                 .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" }
             )
           }
+          addStatement("else -> error(%P)", "unknown segment=\$segment")
         }
-        .addStatement(")")
+        .endControlFlow()
         .endControlFlow()
         .beginControlFlow("else -> {")
         .addStatement("error(%P)", "unknown regionId=\$regionId")
@@ -116,16 +117,28 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
       CodeBlock.builder()
         .beginControlFlow("return when (regionId) {")
         .beginControlFlow("regions[0] -> {")
-        .beginControlFlow("when (path.segments.last().name) {")
+        .beginControlFlow("when {")
         .apply {
           adjacencyList.keys.forEach { node ->
             when (node) {
               is Node.Flow -> {
-                addStatement("%S -> %T.NodeType.Flow", node.id, libraryClassName("Schema"))
+                addStatement(
+                  "path == %T(%L) -> %T.NodeType.Flow",
+                  libraryClassName("Path"),
+                  adjacencyList
+                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
+                  libraryClassName("Schema")
+                )
               }
               is Node.Parallel -> TODO()
               is Node.Screen -> {
-                addStatement("%S -> %T.NodeType.Screen", node.id, libraryClassName("Schema"))
+                addStatement(
+                  "path == %T(%L) -> %T.NodeType.Screen",
+                  libraryClassName("Path"),
+                  adjacencyList
+                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
+                  libraryClassName("Schema")
+                )
               }
             }
           }

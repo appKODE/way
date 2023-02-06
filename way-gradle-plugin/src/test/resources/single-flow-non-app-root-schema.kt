@@ -1,7 +1,6 @@
 package ru.kode.test.app.schema
 
 import kotlin.collections.List
-import kotlin.collections.Map
 import kotlin.collections.Set
 import ru.kode.way.Path
 import ru.kode.way.RegionId
@@ -15,14 +14,15 @@ public class TestAppSchema : Schema {
 
   public override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
 
-  public override fun targets(regionId: RegionId): Map<Segment, Path> = when (regionId) {
+  public override fun target(regionId: RegionId, segment: Segment): Path = when (regionId) {
     regions[0] -> {
-      mapOf(
-      Segment("permissions") to Path("permissions"),
-      Segment("screen1") to Path("permissions","screen1"),
-      Segment("screen2") to Path("permissions","screen1","screen2"),
-      Segment("screen3") to Path("permissions","screen1","screen2","screen3"),
-      )
+      when(segment.name) {
+        "permissions" -> Path("permissions")
+        "screen1" -> Path("permissions","screen1")
+        "screen2" -> Path("permissions","screen1","screen2")
+        "screen3" -> Path("permissions","screen1","screen2","screen3")
+        else -> error("""unknown segment=$segment""")
+      }
     }
     else -> {
       error("""unknown regionId=$regionId""")
@@ -31,11 +31,11 @@ public class TestAppSchema : Schema {
 
   public override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
     regions[0] -> {
-      when (path.segments.last().name) {
-        "permissions" -> Schema.NodeType.Flow
-        "screen1" -> Schema.NodeType.Screen
-        "screen2" -> Schema.NodeType.Screen
-        "screen3" -> Schema.NodeType.Screen
+      when {
+        path == Path("permissions") -> Schema.NodeType.Flow
+        path == Path("permissions","screen1") -> Schema.NodeType.Screen
+        path == Path("permissions","screen1","screen2") -> Schema.NodeType.Screen
+        path == Path("permissions","screen1","screen2","screen3") -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

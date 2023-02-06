@@ -56,7 +56,7 @@ private fun resolveTransitionInRegion(
         // there maybe several targets in different regions
         val targetRegionId = regionIdOfPath(schema.regions, target.path)
           ?: error("failed to find regionId for path=\"${target.path}\"")
-        val targetPathAbs = schema.targets(targetRegionId)[target.path.segments.last()]
+        val targetPathAbs = schema.target(targetRegionId, target.path.segments.last())
           ?: error("failed to find schema entry for target \"${target.path}\"")
         targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes)
         when (target) {

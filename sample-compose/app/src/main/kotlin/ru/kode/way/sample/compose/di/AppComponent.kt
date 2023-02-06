@@ -4,7 +4,7 @@ import dagger.BindsInstance
 import dagger.Component
 import dagger.Module
 import ru.kode.way.sample.compose.app.routing.di.AppFlowComponent
-import ru.kode.way.sample.compose.permissions.routing.FlowEventSink
+import ru.kode.way.sample.compose.core.routing.FlowEventSink
 import javax.inject.Scope
 
 @Scope

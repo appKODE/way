@@ -43,6 +43,7 @@ dependencies {
   implementation(project(":way"))
   implementation(project(":way-compose"))
   implementation(project(":sample-compose:app:routing"))
+  implementation(project(":sample-compose:core:routing"))
 
   implementation(libs.dagger)
   kapt(libs.daggerCompiler)

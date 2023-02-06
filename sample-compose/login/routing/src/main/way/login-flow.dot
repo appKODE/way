@@ -1,0 +1,8 @@
+digraph Login {
+  package = "ru.kode.way.sample.compose.login.routing"
+  login [type=flow, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
+  login -> credentials -> otp
+
+  // TODO permissions flow
+  // login -> permissions
+}

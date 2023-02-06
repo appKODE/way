@@ -5,7 +5,7 @@ import dagger.Provides
 import dagger.Subcomponent
 import ru.kode.way.NodeBuilder
 import ru.kode.way.Schema
-import ru.kode.way.sample.compose.permissions.routing.di.PermissionsFlowComponent
+import ru.kode.way.sample.compose.login.routing.di.LoginFlowComponent
 import javax.inject.Named
 import javax.inject.Scope
 
@@ -15,7 +15,7 @@ annotation class AppFlowScope
 @Subcomponent(modules = [AppFlowModule::class])
 @AppFlowScope
 interface AppFlowComponent {
-  fun permissionsFlowComponent(): PermissionsFlowComponent
+  fun loginFlowComponent(): LoginFlowComponent
 
   @Named("app") fun nodeBuilder(): NodeBuilder
   @Named("app") fun schema(): Schema
@@ -27,13 +27,13 @@ object AppFlowModule {
   @AppFlowScope
   @Named("app")
   fun provideNodeBuilder(component: AppFlowComponent): NodeBuilder {
-    return component.permissionsFlowComponent().nodeBuilder()
+    return component.loginFlowComponent().nodeBuilder()
   }
 
   @Provides
   @AppFlowScope
   @Named("app")
   fun provideSchema(component: AppFlowComponent): Schema {
-    return component.permissionsFlowComponent().schema()
+    return component.loginFlowComponent().schema()
   }
 }

@@ -2,8 +2,6 @@
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
   id(libs.plugins.kotlinAndroid.get().pluginId)
-  id("kotlin-kapt")
-  alias(libs.plugins.way)
 }
 
 android {
@@ -20,9 +18,4 @@ android {
 }
 
 dependencies {
-  implementation(project(":way"))
-  api(project(":sample-compose:login:routing"))
-
-  implementation(libs.dagger)
-  kapt(libs.daggerCompiler)
 }

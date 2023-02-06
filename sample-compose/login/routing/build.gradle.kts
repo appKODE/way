@@ -30,9 +30,11 @@ android {
 dependencies {
   implementation(project(":way"))
   implementation(project(":way-compose"))
-  implementation(project(":sample-compose:permissions:ui"))
+  implementation(project(":sample-compose:login:ui"))
+  api(project(":sample-compose:login:domain"))
+
   implementation(project(":sample-compose:core:routing"))
-  api(project(":sample-compose:permissions:domain"))
+  implementation(project(":sample-compose:permissions:routing"))
 
   implementation(libs.dagger)
   kapt(libs.daggerCompiler)

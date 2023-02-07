@@ -1,8 +1,9 @@
 digraph TestApp {
     schemaFileName = "schema-composition02"
 
-    app [type = schema]
+    app [type = flow]
+    login [type = schema]
+    main [type = schema]
 
-    login [type = flow]
-    login -> onboarding
+    app -> page1 -> page2 -> login -> main
 }

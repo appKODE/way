@@ -10,7 +10,6 @@ import ru.kode.way.sample.compose.login.routing.LoginFlowNode
 import ru.kode.way.sample.compose.login.routing.LoginNodeBuilder
 import ru.kode.way.sample.compose.login.routing.LoginSchema
 import ru.kode.way.sample.compose.login.routing.OtpNode
-import ru.kode.way.sample.compose.permissions.routing.di.PermissionsFlowComponent
 import javax.inject.Named
 import javax.inject.Provider
 import javax.inject.Scope

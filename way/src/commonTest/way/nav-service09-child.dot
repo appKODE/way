@@ -1,0 +1,6 @@
+digraph NavService09Child {
+  package = "ru.kode.way.nav09.child"
+
+  permissions [type = flow]
+  permissions -> intro -> request
+}

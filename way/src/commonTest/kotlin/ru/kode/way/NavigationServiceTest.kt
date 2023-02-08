@@ -14,6 +14,8 @@ import ru.kode.way.nav05.NavService05Schema
 import ru.kode.way.nav06.NavService06Schema
 import ru.kode.way.nav07.NavService07Schema
 import ru.kode.way.nav08.NavService08Schema
+import ru.kode.way.nav09.NavService09ParentSchema
+import ru.kode.way.nav09.child.NavService09ChildSchema
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
@@ -28,6 +30,8 @@ import ru.kode.way.nav07.onboarding as onboarding07
 import ru.kode.way.nav08.app as app08
 import ru.kode.way.nav08.login as login08
 import ru.kode.way.nav08.onboarding as onboarding08
+import ru.kode.way.nav09.app as app09
+import ru.kode.way.nav09.child.permissions as permissions09
 
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
@@ -396,6 +400,43 @@ class NavigationServiceTest : ShouldSpec({
       sut.sendEvent(TestEvent("B"))
       awaitItem().apply {
         active shouldBe "app.intro.main.test"
+      }
+    }
+  }
+
+  should("correctly navigate when using imported schemas") {
+    val sut = NavigationService(
+      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app09.page1,
+            transitions = listOf(
+              tr(on = "A", Target.app09.permissions { Ignore }),
+            )
+          ),
+          "app.page1" to TestScreenNode(),
+          "app.page1.permissions" to TestFlowNode(
+            initialTarget = Target.permissions09.intro,
+            listOf(
+              tr(on = "A", Target.permissions09.request),
+            )
+          ),
+          "app.page1.permissions.intro" to TestScreenNode(),
+          "app.page1.permissions.intro.request" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        active shouldBe "app.page1.permissions.intro"
+      }
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        active shouldBe "app.page1.permissions.intro.request"
       }
     }
   }

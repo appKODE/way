@@ -116,12 +116,16 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
             when (node) {
               is Node.Flow.Imported -> {
                 addStatement(
-                  "%S -> %T(%L).%M(%L.target(regionId, segment))",
+                  "%S -> %T(%L).%M(%L.target(%L.regions.first(), segment))",
                   node.id,
                   libraryClassName("Path"),
                   adjacencyList
-                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
+                    .findAllParents(node, includeThis = true)
+                    .reversed()
+                    .dropLast(1)
+                    .joinToString(",") { "\"${it.id}\"" },
                   libraryMemberName("append"),
+                  schemaConstructorPropertyName(node),
                   schemaConstructorPropertyName(node)
                 )
               }
@@ -166,7 +170,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
           // imported flow nodes must be sorted by largest path length descending, so that when used in "when"
           // startsWith("app.login.main") would be correctly resolved in presence of shorter paths, e.g
           // startsWith("app.login")
-          val importedFlowPaths = mutableListOf<String>()
+          val importedFlowNodes = mutableListOf<Node>()
           adjacencyList.keys.forEach { node ->
             when (node) {
               is Node.Flow.Local -> {
@@ -179,10 +183,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
                 )
               }
               is Node.Flow.Imported -> {
-                importedFlowPaths.add(
-                  adjacencyList
-                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
-                )
+                importedFlowNodes.add(node)
               }
               is Node.Parallel -> TODO()
               is Node.Screen -> {
@@ -196,14 +197,21 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
               }
             }
           }
-          importedFlowPaths.sortedByDescending { path -> path.count { it == ',' } }.forEach { path ->
-            addStatement(
-              "path.startsWith(%T(%L)) -> %T.NodeType.Flow",
-              libraryClassName("Path"),
-              path,
-              libraryClassName("Schema")
-            )
-          }
+          importedFlowNodes
+            .map { it to adjacencyList.findAllParents(it, includeThis = true) }
+            .sortedByDescending { (_, parents) -> parents.size }.forEach { (node, parents) ->
+              addStatement(
+                "path.%M(%T(%L)) -> %L.nodeType(%L.regions.first(), path.%M(%T(%L)))",
+                libraryMemberName("startsWith"),
+                libraryClassName("Path"),
+                parents.reversed().joinToString(",") { "\"${it.id}\"" },
+                schemaConstructorPropertyName(node),
+                schemaConstructorPropertyName(node),
+                libraryMemberName("removePrefix"),
+                libraryClassName("Path"),
+                parents.reversed().dropLast(1).joinToString(",") { "\"${it.id}\"" },
+              )
+            }
           beginControlFlow("else -> {")
           addStatement("error(%P)", "internal error: no nodeType for path=\$path")
           endControlFlow()

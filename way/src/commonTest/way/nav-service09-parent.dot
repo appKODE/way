@@ -1,0 +1,8 @@
+digraph NavService09Parent {
+  package = "ru.kode.way.nav09"
+
+  app [type = flow]
+  permissions [type = schema]
+
+  app -> page1 -> permissions
+}

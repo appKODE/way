@@ -45,7 +45,9 @@ object LoginFlowModule {
   @Provides
   @LoginScope
   @Named("login")
-  fun providesSchema(): Schema {
-    return LoginSchema()
+  fun providesSchema(
+    loginFlowComponent: LoginFlowComponent
+  ): Schema {
+    return LoginSchema(loginFlowComponent.permissionsFlowComponent().schema())
   }
 }

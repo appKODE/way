@@ -52,15 +52,16 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
   private fun checkSchemaValidity(schema: Schema, state: NavigationState) {
     state.regions.forEach { (regionId, region) ->
       region._nodes.forEach { (path, node) ->
+        val nodeType = schema.nodeType(regionId, path)
         when (node) {
           is FlowNode<*, *> -> {
-            check(schema.nodeType(regionId, path) == Schema.NodeType.Flow) {
-              "according to schema, \"$path\" should be a flow node, but it is a \"${node::class.simpleName}\""
+            check(nodeType == Schema.NodeType.Flow) {
+              "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
             }
           }
           is ScreenNode<*> -> {
-            check(schema.nodeType(regionId, path) == Schema.NodeType.Screen) {
-              "according to schema, \"$path\" should be a screen node, but it is a \"${node::class.simpleName}\""
+            check(nodeType == Schema.NodeType.Screen) {
+              "according to schema, \"$path\" should be a $nodeType, but it is a ${ScreenNode::class.simpleName}"
             }
           }
         }

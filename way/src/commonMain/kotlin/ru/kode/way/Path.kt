@@ -58,6 +58,10 @@ fun Path.append(path: Path): Path {
   return Path(this.segments + path.segments)
 }
 
+fun Path.removePrefix(path: Path): Path {
+  return if (this.startsWith(path)) this.drop(path.segments.size) else this
+}
+
 // app.permissions.intro → [app, app.permissions, app.permissions.intro]
 fun Path.toSteps(): List<Path> {
   return (segments.indices).map { i -> this.take(i + 1) }

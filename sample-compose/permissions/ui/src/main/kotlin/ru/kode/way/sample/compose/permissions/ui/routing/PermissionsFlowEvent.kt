@@ -6,4 +6,5 @@ sealed interface PermissionsFlowEvent : Event {
   object IntroDone : PermissionsFlowEvent
   object AllGranted : PermissionsFlowEvent
   object PartiallyGranted : PermissionsFlowEvent
+  object Denied : PermissionsFlowEvent
 }

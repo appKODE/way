@@ -21,6 +21,7 @@ class PermissionsFlowNode @Inject constructor(
       PermissionsFlowEvent.AllGranted -> Finish(PermissionsFlowResult.AllGranted)
       PermissionsFlowEvent.IntroDone -> NavigateTo(Target.permissions.request)
       PermissionsFlowEvent.PartiallyGranted -> Finish(PermissionsFlowResult.PartiallyGranted)
+      PermissionsFlowEvent.Denied -> Finish(PermissionsFlowResult.Denied)
     }
   }
 

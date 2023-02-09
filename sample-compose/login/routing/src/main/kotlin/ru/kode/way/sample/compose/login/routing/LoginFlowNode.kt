@@ -28,6 +28,7 @@ class LoginFlowNode @Inject constructor(
               PermissionsFlowResult.AllGranted -> Finish(LoginFlowResult.Success)
               PermissionsFlowResult.PartiallyGranted -> Finish(LoginFlowResult.Success)
               PermissionsFlowResult.Dismissed -> NavigateTo(Target.login.credentials)
+              PermissionsFlowResult.Denied -> NavigateTo(Target.login.credentials)
             }
           }
         )

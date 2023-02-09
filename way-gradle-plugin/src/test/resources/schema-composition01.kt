@@ -7,6 +7,8 @@ import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.Segment
 import ru.kode.way.append
+import ru.kode.way.removePrefix
+import ru.kode.way.startsWith
 
 public class TestAppSchema(
   private val appSchema: Schema,
@@ -19,13 +21,16 @@ public class TestAppSchema(
 
   public override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
 
-  public override fun target(regionId: RegionId, segment: Segment): Path = when (regionId) {
+  public override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
     regions[0] -> {
       when(segment.name) {
-        "app" -> Path("app").append(appSchema.target(regionId, segment))
-        "login" -> Path("app","login").append(loginSchema.target(regionId, segment))
-        "main" -> Path("app","login","main").append(mainSchema.target(regionId, segment))
-        else -> error("""unknown segment=$segment""")
+        else ->  {
+          appSchema.target(appSchema.regions.first(), segment)
+          ?: loginSchema.target(loginSchema.regions.first(), segment)
+          ?.let { Path("app").append(it) }
+          ?: mainSchema.target(mainSchema.regions.first(), segment)
+          ?.let { Path("app","login").append(it) }
+        }
       }
     }
     else -> {
@@ -36,9 +41,12 @@ public class TestAppSchema(
   public override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
     regions[0] -> {
       when {
-        path.startsWith(Path("app","login","main")) -> Schema.NodeType.Flow
-        path.startsWith(Path("app","login")) -> Schema.NodeType.Flow
-        path.startsWith(Path("app")) -> Schema.NodeType.Flow
+        path.startsWith(Path("app","login","main")) ->
+            mainSchema.nodeType(mainSchema.regions.first(), path.removePrefix(Path("app","login")))
+        path.startsWith(Path("app","login")) -> loginSchema.nodeType(loginSchema.regions.first(),
+            path.removePrefix(Path("app")))
+        path.startsWith(Path("app")) -> appSchema.nodeType(appSchema.regions.first(),
+            path.removePrefix(Path()))
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

@@ -101,13 +101,14 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
     .addParameter("segment", libraryClassName("Segment"))
-    .returns(libraryClassName("Path"))
+    .returns(libraryClassName("Path").copy(nullable = true))
     .addCode(
       CodeBlock.builder()
         .beginControlFlow("return·when·(regionId)·{")
         .beginControlFlow("regions[0] -> {")
         .beginControlFlow("when(segment.name) {")
         .apply {
+          val importedFlowNodes = mutableListOf<Node>()
           // TODO @AdjacencyMatrix
           //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
           //  adjacency matrix would allow to find parent nodes more easily.
@@ -115,19 +116,7 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
           dfs(adjacencyList, regionRoot) { node ->
             when (node) {
               is Node.Flow.Imported -> {
-                addStatement(
-                  "%S -> %T(%L).%M(%L.target(%L.regions.first(), segment))",
-                  node.id,
-                  libraryClassName("Path"),
-                  adjacencyList
-                    .findAllParents(node, includeThis = true)
-                    .reversed()
-                    .dropLast(1)
-                    .joinToString(",") { "\"${it.id}\"" },
-                  libraryMemberName("append"),
-                  schemaConstructorPropertyName(node),
-                  schemaConstructorPropertyName(node)
-                )
+                importedFlowNodes.add(node)
               }
               is Node.Flow.Local,
               is Node.Parallel,
@@ -142,7 +131,33 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
               }
             }
           }
-          addStatement("else -> error(%P)", "unknown segment=\$segment")
+          if (importedFlowNodes.isNotEmpty()) {
+            beginControlFlow("else -> ")
+            importedFlowNodes.forEachIndexed { index, node ->
+              val elvis = if (index > 0) "?: " else ""
+              addStatement(
+                "$elvis%L.target(%L.regions.first(), segment)",
+                schemaConstructorPropertyName(node),
+                schemaConstructorPropertyName(node),
+              )
+              // append prefix unless root node is an imported node too (in which case there's nothing to append)
+              if (node != regionRoot) {
+                addStatement(
+                  "?.let { %T(%L).%M(it) }",
+                  libraryClassName("Path"),
+                  adjacencyList
+                    .findAllParents(node, includeThis = true)
+                    .reversed()
+                    .dropLast(1)
+                    .joinToString(",") { "\"${it.id}\"" },
+                  libraryMemberName("append"),
+                )
+              }
+            }
+            endControlFlow()
+          } else {
+            addStatement("else -> null")
+          }
         }
         .endControlFlow()
         .endControlFlow()

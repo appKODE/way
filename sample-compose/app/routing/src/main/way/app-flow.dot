@@ -1,0 +1,8 @@
+digraph App {
+  package = "ru.kode.way.sample.compose.app.routing"
+
+  app [type=flow]
+  login [type=schema, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
+
+  app -> login
+}

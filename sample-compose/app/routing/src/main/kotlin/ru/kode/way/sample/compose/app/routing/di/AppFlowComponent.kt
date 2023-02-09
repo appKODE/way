@@ -5,8 +5,12 @@ import dagger.Provides
 import dagger.Subcomponent
 import ru.kode.way.NodeBuilder
 import ru.kode.way.Schema
+import ru.kode.way.sample.compose.app.routing.AppFlowNode
+import ru.kode.way.sample.compose.app.routing.AppNodeBuilder
+import ru.kode.way.sample.compose.app.routing.AppSchema
 import ru.kode.way.sample.compose.login.routing.di.LoginFlowComponent
 import javax.inject.Named
+import javax.inject.Provider
 import javax.inject.Scope
 
 @Scope
@@ -26,14 +30,20 @@ object AppFlowModule {
   @Provides
   @AppFlowScope
   @Named("app")
-  fun provideNodeBuilder(component: AppFlowComponent): NodeBuilder {
-    return component.loginFlowComponent().nodeBuilder()
+  fun provideNodeBuilder(
+    flowNode: Provider<AppFlowNode>,
+    appFlowComponent: AppFlowComponent,
+  ): NodeBuilder {
+    return AppNodeBuilder(
+      flowNode = { flowNode.get() },
+      loginNodeBuilder = { appFlowComponent.loginFlowComponent().nodeBuilder() }
+    )
   }
 
   @Provides
   @AppFlowScope
   @Named("app")
-  fun provideSchema(component: AppFlowComponent): Schema {
-    return component.loginFlowComponent().schema()
+  fun provideSchema(appFlowComponent: AppFlowComponent): Schema {
+    return AppSchema(appFlowComponent.loginFlowComponent().schema())
   }
 }

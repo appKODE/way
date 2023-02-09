@@ -1,0 +1,8 @@
+digraph NavService10Login {
+  package = "ru.kode.way.nav10"
+
+  login [type = flow, resultType = "kotlin.Int"]
+  permissions [type = schema, resultType = "kotlin.String"]
+
+  login -> credentials -> permissions
+}

@@ -7,6 +7,8 @@ import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.Segment
 import ru.kode.way.append
+import ru.kode.way.removePrefix
+import ru.kode.way.startsWith
 
 public class TestAppSchema(
   private val loginSchema: Schema,
@@ -18,16 +20,18 @@ public class TestAppSchema(
 
   public override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
 
-  public override fun target(regionId: RegionId, segment: Segment): Path = when (regionId) {
+  public override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
     regions[0] -> {
       when(segment.name) {
         "app" -> Path("app")
         "page1" -> Path("app","page1")
         "page2" -> Path("app","page1","page2")
-        "login" -> Path("app","page1","page2","login").append(loginSchema.target(regionId, segment))
-        "main" -> Path("app","page1","page2","login","main").append(mainSchema.target(regionId,
-            segment))
-        else -> error("""unknown segment=$segment""")
+        else ->  {
+          loginSchema.target(loginSchema.regions.first(), segment)
+          ?.let { Path("app","page1","page2").append(it) }
+          ?: mainSchema.target(mainSchema.regions.first(), segment)
+          ?.let { Path("app","page1","page2","login").append(it) }
+        }
       }
     }
     else -> {
@@ -41,8 +45,12 @@ public class TestAppSchema(
         path == Path("app") -> Schema.NodeType.Flow
         path == Path("app","page1") -> Schema.NodeType.Screen
         path == Path("app","page1","page2") -> Schema.NodeType.Screen
-        path.startsWith(Path("app","page1","page2","login","main")) -> Schema.NodeType.Flow
-        path.startsWith(Path("app","page1","page2","login")) -> Schema.NodeType.Flow
+        path.startsWith(Path("app","page1","page2","login","main")) ->
+            mainSchema.nodeType(mainSchema.regions.first(),
+            path.removePrefix(Path("app","page1","page2","login")))
+        path.startsWith(Path("app","page1","page2","login")) ->
+            loginSchema.nodeType(loginSchema.regions.first(),
+            path.removePrefix(Path("app","page1","page2")))
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

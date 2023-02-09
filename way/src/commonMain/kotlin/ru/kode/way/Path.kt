@@ -42,6 +42,10 @@ fun Path.dropLast(count: Int): Path {
   return Path(segments.dropLast(count))
 }
 
+fun Path.dropLastWhile(predicate: (Segment) -> Boolean): Path {
+  return this
+}
+
 fun Path.take(count: Int): Path {
   return Path(segments.take(count))
 }
@@ -62,7 +66,22 @@ fun Path.removePrefix(path: Path): Path {
   return if (this.startsWith(path)) this.drop(path.segments.size) else this
 }
 
-// app.permissions.intro → [app, app.permissions, app.permissions.intro]
-fun Path.toSteps(): List<Path> {
-  return (segments.indices).map { i -> this.take(i + 1) }
+/**
+ * Generate a path sequence leading up to this path:
+ * ```
+ * app.permissions.intro → [app, app.permissions, app.permissions.intro]
+ * ```
+ */
+fun Path.toSteps(): Sequence<Path> {
+  return segments.indices.asSequence().map { i -> this.take(i + 1) }
+}
+
+/**
+ * Generate a path sequence leading from this path up to its root
+ * ```
+ * app.permissions.intro → [ app.permissions.intro, app.permissions, app ]
+ * ```
+ */
+fun Path.toStepsReversed(): Sequence<Path> {
+  return segments.indices.reversed().asSequence().map { i -> this.take(i + 1) }
 }

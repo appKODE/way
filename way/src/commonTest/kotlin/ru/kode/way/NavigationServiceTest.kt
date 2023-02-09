@@ -16,6 +16,9 @@ import ru.kode.way.nav07.NavService07Schema
 import ru.kode.way.nav08.NavService08Schema
 import ru.kode.way.nav09.NavService09ParentSchema
 import ru.kode.way.nav09.child.NavService09ChildSchema
+import ru.kode.way.nav10.NavService10LoginSchema
+import ru.kode.way.nav10.NavService10PermissionsSchema
+import ru.kode.way.nav10.NavService10Schema
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
@@ -32,6 +35,9 @@ import ru.kode.way.nav08.login as login08
 import ru.kode.way.nav08.onboarding as onboarding08
 import ru.kode.way.nav09.app as app09
 import ru.kode.way.nav09.child.permissions as permissions09
+import ru.kode.way.nav10.app as app10
+import ru.kode.way.nav10.login as login10
+import ru.kode.way.nav10.permissions as permissions10
 
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
@@ -298,9 +304,9 @@ class NavigationServiceTest : ShouldSpec({
           "app" to TestFlowNode(
             initialTarget = Target.app07.onboarding { r: Int ->
               if (r == 42) {
-                NavigateTo(Target.app07.login { Finish(Unit) })
+                NavigateTo(Target.app07.login { Finish(33.0) })
               } else {
-                Finish(Unit)
+                Finish(30.0)
               }
             }
           ),
@@ -369,6 +375,51 @@ class NavigationServiceTest : ShouldSpec({
 
       sut.sendEvent(TestEvent("B"))
       awaitItem().active shouldBe "app.login.credentials"
+    }
+  }
+
+  should("correctly call onFinish if parent flow finishes as a result of a child flow finish") {
+    val sut = NavigationService(
+      NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app10.page1,
+            transitions = listOf(
+              tr("A", Target.app10.login { result: Int -> NavigateTo(Target.app10.page1) })
+            )
+          ),
+          "app.page1" to TestScreenNode(),
+          "app.page1.login" to TestFlowNodeWithResult(
+            initialTarget = Target.login10.credentials,
+            dismissResult = 33,
+            transitions = listOf(
+              tr(on = "A", target = Target.login10.permissions { result: String -> Finish(result.toInt()) }),
+            )
+          ),
+          "app.page1.login.credentials" to TestScreenNode(),
+          "app.page1.login.credentials.permissions" to TestFlowNode(
+            initialTarget = Target.permissions10.intro,
+            transitions = listOf(
+              tr(on = "B", Finish("42")),
+            )
+          ),
+          "app.page1.login.credentials.permissions.intro" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1.login.credentials"
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().active shouldBe "app.page1"
     }
   }
 

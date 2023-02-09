@@ -1,0 +1,7 @@
+digraph NavService10Permissions {
+  package = "ru.kode.way.nav10"
+
+  permissions [type = flow, resultType = "kotlin.String"]
+
+  permissions -> intro
+}

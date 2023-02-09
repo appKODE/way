@@ -51,4 +51,7 @@ tasks.withType<Test> {
     )
     exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
   }
+
+  // Disable line diffing, it's more useful to see diff in IDE
+  systemProperty("kotest.assertions.multi-line-diff-size", Int.MAX_VALUE)
 }

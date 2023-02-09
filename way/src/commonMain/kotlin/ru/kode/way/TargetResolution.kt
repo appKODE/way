@@ -78,11 +78,11 @@ private fun resolveTransitionInRegion(
       )
     }
     is Finish<*> -> {
-      val flowPath = findParentFlowPathInclusive(schema, regionId, activePath)
+      val flowPath = findParentFlowPath(schema, regionId, activePath) ?: error("TODO support finish on root node")
       val handler = finishHandlers[flowPath] ?: error("no finish handler for \"$flowPath\"")
       val finishTransition = handler(transition.result)
       resolveTransitionInRegion(
-        schema, regionId, finishTransition, path, activePath, nodes, nodeBuilder, finishHandlers, event
+        schema, regionId, finishTransition, flowPath, flowPath, nodes, nodeBuilder, finishHandlers, event
       )
     }
     is Stay -> {
@@ -93,8 +93,8 @@ private fun resolveTransitionInRegion(
       )
     }
     is Ignore -> {
-      println("no transition for event \"${event}\" on $path, ignoring")
       if (path.isRootInRegion(regionId)) {
+        println("no transition for event \"${event}\", ignoring")
         ResolvedTransition(
           targetPaths = mapOf(regionId to activePath),
           finishHandlers = null,
@@ -178,7 +178,18 @@ private fun findParentFlowPathInclusive(schema: Schema, regionId: RegionId, path
   return if (schema.nodeType(regionId, path) == Schema.NodeType.Flow) {
     path
   } else {
-    path.dropLast(1)
+    path.toStepsReversed().first { schema.nodeType(regionId, it) != Schema.NodeType.Screen }
+  }
+}
+
+/**
+ * Returns a parent flow path of a [path]. If [path] is has only one segment, returns null.
+ */
+private fun findParentFlowPath(schema: Schema, regionId: RegionId, path: Path): Path? {
+  return if (path.segments.size == 1) {
+    null
+  } else {
+    findParentFlowPathInclusive(schema, regionId, path.dropLast(1))
   }
 }
 

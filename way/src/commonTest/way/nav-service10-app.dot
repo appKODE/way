@@ -1,0 +1,8 @@
+digraph NavService10 {
+  package = "ru.kode.way.nav10"
+
+  app [type = flow]
+  login [type = schema, resultType = "kotlin.Int"]
+
+  app -> page1 -> login
+}

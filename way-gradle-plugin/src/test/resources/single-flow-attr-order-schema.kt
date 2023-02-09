@@ -14,14 +14,14 @@ public class TestAppSchema : Schema {
 
   public override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
 
-  public override fun target(regionId: RegionId, segment: Segment): Path = when (regionId) {
+  public override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
     regions[0] -> {
       when(segment.name) {
         "app" -> Path("app")
         "screen1" -> Path("app","screen1")
         "screen2" -> Path("app","screen1","screen2")
         "screen3" -> Path("app","screen1","screen2","screen3")
-        else -> error("""unknown segment=$segment""")
+        else -> null
       }
     }
     else -> {

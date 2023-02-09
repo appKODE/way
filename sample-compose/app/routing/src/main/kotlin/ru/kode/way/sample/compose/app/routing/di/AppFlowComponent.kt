@@ -9,6 +9,7 @@ import ru.kode.way.sample.compose.app.routing.AppFlowNode
 import ru.kode.way.sample.compose.app.routing.AppNodeBuilder
 import ru.kode.way.sample.compose.app.routing.AppSchema
 import ru.kode.way.sample.compose.login.routing.di.LoginFlowComponent
+import ru.kode.way.sample.compose.main.routing.di.MainFlowComponent
 import javax.inject.Named
 import javax.inject.Provider
 import javax.inject.Scope
@@ -20,6 +21,7 @@ annotation class AppFlowScope
 @AppFlowScope
 interface AppFlowComponent {
   fun loginFlowComponent(): LoginFlowComponent
+  fun mainFlowComponent(): MainFlowComponent
 
   @Named("app") fun nodeBuilder(): NodeBuilder
   @Named("app") fun schema(): Schema
@@ -36,7 +38,8 @@ object AppFlowModule {
   ): NodeBuilder {
     return AppNodeBuilder(
       flowNode = { flowNode.get() },
-      loginNodeBuilder = { appFlowComponent.loginFlowComponent().nodeBuilder() }
+      loginNodeBuilder = { appFlowComponent.loginFlowComponent().nodeBuilder() },
+      mainNodeBuilder = { appFlowComponent.mainFlowComponent().nodeBuilder() }
     )
   }
 
@@ -44,6 +47,9 @@ object AppFlowModule {
   @AppFlowScope
   @Named("app")
   fun provideSchema(appFlowComponent: AppFlowComponent): Schema {
-    return AppSchema(appFlowComponent.loginFlowComponent().schema())
+    return AppSchema(
+      loginSchema = appFlowComponent.loginFlowComponent().schema(),
+      mainSchema = appFlowComponent.mainFlowComponent().schema(),
+    )
   }
 }

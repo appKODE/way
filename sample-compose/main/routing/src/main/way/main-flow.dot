@@ -1,0 +1,5 @@
+digraph Main {
+  package = "ru.kode.way.sample.compose.main.routing"
+  main [type=flow, resultType = "ru.kode.way.sample.compose.main.routing.MainFlowResult"]
+  main -> home
+}

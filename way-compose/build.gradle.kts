@@ -2,6 +2,8 @@
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
   id(libs.plugins.kotlinAndroid.get().pluginId)
+  id(libs.plugins.dokka.get().pluginId)
+  `maven-publish`
 }
 
 android {
@@ -9,8 +11,12 @@ android {
   compileSdk = 33
 
   defaultConfig {
-    minSdk = 26
-    targetSdk = 33
+    minSdk = 21
+
+    aarMetadata {
+      minCompileSdk = 21
+    }
+
   }
 
   compileOptions {
@@ -28,6 +34,22 @@ android {
 
   composeOptions {
     kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+  }
+
+  publishing {
+    singleVariant("release") {
+      withSourcesJar()
+    }
+  }
+}
+
+publishing {
+  publications {
+    register<MavenPublication>("release") {
+      afterEvaluate {
+        from(components["release"])
+      }
+    }
   }
 }
 

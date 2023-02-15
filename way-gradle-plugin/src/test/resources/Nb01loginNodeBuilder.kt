@@ -7,8 +7,7 @@ import ru.kode.way.Path
 import ru.kode.way.ScreenNode
 
 public class Nb01loginNodeBuilder(
-  private val flowNode: () -> FlowNode<*, *>,
-  private val nb01credentialsNode: () -> ScreenNode<*>,
+  private val nodeFactory: Factory,
 ) : NodeBuilder {
   private val targets: Nb01loginTargets = Nb01loginTargets(Path("nb01login"))
 
@@ -17,13 +16,19 @@ public class Nb01loginNodeBuilder(
       """illegal path build requested for "nb01login" node: $path"""
     }
     return if (path.segments.size == 1 && path.segments.first().name == "nb01login") {
-      flowNode()
+      nodeFactory.createFlowNode()
     }
     else {
       when {
-        path == targets.nb01credentials.path -> nb01credentialsNode()
+        path == targets.nb01credentials.path -> nodeFactory.createNb01credentialsNode()
         else -> error("""illegal path build requested for "nb01login" node: $path""")
       }
     }
+  }
+
+  public interface Factory {
+    public fun createFlowNode(): FlowNode<*, *>
+
+    public fun createNb01credentialsNode(): ScreenNode<*>
   }
 }

@@ -16,7 +16,6 @@ android {
     aarMetadata {
       minCompileSdk = 21
     }
-
   }
 
   compileOptions {

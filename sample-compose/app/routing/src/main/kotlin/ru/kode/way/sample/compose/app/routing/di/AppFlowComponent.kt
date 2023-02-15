@@ -3,6 +3,7 @@ package ru.kode.way.sample.compose.app.routing.di
 import dagger.Module
 import dagger.Provides
 import dagger.Subcomponent
+import ru.kode.way.FlowNode
 import ru.kode.way.NodeBuilder
 import ru.kode.way.Schema
 import ru.kode.way.sample.compose.app.routing.AppFlowNode
@@ -37,9 +38,14 @@ object AppFlowModule {
     appFlowComponent: AppFlowComponent,
   ): NodeBuilder {
     return AppNodeBuilder(
-      flowNode = { flowNode.get() },
-      loginNodeBuilder = { appFlowComponent.loginFlowComponent().nodeBuilder() },
-      mainNodeBuilder = { appFlowComponent.mainFlowComponent().nodeBuilder() }
+      nodeFactory = object : AppNodeBuilder.Factory {
+        private val loginFlowComponent = appFlowComponent.loginFlowComponent()
+        private val mainFlowComponent = appFlowComponent.mainFlowComponent()
+
+        override fun createFlowNode(): FlowNode<*, *> = flowNode.get()
+        override fun createMainNodeBuilder(): NodeBuilder = mainFlowComponent.nodeBuilder()
+        override fun createLoginNodeBuilder(): NodeBuilder = loginFlowComponent.nodeBuilder()
+      }
     )
   }
 

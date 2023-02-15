@@ -1,3 +1,4 @@
+// ktlint-disable filename
 package ru.kode.way.sample.compose.main.routing
 
 import androidx.compose.runtime.Composable

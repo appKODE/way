@@ -1,9 +1,7 @@
 package ru.kode.way.sample.compose.main.routing
 
-import ru.kode.way.Finish
 import ru.kode.way.FlowNode
 import ru.kode.way.FlowTransition
-import ru.kode.way.NavigateTo
 import ru.kode.way.Stay
 import ru.kode.way.Target
 import ru.kode.way.sample.compose.main.ui.routing.MainFlowEvent

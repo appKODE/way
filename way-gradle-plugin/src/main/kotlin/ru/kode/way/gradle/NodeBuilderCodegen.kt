@@ -5,7 +5,6 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
-import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
@@ -48,67 +47,59 @@ internal fun buildNodeBuilderTypeSpec(
 ): TypeSpec {
   val typeSpecBuilder = TypeSpec.classBuilder(className)
   val constructorBuilder = FunSpec.constructorBuilder()
-  val nodeProperties = mutableMapOf<Node, PropertySpec>()
+  val nodeBuilders = mutableMapOf<Node, FunSpec>()
   val lazyBuilderProperties = mutableMapOf<Node, PropertySpec>()
-  val flowNodeParameter = ParameterSpec
+
+  val factoryBuilderTypeName = className.nestedClass("Factory")
+  val factoryTypeSpecBuilder = TypeSpec.interfaceBuilder(factoryBuilderTypeName)
+    .addFunction(
+      FunSpec.builder(NODE_FACTORY_FLOW_NODE_BUILDER_NAME)
+        .addModifiers(KModifier.ABSTRACT)
+        .returns(libraryClassName("FlowNode").parameterizedBy(STAR, STAR))
+        .build()
+    )
+
+  val factoryParameter = ParameterSpec
     .builder(
-      FLOW_NODE_PARAMETER_NAME,
-      LambdaTypeName.get(
-        receiver = null,
-        returnType = libraryClassName("FlowNode").parameterizedBy(STAR, STAR)
-      )
+      NODE_FACTORY_PARAMETER_NAME,
+      factoryBuilderTypeName
     )
     .build()
-  constructorBuilder.addParameter(flowNodeParameter)
-  val flowNodeProperty = PropertySpec.builder(flowNodeParameter.name, flowNodeParameter.type, KModifier.PRIVATE)
-    .initializer(flowNodeParameter.name)
+  val factoryProperty = PropertySpec.builder(factoryParameter.name, factoryParameter.type, KModifier.PRIVATE)
+    .initializer(factoryParameter.name)
     .build()
-  typeSpecBuilder.addProperty(flowNodeProperty)
+  constructorBuilder.addParameter(factoryParameter)
+  typeSpecBuilder.addProperty(factoryProperty)
 
   dfs(adjacencyList, flow) { node ->
     if (node == flow) return@dfs
     // See NOTE_GROUPING_NODES_BY_FLOW_RULE
     if (node is Node.Screen && adjacencyList.findParentFlow(node) != flow) return@dfs
     if (node is Node.Flow && !isRootNode) return@dfs
-    val parameter = when (node) {
-      is Node.Flow -> {
-        ParameterSpec
-          .builder(
-            node.id.toCamelCase() + "NodeBuilder",
-            LambdaTypeName.get(
-              receiver = null,
-              returnType = libraryClassName("NodeBuilder")
-            )
-          )
-          .build()
-      }
-      is Node.Screen -> {
-        ParameterSpec
-          .builder(
-            node.id.toCamelCase() + "Node",
-            LambdaTypeName.get(
-              receiver = null,
-              returnType = libraryClassName("ScreenNode").parameterizedBy(STAR)
-            )
-          )
-          .build()
-      }
-      is Node.Parallel -> TODO()
-    }
-    val property = PropertySpec.builder(parameter.name, parameter.type, KModifier.PRIVATE)
-      .initializer(parameter.name)
-      .build()
-    constructorBuilder.addParameter(parameter)
-    nodeProperties[node] = property
     when (node) {
       is Node.Flow -> {
+        val flowFactoryName = "create${node.id.toPascalCase()}NodeBuilder"
+        factoryTypeSpecBuilder.addFunction(
+          FunSpec.builder(flowFactoryName)
+            .addModifiers(KModifier.ABSTRACT)
+            .returns(libraryClassName("NodeBuilder"))
+            .build()
+        )
+        val lazyPropertyName = "_${node.id.toCamelCase()}NodeBuilder"
         val lazyBuilderProperty = PropertySpec
-          .builder("_${parameter.name}", libraryClassName("NodeBuilder"), KModifier.PRIVATE)
-          .delegate("lazy(LazyThreadSafetyMode.NONE) { %L() }", parameter.name)
+          .builder(lazyPropertyName, libraryClassName("NodeBuilder"), KModifier.PRIVATE)
+          .delegate("lazy(LazyThreadSafetyMode.NONE) { %N.%L() }", factoryParameter, flowFactoryName)
           .build()
         lazyBuilderProperties[node] = lazyBuilderProperty
       }
-      is Node.Screen -> Unit
+      is Node.Screen -> {
+        val screenBuilderFunSpec = FunSpec.builder("create${node.id.toPascalCase()}Node")
+          .addModifiers(KModifier.ABSTRACT)
+          .returns(libraryClassName("ScreenNode").parameterizedBy(STAR))
+          .build()
+        factoryTypeSpecBuilder.addFunction(screenBuilderFunSpec)
+        nodeBuilders[node] = screenBuilderFunSpec
+      }
       is Node.Parallel -> TODO()
     }
   }
@@ -123,8 +114,8 @@ internal fun buildNodeBuilderTypeSpec(
     .build()
   return typeSpecBuilder
     .primaryConstructor(constructorBuilder.build())
-    .addProperties(nodeProperties.values)
     .addProperties(lazyBuilderProperties.values)
+    .addType(factoryTypeSpecBuilder.build())
     .addProperty(targetsProperty)
     .addSuperinterface(libraryClassName("NodeBuilder"))
     .addFunction(
@@ -138,7 +129,7 @@ internal fun buildNodeBuilderTypeSpec(
             adjacencyList,
             targetsProperty,
             lazyBuilderProperties,
-            nodeProperties,
+            nodeBuilders,
             isRootNode
           )
         )
@@ -152,7 +143,7 @@ private fun createBuildFunctionBody(
   adjacencyList: Map<Node, List<Node>>,
   targetsProperty: PropertySpec,
   lazyBuilderProperties: Map<Node, PropertySpec>,
-  nodeProperties: Map<Node, PropertySpec>,
+  nodeBuilders: Map<Node, FunSpec>,
   isRootNode: Boolean,
 ): CodeBlock {
   return CodeBlock.builder()
@@ -163,7 +154,7 @@ private fun createBuildFunctionBody(
     .addStatement("%P", "illegal path build requested for \"${flow.id}\" node: \$path")
     .endControlFlow()
     .beginControlFlow("return if (path.segments.size == 1 && path.segments.first().name == %S)", flow.id)
-    .addStatement("$FLOW_NODE_PARAMETER_NAME()")
+    .addStatement("%L.%L()", NODE_FACTORY_PARAMETER_NAME, NODE_FACTORY_FLOW_NODE_BUILDER_NAME)
     .endControlFlow() // end "return if"
     .beginControlFlow("else")
     .beginControlFlow("when")
@@ -187,10 +178,11 @@ private fun createBuildFunctionBody(
           }
           is Node.Screen -> {
             addStatement(
-              "path == %N.%L.path -> %N()",
+              "path == %N.%L.path -> %L.%N()",
               targetsProperty,
               node.id,
-              nodeProperties[node] ?: error("no builder for screen node \"${node.id}\"")
+              NODE_FACTORY_PARAMETER_NAME,
+              nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\"")
             )
           }
           is Node.Parallel -> TODO()
@@ -203,7 +195,8 @@ private fun createBuildFunctionBody(
     .build()
 }
 
-private const val FLOW_NODE_PARAMETER_NAME = "flowNode"
+private const val NODE_FACTORY_FLOW_NODE_BUILDER_NAME = "createFlowNode"
+private const val NODE_FACTORY_PARAMETER_NAME = "nodeFactory"
 
 // NOTE_GROUPING_NODES_BY_FLOW_RULE
 //

@@ -29,10 +29,12 @@ object LoginFlowModule {
     loginFlowComponent: LoginFlowComponent
   ): NodeBuilder {
     return LoginNodeBuilder(
-      flowNode = { flowNode.get() },
-      credentialsNode = { credentialsNode.get() },
-      otpNode = { otpNode.get() },
-      permissionsNodeBuilder = { loginFlowComponent.permissionsFlowComponent().nodeBuilder() },
+      nodeFactory = object : LoginNodeBuilder.Factory {
+        override fun createFlowNode() = flowNode.get()
+        override fun createPermissionsNodeBuilder() = loginFlowComponent.permissionsFlowComponent().nodeBuilder()
+        override fun createCredentialsNode() = credentialsNode.get()
+        override fun createOtpNode() = otpNode.get()
+      },
     )
   }
 

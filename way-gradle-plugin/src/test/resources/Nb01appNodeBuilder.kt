@@ -9,15 +9,13 @@ import ru.kode.way.drop
 import ru.kode.way.startsWith
 
 public class Nb01appNodeBuilder(
-  private val flowNode: () -> FlowNode<*, *>,
-  private val nb01loginNodeBuilder: () -> NodeBuilder,
-  private val nb01onboardingNodeBuilder: () -> NodeBuilder,
+  private val nodeFactory: Factory,
 ) : NodeBuilder {
   private val _nb01loginNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nb01loginNodeBuilder() }
+      nodeFactory.createNb01loginNodeBuilder() }
 
   private val _nb01onboardingNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nb01onboardingNodeBuilder() }
+      nodeFactory.createNb01onboardingNodeBuilder() }
 
   private val targets: Nb01appTargets = Nb01appTargets(Path("nb01app"))
 
@@ -26,7 +24,7 @@ public class Nb01appNodeBuilder(
       """illegal path build requested for "nb01app" node: $path"""
     }
     return if (path.segments.size == 1 && path.segments.first().name == "nb01app") {
-      flowNode()
+      nodeFactory.createFlowNode()
     }
     else {
       when {
@@ -37,5 +35,13 @@ public class Nb01appNodeBuilder(
         else -> error("""illegal path build requested for "nb01app" node: $path""")
       }
     }
+  }
+
+  public interface Factory {
+    public fun createFlowNode(): FlowNode<*, *>
+
+    public fun createNb01loginNodeBuilder(): NodeBuilder
+
+    public fun createNb01onboardingNodeBuilder(): NodeBuilder
   }
 }

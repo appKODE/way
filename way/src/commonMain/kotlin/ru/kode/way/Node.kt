@@ -5,12 +5,12 @@ sealed interface Node {
   fun onExit() = Unit
 }
 
-interface FlowNode<in E : Event, R : Any> : Node {
+interface FlowNode<R : Any> : Node {
   val initial: Target
   val dismissResult: R
-  fun transition(event: E): FlowTransition<R>
+  fun transition(event: Event): FlowTransition<R>
 }
 
-interface ScreenNode<E : Event> : Node {
-  fun transition(event: E): ScreenTransition
+interface ScreenNode : Node {
+  fun transition(event: Event): ScreenTransition
 }

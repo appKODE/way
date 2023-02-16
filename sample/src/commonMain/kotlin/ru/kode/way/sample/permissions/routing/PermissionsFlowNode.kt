@@ -8,19 +8,22 @@ import ru.kode.way.NavigateTo
 import ru.kode.way.Target
 import ru.kode.way.sample.core.routing.FlowResult
 import ru.kode.way.sample.permissions
+import ru.kode.way.whenFlowEvent
 
 sealed interface PermissionsEvent : Event {
   object IntroDone : PermissionsEvent
   object AllGranted : PermissionsEvent
 }
 
-class PermissionsFlowNode : FlowNode<PermissionsEvent, FlowResult> {
+class PermissionsFlowNode : FlowNode<FlowResult> {
   override val initial = Target.permissions.intro
 
-  override fun transition(event: PermissionsEvent): FlowTransition<FlowResult> {
-    return when (event) {
-      PermissionsEvent.IntroDone -> NavigateTo(Target.permissions.request)
-      PermissionsEvent.AllGranted -> Finish(FlowResult.Dismissed)
+  override fun transition(event: Event): FlowTransition<FlowResult> {
+    return event.whenFlowEvent { e: PermissionsEvent ->
+      when (e) {
+        PermissionsEvent.IntroDone -> NavigateTo(Target.permissions.request)
+        PermissionsEvent.AllGranted -> Finish(FlowResult.Dismissed)
+      }
     }
   }
 

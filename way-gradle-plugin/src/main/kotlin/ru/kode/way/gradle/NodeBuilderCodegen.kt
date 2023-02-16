@@ -55,7 +55,7 @@ internal fun buildNodeBuilderTypeSpec(
     .addFunction(
       FunSpec.builder(NODE_FACTORY_FLOW_NODE_BUILDER_NAME)
         .addModifiers(KModifier.ABSTRACT)
-        .returns(libraryClassName("FlowNode").parameterizedBy(STAR, STAR))
+        .returns(libraryClassName("FlowNode").parameterizedBy(STAR))
         .build()
     )
 
@@ -95,7 +95,7 @@ internal fun buildNodeBuilderTypeSpec(
       is Node.Screen -> {
         val screenBuilderFunSpec = FunSpec.builder("create${node.id.toPascalCase()}Node")
           .addModifiers(KModifier.ABSTRACT)
-          .returns(libraryClassName("ScreenNode").parameterizedBy(STAR))
+          .returns(libraryClassName("ScreenNode"))
           .build()
         factoryTypeSpecBuilder.addFunction(screenBuilderFunSpec)
         nodeBuilders[node] = screenBuilderFunSpec

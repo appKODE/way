@@ -10,7 +10,7 @@ import ru.kode.way.Target
 import ru.kode.way.sample.app
 import ru.kode.way.sample.core.routing.FlowResult
 
-class AppFlowNode : FlowNode<Event, AppFlowResult> {
+class AppFlowNode : FlowNode<AppFlowResult> {
   override fun transition(event: Event): FlowTransition<AppFlowResult> {
     return Ignore
   }

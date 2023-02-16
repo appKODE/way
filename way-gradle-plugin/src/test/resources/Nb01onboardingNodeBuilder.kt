@@ -27,8 +27,8 @@ public class Nb01onboardingNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*, *>
+    public fun createFlowNode(): FlowNode<*>
 
-    public fun createNb01introNode(): ScreenNode<*>
+    public fun createNb01introNode(): ScreenNode
   }
 }

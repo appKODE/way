@@ -9,7 +9,7 @@ import ru.kode.way.NavigateTo
 import ru.kode.way.Target
 import javax.inject.Inject
 
-class AppFlowNode @Inject constructor() : FlowNode<Event, Unit> {
+class AppFlowNode @Inject constructor() : FlowNode<Unit> {
   override val initial: Target = Target.app.login(onFinish = {
     NavigateTo(Target.app.main(onFinish = { Finish(Unit) }))
   })

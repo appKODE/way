@@ -5,7 +5,7 @@ import ru.kode.way.ScreenNode
 import ru.kode.way.ScreenTransition
 import ru.kode.way.Stay
 
-class IntroScreenNode : ScreenNode<Event> {
+class IntroScreenNode : ScreenNode {
   override fun transition(event: Event): ScreenTransition {
     return Stay
   }

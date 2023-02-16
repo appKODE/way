@@ -42,7 +42,7 @@ object AppFlowModule {
         private val loginFlowComponent = appFlowComponent.loginFlowComponent()
         private val mainFlowComponent = appFlowComponent.mainFlowComponent()
 
-        override fun createFlowNode(): FlowNode<*, *> = flowNode.get()
+        override fun createFlowNode(): FlowNode<*> = flowNode.get()
         override fun createMainNodeBuilder(): NodeBuilder = mainFlowComponent.nodeBuilder()
         override fun createLoginNodeBuilder(): NodeBuilder = loginFlowComponent.nodeBuilder()
       }

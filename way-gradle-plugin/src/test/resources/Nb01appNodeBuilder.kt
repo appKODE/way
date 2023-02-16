@@ -38,7 +38,7 @@ public class Nb01appNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*, *>
+    public fun createFlowNode(): FlowNode<*>
 
     public fun createNb01loginNodeBuilder(): NodeBuilder
 

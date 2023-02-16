@@ -118,20 +118,20 @@ private fun buildTransition(
 ): Transition {
   return if (event == Event.Init) {
     when (node) {
-      is FlowNode<*, *> -> {
+      is FlowNode<*> -> {
         NavigateTo(node.initial)
       }
-      is ScreenNode<*> -> {
+      is ScreenNode -> {
         error("initial event is expected to be received on flow node only")
       }
     }
   } else {
     when (node) {
-      is FlowNode<*, *> -> {
-        (node as FlowNode<Event, *>).transition(event)
+      is FlowNode<*> -> {
+        node.transition(event)
       }
-      is ScreenNode<*> -> {
-        (node as ScreenNode<Event>).transition(event)
+      is ScreenNode -> {
+        node.transition(event)
       }
     }
   }
@@ -147,7 +147,7 @@ private fun maybeResolveInitial(
     is ScreenTarget -> targetPathAbs
     is FlowTarget<*, *> -> {
       val flowNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs) }
-      require(flowNode is FlowNode<*, *>) {
+      require(flowNode is FlowNode<*>) {
         "expected FlowNode at $targetPathAbs, but builder returned ${flowNode::class.simpleName}"
       }
       maybeResolveInitial(flowNode.initial, targetPathAbs.append(flowNode.initial.path), nodeBuilder, nodes)
@@ -164,7 +164,7 @@ private fun regionIdOfPath(regions: List<RegionId>, path: Path): RegionId? {
  * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
  */
 private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Path {
-  return if (nodes[path] is FlowNode<*, *>) {
+  return if (nodes[path] is FlowNode<*>) {
     path
   } else {
     path.dropLast(1)

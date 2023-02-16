@@ -29,12 +29,12 @@ public class Nb02appNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*, *>
+    public fun createFlowNode(): FlowNode<*>
 
-    public fun createNb02screen3Node(): ScreenNode<*>
+    public fun createNb02screen3Node(): ScreenNode
 
-    public fun createNb02screen1Node(): ScreenNode<*>
+    public fun createNb02screen1Node(): ScreenNode
 
-    public fun createNb02screen2Node(): ScreenNode<*>
+    public fun createNb02screen2Node(): ScreenNode
   }
 }

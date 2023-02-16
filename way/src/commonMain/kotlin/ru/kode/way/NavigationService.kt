@@ -27,7 +27,7 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
     if (event == Event.Init) {
       schema.regions.forEach { regionId ->
         val regionRoot = nodeBuilder.build(regionId.path)
-        require(regionRoot is FlowNode<*, *>) {
+        require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
         state._regions[regionId] = Region(
@@ -54,12 +54,12 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
       region._nodes.forEach { (path, node) ->
         val nodeType = schema.nodeType(regionId, path)
         when (node) {
-          is FlowNode<*, *> -> {
+          is FlowNode<*> -> {
             check(nodeType == Schema.NodeType.Flow) {
               "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
             }
           }
-          is ScreenNode<*> -> {
+          is ScreenNode -> {
             check(nodeType == Schema.NodeType.Screen) {
               "according to schema, \"$path\" should be a $nodeType, but it is a ${ScreenNode::class.simpleName}"
             }

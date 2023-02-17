@@ -52,6 +52,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Int -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -73,6 +74,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.permissions.intro" to TestScreenNode()
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -126,6 +128,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.permissions.intro" to TestScreenNode()
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -167,6 +170,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.profile.main" to TestScreenNode()
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -201,6 +205,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.test" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -245,6 +250,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -283,6 +289,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -327,6 +334,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.login.credentials" to TestScreenNode()
         )
       ),
+      onFinish = { _: Double -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -368,6 +376,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.login.credentials" to TestScreenNode()
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -389,7 +398,7 @@ class NavigationServiceTest : ShouldSpec({
           "app" to TestFlowNode(
             initialTarget = Target.app10.page1,
             transitions = listOf(
-              tr("A", Target.app10.login { result: Int -> NavigateTo(Target.app10.page1) })
+              tr("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
             )
           ),
           "app.page1" to TestScreenNode(),
@@ -410,6 +419,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.page1.login.credentials.permissions.intro" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -443,6 +453,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -480,6 +491,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.page1.permissions.intro.request" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -495,7 +507,8 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("correctly handles back navigation") {
+  should("correctly handle back navigation") {
+    var isFinished = false
     val sut = NavigationService(
       NavService11Schema(),
       TestNodeBuilder(
@@ -513,6 +526,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test.login.credentials.otp" to TestScreenNode(),
         )
       ),
+      onFinish = { _: Unit -> isFinished = true; Ignore },
     )
 
     sut.collectTransitions().test {
@@ -534,6 +548,44 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().apply {
         active shouldBe "app.intro"
       }
+
+      sut.sendEvent(Event.Back)
+      awaitItem().apply {
+        isFinished shouldBe true
+        active shouldBe "app.intro"
+      }
+    }
+  }
+
+  should("use service.onFinish when receiving finish event") {
+    var isFinished = false
+    val sut = NavigationService(
+      NavService01Schema(),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app01.intro,
+            transitions = listOf(
+              tr("A", Finish(33))
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+        )
+      ),
+      onFinish = { result: Int ->
+        if (result == 33) {
+          isFinished = true
+        }
+        Ignore
+      },
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().active shouldBe "app.intro"
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.intro"
+      isFinished shouldBe true
     }
   }
 })
@@ -542,7 +594,7 @@ private val NavigationState.active get() = this.regions.values.first().active.to
 private val NavigationState.alive get() = this.regions.values.first().alive.map { it.toString() }
 private val NavigationState.nodes get() = this.regions.values.first().nodes
 
-private fun NavigationService.collectTransitions(): Flow<NavigationState> {
+private fun NavigationService<*>.collectTransitions(): Flow<NavigationState> {
   return callbackFlow {
     val listener = { state: NavigationState ->
       trySend(state)

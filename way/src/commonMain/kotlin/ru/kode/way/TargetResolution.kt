@@ -78,11 +78,13 @@ private fun resolveTransitionInRegion(
       )
     }
     is Finish<*> -> {
-      val flowPath = findParentFlowPath(schema, regionId, activePath) ?: error("TODO support finish on root node")
+      val flowPath = findParentFlowPathInclusive(schema, regionId, path)
+      val parentFlowPath = if (flowPath.isRootInRegion(regionId)) flowPath else flowPath.dropLast(1)
       val handler = finishHandlers[flowPath] ?: error("no finish handler for \"$flowPath\"")
       val finishTransition = handler(transition.result)
       resolveTransitionInRegion(
-        schema, regionId, finishTransition, flowPath, flowPath, nodes, nodeBuilder, finishHandlers, event
+        schema, regionId, finishTransition, parentFlowPath, activePath, nodes, nodeBuilder, finishHandlers,
+        DoneEvent
       )
     }
     is Stay -> {

@@ -1,6 +1,6 @@
 digraph NavService01 {
   package = "ru.kode.way.nav01"
 
-  app [type = flow]
+  app [type = flow, resultType = "kotlin.Int"]
   app -> intro
 }

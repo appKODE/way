@@ -1,7 +1,10 @@
 package ru.kode.way
 
-// TODO add constructor for parallel regions: it would accept several roots
-class NavigationService(private val schema: Schema, private val nodeBuilder: NodeBuilder) {
+class NavigationService<R : Any>(
+  private val schema: Schema,
+  private val nodeBuilder: NodeBuilder,
+  private val onFinish: (R) -> FlowTransition<Unit>
+) {
   private var state: NavigationState = NavigationState(_regions = mutableMapOf())
   private val listeners = ArrayList<(NavigationState) -> Unit>()
 
@@ -26,15 +29,18 @@ class NavigationService(private val schema: Schema, private val nodeBuilder: Nod
     }
     if (event == Event.Init) {
       schema.regions.forEach { regionId ->
-        val regionRoot = nodeBuilder.build(regionId.path)
+        val regionRootPath = regionId.path
+        val regionRoot = nodeBuilder.build(regionRootPath)
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
         state._regions[regionId] = Region(
-          _nodes = mutableMapOf(regionId.path to regionRoot),
-          _active = regionId.path,
-          _alive = mutableListOf(regionId.path),
-          _finishHandlers = mutableMapOf(),
+          _nodes = mutableMapOf(regionRootPath to regionRoot),
+          _active = regionRootPath,
+          _alive = mutableListOf(regionRootPath),
+          _finishHandlers = mutableMapOf(
+            regionRootPath to (onFinish as (Any) -> FlowTransition<Any>)
+          ),
         )
       }
     }

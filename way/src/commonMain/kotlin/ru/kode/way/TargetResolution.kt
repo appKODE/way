@@ -94,12 +94,15 @@ private fun resolveTransitionInRegion(
     }
     is Ignore -> {
       if (path.isRootInRegion(regionId)) {
-        println("no transition for event \"${event}\", ignoring")
-        ResolvedTransition(
-          targetPaths = mapOf(regionId to activePath),
-          finishHandlers = null,
-          enqueuedEvents = null,
-        )
+        val resolved = maybeResolveBackEvent(schema, regionId, activePath, nodes, nodeBuilder, finishHandlers, event)
+        if (resolved == null) {
+          println("no transition for event \"${event}\", ignoring")
+          ResolvedTransition(
+            targetPaths = mapOf(regionId to activePath),
+            finishHandlers = null,
+            enqueuedEvents = null,
+          )
+        } else resolved
       } else {
         val parentPath = path.dropLast(1)
         val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
@@ -110,6 +113,43 @@ private fun resolveTransitionInRegion(
       }
     }
   }
+}
+
+private fun maybeResolveBackEvent(
+  schema: Schema,
+  regionId: RegionId,
+  activePath: Path,
+  nodes: Map<Path, Node>,
+  nodeBuilder: NodeBuilder,
+  finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
+  event: Event,
+): ResolvedTransition? {
+  if (event != Event.Back || activePath.segments.size <= 1) {
+    return null
+  }
+  val newPath = activePath.dropLast(1)
+  val transition = when (schema.nodeType(regionId, newPath)) {
+    Schema.NodeType.Flow -> {
+      val result = (nodes[newPath] as FlowNode<*>?)?.dismissResult
+        ?: error("no flow node at path $newPath")
+      Finish(result)
+    }
+    Schema.NodeType.Screen -> {
+      NavigateTo(ScreenTarget(newPath))
+    }
+  }
+
+  return resolveTransitionInRegion(
+    schema,
+    regionId,
+    transition,
+    activePath,
+    activePath,
+    nodes,
+    nodeBuilder,
+    finishHandlers,
+    Event.Back
+  )
 }
 
 private fun buildTransition(

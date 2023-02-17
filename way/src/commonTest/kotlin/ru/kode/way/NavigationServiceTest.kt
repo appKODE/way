@@ -19,6 +19,7 @@ import ru.kode.way.nav09.child.NavService09ChildSchema
 import ru.kode.way.nav10.NavService10LoginSchema
 import ru.kode.way.nav10.NavService10PermissionsSchema
 import ru.kode.way.nav10.NavService10Schema
+import ru.kode.way.nav11.NavService11Schema
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
@@ -38,6 +39,8 @@ import ru.kode.way.nav09.child.permissions as permissions09
 import ru.kode.way.nav10.app as app10
 import ru.kode.way.nav10.login as login10
 import ru.kode.way.nav10.permissions as permissions10
+import ru.kode.way.nav11.app as app11
+import ru.kode.way.nav11.login as login11
 
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
@@ -488,6 +491,48 @@ class NavigationServiceTest : ShouldSpec({
       sut.sendEvent(TestEvent("A"))
       awaitItem().apply {
         active shouldBe "app.page1.permissions.intro.request"
+      }
+    }
+  }
+
+  should("correctly handles back navigation") {
+    val sut = NavigationService(
+      NavService11Schema(),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app11.login(onFinish = { NavigateTo(Target.app11.main) }),
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.intro.main" to TestScreenNode(),
+          "app.intro.main.test" to TestScreenNode(),
+          "app.intro.main.test.login" to TestFlowNode(
+            initialTarget = Target.login11.otp,
+          ),
+          "app.intro.main.test.login.credentials" to TestScreenNode(),
+          "app.intro.main.test.login.credentials.otp" to TestScreenNode(),
+        )
+      ),
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test.login.credentials.otp"
+      }
+
+      sut.sendEvent(Event.Back)
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test.login.credentials"
+      }
+
+      sut.sendEvent(Event.Back)
+      awaitItem().apply {
+        active shouldBe "app.intro.main"
+      }
+
+      sut.sendEvent(Event.Back)
+      awaitItem().apply {
+        active shouldBe "app.intro"
       }
     }
   }

@@ -1,0 +1,8 @@
+digraph NavService11 {
+  package = "ru.kode.way.nav11"
+
+  app [type = flow]
+  login [type = flow]
+
+  app -> intro -> main -> test -> login -> credentials -> otp
+}

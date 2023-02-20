@@ -2,7 +2,7 @@ package ru.kode.way.sample.compose.main.routing.di
 
 import dagger.Subcomponent
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
+import ru.kode.way.sample.compose.main.routing.MainSchema
 import javax.inject.Named
 
 @Subcomponent(modules = [MainFlowModule::class])
@@ -10,6 +10,5 @@ import javax.inject.Named
 interface MainFlowComponent {
   @Named("main")
   fun nodeBuilder(): NodeBuilder
-  @Named("main")
-  fun schema(): Schema
+  fun schema(): MainSchema
 }

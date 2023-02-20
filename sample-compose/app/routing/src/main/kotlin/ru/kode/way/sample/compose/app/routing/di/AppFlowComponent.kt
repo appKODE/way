@@ -5,7 +5,6 @@ import dagger.Provides
 import dagger.Subcomponent
 import ru.kode.way.FlowNode
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
 import ru.kode.way.sample.compose.app.routing.AppFlowNode
 import ru.kode.way.sample.compose.app.routing.AppNodeBuilder
 import ru.kode.way.sample.compose.app.routing.AppSchema
@@ -25,7 +24,7 @@ interface AppFlowComponent {
   fun mainFlowComponent(): MainFlowComponent
 
   @Named("app") fun nodeBuilder(): NodeBuilder
-  @Named("app") fun schema(): Schema
+  fun schema(): AppSchema
 }
 
 @Module
@@ -51,8 +50,7 @@ object AppFlowModule {
 
   @Provides
   @AppFlowScope
-  @Named("app")
-  fun provideSchema(appFlowComponent: AppFlowComponent): Schema {
+  fun provideSchema(appFlowComponent: AppFlowComponent): AppSchema {
     return AppSchema(
       loginSchema = appFlowComponent.loginFlowComponent().schema(),
       mainSchema = appFlowComponent.mainFlowComponent().schema(),

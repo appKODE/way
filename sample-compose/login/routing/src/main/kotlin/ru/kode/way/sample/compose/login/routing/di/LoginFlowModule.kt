@@ -3,7 +3,6 @@ package ru.kode.way.sample.compose.login.routing.di
 import dagger.Module
 import dagger.Provides
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
 import ru.kode.way.sample.compose.login.domain.LoginService
 import ru.kode.way.sample.compose.login.routing.CredentialsNode
 import ru.kode.way.sample.compose.login.routing.LoginFlowNode
@@ -46,10 +45,9 @@ object LoginFlowModule {
 
   @Provides
   @LoginScope
-  @Named("login")
   fun providesSchema(
     loginFlowComponent: LoginFlowComponent
-  ): Schema {
+  ): LoginSchema {
     return LoginSchema(loginFlowComponent.permissionsFlowComponent().schema())
   }
 }

@@ -3,7 +3,6 @@ package ru.kode.way.sample.compose.main.routing.di
 import dagger.Module
 import dagger.Provides
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
 import ru.kode.way.sample.compose.main.routing.HomeNode
 import ru.kode.way.sample.compose.main.routing.MainFlowNode
 import ru.kode.way.sample.compose.main.routing.MainNodeBuilder
@@ -34,8 +33,7 @@ object MainFlowModule {
 
   @Provides
   @MainScope
-  @Named("main")
-  fun providesSchema(): Schema {
+  fun providesSchema(): MainSchema {
     return MainSchema()
   }
 }

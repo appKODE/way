@@ -2,7 +2,7 @@ package ru.kode.way.sample.compose.login.routing.di
 
 import dagger.Subcomponent
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
+import ru.kode.way.sample.compose.login.routing.LoginSchema
 import ru.kode.way.sample.compose.permissions.routing.di.PermissionsFlowComponent
 import javax.inject.Named
 
@@ -11,8 +11,7 @@ import javax.inject.Named
 interface LoginFlowComponent {
   @Named("login")
   fun nodeBuilder(): NodeBuilder
-  @Named("login")
-  fun schema(): Schema
+  fun schema(): LoginSchema
 
   fun permissionsFlowComponent(): PermissionsFlowComponent
 }

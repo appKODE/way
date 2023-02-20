@@ -3,7 +3,6 @@ package ru.kode.way.sample.compose.permissions.routing.di
 import dagger.Module
 import dagger.Provides
 import ru.kode.way.NodeBuilder
-import ru.kode.way.Schema
 import ru.kode.way.sample.compose.permissions.domain.PermissionsService
 import ru.kode.way.sample.compose.permissions.routing.IntroNode
 import ru.kode.way.sample.compose.permissions.routing.PermissionsFlowNode
@@ -44,8 +43,7 @@ object PermissionsFlowModule {
 
   @Provides
   @PermissionsScope
-  @Named("permissions")
-  fun providesSchema(): Schema {
+  fun providesSchema(): PermissionsSchema {
     return PermissionsSchema()
   }
 }

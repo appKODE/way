@@ -27,13 +27,18 @@ private class Visitor : DotBaseVisitor<Unit>() {
   private val flowNodes: MutableList<String> = mutableListOf()
   private val schemaNodes: MutableList<String> = mutableListOf()
   private val flowNodeResultTypes: MutableMap<String, String> = mutableMapOf()
+  private val nodeParameters: MutableMap<String, Parameter> = mutableMapOf()
 
   fun buildResult(): SchemaParseResult {
     fun String.toNode(): Node {
       return when {
-        flowNodes.contains(this) -> Node.Flow.Local(this, flowNodeResultTypes[this] ?: "kotlin.Unit")
-        schemaNodes.contains(this) -> Node.Flow.Imported(this, flowNodeResultTypes[this] ?: "kotlin.Unit")
-        else -> Node.Screen(this)
+        flowNodes.contains(this) -> {
+          Node.Flow.Local(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+        }
+        schemaNodes.contains(this) -> {
+          Node.Flow.Imported(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+        }
+        else -> Node.Screen(this, nodeParameters[this])
       }
     }
     return SchemaParseResult(
@@ -92,8 +97,18 @@ private class Visitor : DotBaseVisitor<Unit>() {
       if (resultType != null) {
         flowNodeResultTypes[nodeId] = resultType
       }
-    } else {
-      println("ignoring non-flow node at: ${ctx.text}")
+    }
+
+    val parameterType = attrs
+      .find { (id, _) -> id.asString() == ATTR_NAME_PARAMETER_TYPE }
+      ?.get(1)
+      ?.asString()
+    val parameterName = attrs
+      .find { (id, _) -> id.asString() == ATTR_NAME_PARAMETER_NAME }
+      ?.get(1)
+      ?.asString()
+    if (parameterName != null && parameterType != null) {
+      nodeParameters[nodeId] = Parameter(name = parameterName, type = parameterType)
     }
   }
 
@@ -134,23 +149,33 @@ internal sealed class Node {
 
   sealed class Flow : Node() {
     abstract val resultType: String
+    abstract val parameter: Parameter?
 
     data class Local(
       override val id: String,
       override val resultType: String,
+      override val parameter: Parameter?,
     ) : Flow()
 
     data class Imported(
       override val id: String,
       override val resultType: String,
+      override val parameter: Parameter?,
     ) : Flow()
   }
-  data class Screen(override val id: String) : Node()
+  data class Screen(override val id: String, val parameter: Parameter?) : Node()
   data class Parallel(override val id: String) : Node()
 }
+
+internal data class Parameter(
+  val name: String,
+  val type: String,
+)
 
 private const val ATTR_NAME_NODE_TYPE = "type"
 private const val ATTR_VALUE_NODE_TYPE_FLOW = "flow"
 private const val ATTR_VALUE_NODE_TYPE_SCHEMA = "schema"
 
 private const val ATTR_NAME_FLOW_RESULT_TYPE = "resultType"
+private const val ATTR_NAME_PARAMETER_NAME = "parameterName"
+private const val ATTR_NAME_PARAMETER_TYPE = "parameterType"

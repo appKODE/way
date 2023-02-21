@@ -1,5 +1,6 @@
 digraph Permissions {
   package = "ru.kode.way.sample.compose.permissions.routing"
   permissions [type=flow, resultType = "ru.kode.way.sample.compose.permissions.routing.PermissionsFlowResult"]
+
   permissions -> intro -> request
 }

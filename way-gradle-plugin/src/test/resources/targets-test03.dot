@@ -1,5 +1,5 @@
 // deeply nested flows should generate proper target paths
-digraph TargetsTest02 {
+digraph TargetsTest03 {
   schemaFileName = "targets-test03-schema"
   targetsFileName = "targets-test03-targets"
 

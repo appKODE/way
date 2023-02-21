@@ -17,7 +17,7 @@ public class AppTargets(
   public
       fun permissions(onFinish: (result: PermissionsFlowResult) -> FlowTransition<AppFlowResult>):
       FlowTarget<PermissionsFlowResult, AppFlowResult> =
-      FlowTarget(flowPath(Path("intro","permissions")), onFinish)
+      FlowTarget(flowPath(Path("intro","permissions")), payload = null, onFinish)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

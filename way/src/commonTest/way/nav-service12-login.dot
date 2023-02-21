@@ -1,0 +1,22 @@
+digraph NavService12Login {
+  package = "ru.kode.way.nav12"
+
+  login [
+    type = flow,
+    parameterName = defaultUserName,
+    parameterType = "kotlin.String"
+    resultType = "kotlin.Int",
+  ]
+
+  credentials [
+    parameterName = defaultPhone,
+    parameterType = "kotlin.String"
+  ]
+
+  otp [
+    parameterName = useAnimation,
+    parameterType = "kotlin.Boolean"
+  ]
+
+  login -> credentials -> otp
+}

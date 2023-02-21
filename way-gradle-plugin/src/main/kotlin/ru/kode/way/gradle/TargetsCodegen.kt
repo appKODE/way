@@ -82,7 +82,11 @@ private fun buildFlowTargets(
           }
           is Node.Screen -> {
             if (adjacencyList.findParentFlow(targetNode) == node) {
-              addProperty(buildScreenTargetSpec(node, targetNode, adjacencyList))
+              if (targetNode.parameter != null) {
+                addFunction(buildScreenTargetFunSpec(node, targetNode, adjacencyList, targetNode.parameter))
+              } else {
+                addProperty(buildScreenTargetPropertySpec(node, targetNode, adjacencyList))
+              }
             }
           }
           is Node.Parallel -> TODO()
@@ -100,10 +104,20 @@ private fun buildFlowTargets(
     .build()
 }
 
-private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow, adjacencyList: AdjacencyList): FunSpec {
+private fun buildFlowTargetSpec(
+  node: Node.Flow,
+  targetNode: Node.Flow,
+  adjacencyList: AdjacencyList,
+): FunSpec {
   val resultTypeName = ClassName.bestGuess(node.resultType)
   val targetResultTypeName = ClassName.bestGuess(targetNode.resultType)
+  val parameter = targetNode.parameter
   return FunSpec.builder(targetNode.id)
+    .apply {
+      if (parameter != null) {
+        addParameter(parameter.name, ClassName.bestGuess(parameter.type))
+      }
+    }
     .addParameter(
       ParameterSpec.builder(
         "onFinish",
@@ -117,19 +131,20 @@ private fun buildFlowTargetSpec(node: Node.Flow, targetNode: Node.Flow, adjacenc
     )
     .returns(libraryClassName("FlowTarget").parameterizedBy(targetResultTypeName, resultTypeName))
     .addCode(
-      "return %T(flowPath(%T(%L)), onFinish)",
+      "return %T(flowPath(%T(%L)), payload = %L, onFinish)",
       libraryClassName("FlowTarget"),
       libraryClassName("Path"),
       adjacencyList
         .findAllParents(targetNode, includeThis = true)
         .takeWhile { it != node }
         .reversed()
-        .joinToString(",") { "\"${it.id}\"" }
+        .joinToString(",") { "\"${it.id}\"" },
+      parameter?.name ?: "null"
     )
     .build()
 }
 
-private fun buildScreenTargetSpec(
+private fun buildScreenTargetPropertySpec(
   node: Node.Flow,
   targetNode: Node.Screen,
   adjacencyList: AdjacencyList
@@ -144,6 +159,29 @@ private fun buildScreenTargetSpec(
         .takeWhile { it != node }
         .reversed()
         .joinToString(",") { "\"${it.id}\"" }
+    )
+    .build()
+}
+
+private fun buildScreenTargetFunSpec(
+  node: Node.Flow,
+  targetNode: Node.Screen,
+  adjacencyList: AdjacencyList,
+  parameter: Parameter,
+): FunSpec {
+  return FunSpec.builder(targetNode.id)
+    .addParameter(parameter.name, ClassName.bestGuess(parameter.type))
+    .returns(libraryClassName("ScreenTarget"))
+    .addCode(
+      "return %T(flowPath(%T(%L)), payload = %L)",
+      libraryClassName("ScreenTarget"),
+      libraryClassName("Path"),
+      adjacencyList
+        .findAllParents(targetNode, includeThis = true)
+        .takeWhile { it != node }
+        .reversed()
+        .joinToString(",") { "\"${it.id}\"" },
+      parameter.name,
     )
     .build()
 }

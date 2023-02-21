@@ -20,6 +20,11 @@ import ru.kode.way.nav10.NavService10LoginSchema
 import ru.kode.way.nav10.NavService10PermissionsSchema
 import ru.kode.way.nav10.NavService10Schema
 import ru.kode.way.nav11.NavService11Schema
+import ru.kode.way.nav12.AppNodeBuilder
+import ru.kode.way.nav12.LoginNodeBuilder
+import ru.kode.way.nav12.NavService12LoginSchema
+import ru.kode.way.nav12.NavService12Schema
+import java.nio.charset.Charset
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
@@ -41,6 +46,8 @@ import ru.kode.way.nav10.login as login10
 import ru.kode.way.nav10.permissions as permissions10
 import ru.kode.way.nav11.app as app11
 import ru.kode.way.nav11.login as login11
+import ru.kode.way.nav12.app as app12
+import ru.kode.way.nav12.login as login12
 
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
@@ -588,20 +595,93 @@ class NavigationServiceTest : ShouldSpec({
       isFinished shouldBe true
     }
   }
+
+  should("pass target arguments to flow, screen and sub-flow nodes") {
+    val schema = NavService12Schema(NavService12LoginSchema())
+    val nodeBuilder = AppNodeBuilder(
+      object : AppNodeBuilder.Factory {
+        override fun createFlowNode(timeout: Int) = TestFlowNode(
+          initialTarget = Target.app12.page1(Charsets.UTF_32),
+          payload = timeout,
+          transitions = listOf(
+            tr("A", Target.app12.login(defaultUserName = "Dima", onFinish = { Stay }))
+          )
+        )
+
+        override fun createPage2Node() = TestScreenNode()
+        override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+        override fun createLoginNodeBuilder(): NodeBuilder {
+          return LoginNodeBuilder(
+            object : LoginNodeBuilder.Factory {
+              override fun createFlowNode(defaultUserName: String) = TestFlowNode(
+                initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
+                payload = defaultUserName,
+                transitions = listOf(
+                  tr("B", Target.login12.otp(useAnimation = true))
+                )
+              )
+
+              override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
+              override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
+            },
+            NavService12LoginSchema()
+          )
+        }
+      },
+      schema
+    )
+
+    val sut = NavigationService(
+      schema,
+      nodeBuilder,
+      onFinish = { _: Int -> Ignore },
+    )
+
+    sut.collectTransitions(rootNodePayload = 42).test {
+      awaitItem().apply {
+        // root flow node should receive an argument
+        (aliveNodes["app"] as TestFlowNode?)?.payload shouldBe 42
+        // initial node of root flow should receive an argument
+        (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
+      }
+
+      sut.sendEvent(TestEvent("A"))
+
+      awaitItem().apply {
+        // sub flow node should receive an argument
+        (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Dima"
+        // initial node of sub flow should receive an argument
+        (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "+7981123456"
+      }
+
+      sut.sendEvent(TestEvent("B"))
+
+      awaitItem().apply {
+        // screen node should receive an argument
+        (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
+      }
+    }
+  }
 })
 
 private val NavigationState.active get() = this.regions.values.first().active.toString()
 private val NavigationState.alive get() = this.regions.values.first().alive.map { it.toString() }
 private val NavigationState.nodes get() = this.regions.values.first().nodes
+private val NavigationState.aliveNodes: Map<String, Node> get() {
+  val m = nodes.toMutableMap()
+  m.keys.retainAll(this.regions.values.first().alive.toSet())
+  return m.mapKeys { it.key.toString() }
+}
 
-private fun NavigationService<*>.collectTransitions(): Flow<NavigationState> {
+private fun NavigationService<*>.collectTransitions(rootNodePayload: Any? = null): Flow<NavigationState> {
   return callbackFlow {
     val listener = { state: NavigationState ->
       trySend(state)
       Unit
     }
     this@collectTransitions.addTransitionListener(listener)
-    start()
+    start(rootNodePayload)
     awaitClose { this@collectTransitions.removeTransitionListener(listener) }
   }
 }

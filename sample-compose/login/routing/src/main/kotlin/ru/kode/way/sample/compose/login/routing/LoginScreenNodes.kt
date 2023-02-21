@@ -30,6 +30,9 @@ class CredentialsNode @Inject constructor(
 class OtpNode @Inject constructor(
   private val eventSink: FlowEventSink
 ) : ScreenNode, ComposableNode {
+
+  var maskInput: Boolean? = null
+
   override fun transition(event: Event): ScreenTransition {
     return Ignore
   }
@@ -38,6 +41,6 @@ class OtpNode @Inject constructor(
   override fun Content(modifier: Modifier) {
     // viewModel could be injected with dagger into this screen node class and passed as
     // an argument to screen function
-    OtpScreen(eventSink::sendEvent)
+    OtpScreen(maskInput, eventSink::sendEvent)
   }
 }

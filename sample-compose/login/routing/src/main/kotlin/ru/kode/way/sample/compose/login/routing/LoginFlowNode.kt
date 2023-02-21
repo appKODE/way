@@ -22,7 +22,7 @@ class LoginFlowNode @Inject constructor(
   override fun transition(event: Event): FlowTransition<LoginFlowResult> {
     return event.whenFlowEvent { e: LoginFlowEvent ->
       when (e) {
-        LoginFlowEvent.CredentialsReady -> NavigateTo(Target.login.otp)
+        LoginFlowEvent.CredentialsReady -> NavigateTo(Target.login.otp(maskInput = true))
         LoginFlowEvent.OtpError -> NavigateTo(Target.login.credentials)
         LoginFlowEvent.OtpSuccess -> {
           NavigateTo(

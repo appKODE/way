@@ -3,6 +3,8 @@ digraph Login {
   login [type=flow, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
   permissions [type=schema, resultType = "ru.kode.way.sample.compose.permissions.routing.PermissionsFlowResult"]
 
+  otp [parameterName = "maskInput", parameterType = "kotlin.Boolean"]
+
   login -> credentials -> otp
 
   login -> permissions

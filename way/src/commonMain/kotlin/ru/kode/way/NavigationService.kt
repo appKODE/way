@@ -8,8 +8,8 @@ class NavigationService<R : Any>(
   private var state: NavigationState = NavigationState(_regions = mutableMapOf())
   private val listeners = ArrayList<(NavigationState) -> Unit>()
 
-  fun start() {
-    sendEvent(Event.Init)
+  fun start(rootFlowPayload: Any? = null) {
+    sendEvent(InitEvent(rootFlowPayload))
   }
 
   fun addTransitionListener(listener: (NavigationState) -> Unit) {
@@ -24,13 +24,16 @@ class NavigationService<R : Any>(
   }
 
   private fun transition(state: NavigationState, event: Event): NavigationState {
-    check(event == Event.Init || state.isInitialized()) {
+    check(event is InitEvent || state.isInitialized()) {
       "internal error: no regions in state after Event.Init"
     }
-    if (event == Event.Init) {
+    if (event is InitEvent) {
       schema.regions.forEach { regionId ->
         val regionRootPath = regionId.path
-        val regionRoot = nodeBuilder.build(regionRootPath)
+        val regionRoot = nodeBuilder.build(
+          regionRootPath,
+          payloads = event.payload?.let { mapOf(regionRootPath to it) } ?: emptyMap()
+        )
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
@@ -49,8 +52,8 @@ class NavigationService<R : Any>(
     println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
     return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also {
       storeFinishHandlers(it, resolvedTransition)
-      synchronizeNodes(it)
-      // TODO remove after ksp-generation impl, or run only in debug / during tests?
+      synchronizeNodes(it, resolvedTransition.payloads)
+      // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(schema, it)
     }
   }
@@ -84,12 +87,12 @@ class NavigationService<R : Any>(
     }
   }
 
-  private fun synchronizeNodes(state: NavigationState) {
+  private fun synchronizeNodes(state: NavigationState, payloads: Map<Path, Any>) {
     state._regions.values.forEach { region ->
       region.alive.forEach { path ->
         region._nodes.keys.retainAll(region.alive.toSet())
         if (!region._nodes.containsKey(path)) {
-          region._nodes[path] = nodeBuilder.build(path)
+          region._nodes[path] = nodeBuilder.build(path, payloads)
         }
       }
       region._finishHandlers.keys.retainAll(region.alive.toSet())

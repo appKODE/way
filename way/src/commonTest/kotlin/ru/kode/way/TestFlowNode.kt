@@ -2,7 +2,8 @@ package ru.kode.way
 
 class TestFlowNode(
   initialTarget: Target,
-  transitions: List<TestFlowTransitionSpec> = emptyList()
+  transitions: List<TestFlowTransitionSpec> = emptyList(),
+  val payload: Any? = null,
 ) : GenericTestFlowNode<Unit>(initialTarget, Unit, transitions)
 
 class TestFlowNodeWithResult<R : Any>(
@@ -29,6 +30,7 @@ open class GenericTestFlowNode<R : Any>(
 }
 
 class TestScreenNode(
+  val payload: Any? = null,
   private val transitions: List<TestScreenTransitionSpec> = emptyList()
 ) : ScreenNode {
   override fun transition(event: Event): ScreenTransition {

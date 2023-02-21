@@ -24,7 +24,8 @@ object PermissionsFlowModule {
   fun provideNodeBuilder(
     flowNode: Provider<PermissionsFlowNode>,
     introNode: Provider<IntroNode>,
-    requestNode: Provider<RequestNode>
+    requestNode: Provider<RequestNode>,
+    schema: PermissionsSchema,
   ): NodeBuilder {
     return PermissionsNodeBuilder(
       nodeFactory = object : PermissionsNodeBuilder.Factory {
@@ -32,6 +33,7 @@ object PermissionsFlowModule {
         override fun createIntroNode() = introNode.get()
         override fun createRequestNode() = requestNode.get()
       },
+      schema = schema
     )
   }
 

@@ -22,12 +22,14 @@ object MainFlowModule {
   fun provideNodeBuilder(
     flowNode: Provider<MainFlowNode>,
     homeNode: Provider<HomeNode>,
+    schema: MainSchema,
   ): NodeBuilder {
     return MainNodeBuilder(
       nodeFactory = object : MainNodeBuilder.Factory {
         override fun createFlowNode() = flowNode.get()
         override fun createHomeNode() = homeNode.get()
       },
+      schema = schema,
     )
   }
 

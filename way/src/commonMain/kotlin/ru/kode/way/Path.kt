@@ -21,6 +21,8 @@ value class Path(val segments: List<Segment>) {
   override fun toString(): String {
     return segments.joinToString(".") { it.name }
   }
+
+  val length get() = segments.size
 }
 
 @JvmInline

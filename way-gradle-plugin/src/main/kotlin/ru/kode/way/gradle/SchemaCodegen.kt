@@ -12,7 +12,7 @@ import com.squareup.kotlinpoet.SET
 import com.squareup.kotlinpoet.TypeSpec
 
 internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
-  val schemaClassName = parseResult.graphId?.let { "${it}Schema" } ?: config.outputSchemaClassName
+  val schemaClassName = schemaClassName(parseResult, config)
   val schemaFileSpec = FileSpec.builder(
     parseResult.customPackage ?: config.outputPackageName,
     parseResult.customSchemaFileName ?: schemaClassName
@@ -243,3 +243,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
 }
 
 private fun schemaConstructorPropertyName(node: Node) = "${node.id}Schema"
+
+internal fun schemaClassName(parseResult: SchemaParseResult, config: CodeGenConfig): String {
+  return parseResult.graphId?.let { "${it}Schema" } ?: config.outputSchemaClassName
+}

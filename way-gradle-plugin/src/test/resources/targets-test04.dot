@@ -1,0 +1,30 @@
+// flow and screen node targets with arguments
+digraph TargetsTest04 {
+  schemaFileName = "targets-test04-schema"
+  targetsFileName = "targets-test04-targets"
+
+  app [
+    type = flow,
+    resultType = "ru.kode.test.app.AppFlowResult",
+    parameterName = "launchOnboarding",
+    parameterType = "kotlin.Boolean"
+  ]
+
+  permissions [
+    type = schema,
+    parameterName = "requireGrantAll",
+    parameterType = "kotlin.Boolean"
+  ]
+
+  main [
+    type = flow,
+    parameterName = "userId",
+    parameterType = "kotlin.Int"
+  ]
+
+  page1 [parameterName = "charset", parameterType  = "java.nio.Charset"]
+  page2 [parameterName = "userCount", parameterType  = "kotlin.Int"]
+
+  app -> intro -> page1 -> page2 -> permissions
+  app -> main
+}

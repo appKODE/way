@@ -23,6 +23,7 @@ internal fun resolveTransition(
     ResolvedTransition(
       targetPaths = acc.targetPaths + resolved.targetPaths,
       finishHandlers = (acc.finishHandlers.orEmpty() + resolved.finishHandlers.orEmpty()).takeIf { it.isNotEmpty() },
+      payloads = acc.payloads + resolved.payloads,
       enqueuedEvents = (acc.enqueuedEvents.orEmpty() + resolved.enqueuedEvents.orEmpty()).takeIf { it.isNotEmpty() },
     )
   }
@@ -47,18 +48,21 @@ private fun resolveTransitionInRegion(
     is EnqueueEvent -> ResolvedTransition(
       targetPaths = mapOf(regionId to path),
       finishHandlers = null,
+      payloads = emptyMap(),
       enqueuedEvents = listOf(transition.event),
     )
     is NavigateTo -> {
       var transitionFinishHandlers: HashMap<RegionId, ResolvedTransition.FinishHandler>? = null
       val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
+      val payloads = mutableMapOf<Path, Any>()
       transition.targets.forEach { target ->
         // there maybe several targets in different regions
         val targetRegionId = regionIdOfPath(schema.regions, target.path)
           ?: error("failed to find regionId for path=\"${target.path}\"")
         val targetPathAbs = schema.target(targetRegionId, target.path.segments.last())
           ?: error("failed to find schema entry for target \"${target.path}\"")
-        targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes)
+        target.payload?.also { payloads[targetPathAbs] = it }
+        targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, payloads)
         when (target) {
           is FlowTarget<*, *> -> {
             val handlers = transitionFinishHandlers ?: HashMap(schema.regions.size)
@@ -74,6 +78,7 @@ private fun resolveTransitionInRegion(
       ResolvedTransition(
         targetPaths = targetPaths,
         finishHandlers = transitionFinishHandlers,
+        payloads = payloads,
         enqueuedEvents = null,
       )
     }
@@ -91,6 +96,7 @@ private fun resolveTransitionInRegion(
       ResolvedTransition(
         targetPaths = mapOf(regionId to path),
         finishHandlers = null,
+        payloads = emptyMap(),
         enqueuedEvents = null,
       )
     }
@@ -102,6 +108,7 @@ private fun resolveTransitionInRegion(
           ResolvedTransition(
             targetPaths = mapOf(regionId to activePath),
             finishHandlers = null,
+            payloads = emptyMap(),
             enqueuedEvents = null,
           )
         } else resolved
@@ -158,7 +165,7 @@ private fun buildTransition(
   event: Event,
   node: Node
 ): Transition {
-  return if (event == Event.Init) {
+  return if (event is InitEvent) {
     when (node) {
       is FlowNode<*> -> {
         NavigateTo(node.initial)
@@ -183,16 +190,20 @@ private fun maybeResolveInitial(
   target: Target,
   targetPathAbs: Path,
   nodeBuilder: NodeBuilder,
-  nodes: Map<Path, Node>
+  nodes: Map<Path, Node>,
+  payloads: MutableMap<Path, Any>,
 ): Path {
   return when (target) {
     is ScreenTarget -> targetPathAbs
     is FlowTarget<*, *> -> {
-      val flowNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs) }
+      val flowNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs, payloads = payloads) }
       require(flowNode is FlowNode<*>) {
         "expected FlowNode at $targetPathAbs, but builder returned ${flowNode::class.simpleName}"
       }
-      maybeResolveInitial(flowNode.initial, targetPathAbs.append(flowNode.initial.path), nodeBuilder, nodes)
+      val nextTargetPathAbs = targetPathAbs.append(flowNode.initial.path)
+      flowNode.initial.payload?.also { payloads[nextTargetPathAbs] = it }
+      // TODO rework to be iterative, would be clearer in presence of mutable payloads parameter...
+      maybeResolveInitial(flowNode.initial, nextTargetPathAbs, nodeBuilder, nodes, payloads)
     }
   }
 }
@@ -242,11 +253,12 @@ private fun Path.isRootInRegion(regionId: RegionId): Boolean {
 internal data class ResolvedTransition(
   val targetPaths: Map<RegionId, Path>,
   val finishHandlers: Map<RegionId, FinishHandler>?,
+  val payloads: Map<Path, Any>,
   val enqueuedEvents: List<Event>?,
 ) {
 
   companion object {
-    val EMPTY = ResolvedTransition(emptyMap(), null, null)
+    val EMPTY = ResolvedTransition(emptyMap(), null, emptyMap(), null)
   }
 
   data class FinishHandler(

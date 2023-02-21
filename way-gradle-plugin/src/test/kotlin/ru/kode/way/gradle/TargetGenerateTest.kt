@@ -20,5 +20,10 @@ class TargetGenerateTest : ShouldSpec({
       expectedOutputFiles = listOf("targets-test03-targets.kt"),
       testName = "linked schema",
     ),
+    TestCase(
+      schemaFile = "targets-test04.dot",
+      expectedOutputFiles = listOf("targets-test04-targets.kt"),
+      testName = "targets with arguments",
+    ),
   ) { runTest(it) }
 })

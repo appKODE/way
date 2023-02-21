@@ -3,6 +3,7 @@ package ru.kode.way.sample.compose.login.routing.di
 import dagger.Module
 import dagger.Provides
 import ru.kode.way.NodeBuilder
+import ru.kode.way.ScreenNode
 import ru.kode.way.sample.compose.login.domain.LoginService
 import ru.kode.way.sample.compose.login.routing.CredentialsNode
 import ru.kode.way.sample.compose.login.routing.LoginFlowNode
@@ -25,15 +26,19 @@ object LoginFlowModule {
     flowNode: Provider<LoginFlowNode>,
     credentialsNode: Provider<CredentialsNode>,
     otpNode: Provider<OtpNode>,
-    loginFlowComponent: LoginFlowComponent
+    loginFlowComponent: LoginFlowComponent,
+    schema: LoginSchema,
   ): NodeBuilder {
     return LoginNodeBuilder(
       nodeFactory = object : LoginNodeBuilder.Factory {
         override fun createFlowNode() = flowNode.get()
         override fun createPermissionsNodeBuilder() = loginFlowComponent.permissionsFlowComponent().nodeBuilder()
         override fun createCredentialsNode() = credentialsNode.get()
-        override fun createOtpNode() = otpNode.get()
+        override fun createOtpNode(maskInput: Boolean): ScreenNode {
+          return otpNode.get().apply { this.maskInput = maskInput }
+        }
       },
+      schema = schema,
     )
   }
 

@@ -14,11 +14,12 @@ public class AppTargets(
   private val prefix: Path? = null,
 ) {
   public fun login(onFinish: (result: LoginFlowResult) -> FlowTransition<AppFlowResult>):
-      FlowTarget<LoginFlowResult, AppFlowResult> = FlowTarget(flowPath(Path("login")), onFinish)
+      FlowTarget<LoginFlowResult, AppFlowResult> = FlowTarget(flowPath(Path("login")), payload =
+      null, onFinish)
 
   public fun onboarding(onFinish: (result: OnboardingFlowResult) -> FlowTransition<AppFlowResult>):
       FlowTarget<OnboardingFlowResult, AppFlowResult> =
-      FlowTarget(flowPath(Path("login","credentials","onboarding")), onFinish)
+      FlowTarget(flowPath(Path("login","credentials","onboarding")), payload = null, onFinish)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

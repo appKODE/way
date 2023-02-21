@@ -49,3 +49,5 @@ internal fun String.toPascalCase(): String {
 internal fun String.toCamelCase(): String {
   return this
 }
+
+internal const val NBSP = '·'

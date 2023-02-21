@@ -1,0 +1,21 @@
+digraph NavService12 {
+  package = "ru.kode.way.nav12"
+
+  app [
+    type = flow,
+    parameterName = timeout,
+    parameterType = "kotlin.Int"
+  ]
+
+  login [
+    type = schema,
+    parameterName = defaultUserName,
+    parameterType = "kotlin.String"
+    resultType = "kotlin.Int",
+  ]
+
+  page1 [parameterName = "charset", parameterType = "java.nio.charset.Charset"]
+
+  app -> page1 -> login
+  app -> page2
+}

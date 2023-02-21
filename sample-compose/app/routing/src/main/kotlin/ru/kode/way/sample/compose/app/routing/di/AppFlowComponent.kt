@@ -35,6 +35,7 @@ object AppFlowModule {
   fun provideNodeBuilder(
     flowNode: Provider<AppFlowNode>,
     appFlowComponent: AppFlowComponent,
+    schema: AppSchema,
   ): NodeBuilder {
     return AppNodeBuilder(
       nodeFactory = object : AppNodeBuilder.Factory {
@@ -44,7 +45,8 @@ object AppFlowModule {
         override fun createFlowNode(): FlowNode<*> = flowNode.get()
         override fun createMainNodeBuilder(): NodeBuilder = mainFlowComponent.nodeBuilder()
         override fun createLoginNodeBuilder(): NodeBuilder = loginFlowComponent.nodeBuilder()
-      }
+      },
+      schema = schema,
     )
   }
 

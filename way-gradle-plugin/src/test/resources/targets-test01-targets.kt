@@ -22,7 +22,7 @@ public class AppTargets(
 
   public fun permissions(onFinish: (result: PermissionFlowResult) -> FlowTransition<FlowResult>):
       FlowTarget<PermissionFlowResult, FlowResult> = FlowTarget(flowPath(Path("permissions")),
-      onFinish)
+      payload = null, onFinish)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

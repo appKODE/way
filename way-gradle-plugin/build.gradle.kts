@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinJvm.get().pluginId)
-  `java-gradle-plugin`
+  alias(libs.plugins.gradlePublish)
   `maven-publish`
   antlr
 }
@@ -14,8 +14,16 @@ gradlePlugin {
       id = "ru.kode.way"
       group = "ru.kode"
       implementationClass = "ru.kode.way.gradle.WayPlugin"
+      displayName = "Code generation gradle plugin for Way navigation library"
     }
   }
+}
+
+pluginBundle {
+  website = "https://github.com/appKODE/way"
+  vcsUrl = "https://github.com/appKODE/way"
+  description = "Code generation gradle plugin for Way navigation library"
+  tags = listOf("navigation", "codegen", "android", "kmm", "compose", "compose-desktop")
 }
 
 dependencies {

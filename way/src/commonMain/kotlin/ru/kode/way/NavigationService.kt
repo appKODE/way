@@ -37,6 +37,7 @@ class NavigationService<R : Any>(
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
+        regionRoot.onEntry()
         state._regions[regionId] = Region(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
           _active = regionRootPath,
@@ -89,10 +90,11 @@ class NavigationService<R : Any>(
 
   private fun synchronizeNodes(state: NavigationState, payloads: Map<Path, Any>) {
     state._regions.values.forEach { region ->
+      region._nodes.forEach { (path, node) -> if (!region.alive.contains(path)) node.onExit() }
       region.alive.forEach { path ->
         region._nodes.keys.retainAll(region.alive.toSet())
         if (!region._nodes.containsKey(path)) {
-          region._nodes[path] = nodeBuilder.build(path, payloads)
+          region._nodes[path] = nodeBuilder.build(path, payloads).also { it.onEntry() }
         }
       }
       region._finishHandlers.keys.retainAll(region.alive.toSet())

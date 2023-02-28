@@ -5,4 +5,5 @@ digraph NavService10 {
   login [type = schema, resultType = "kotlin.Int"]
 
   app -> page1 -> login
+  app -> page2
 }

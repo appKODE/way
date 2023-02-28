@@ -3,6 +3,8 @@ package ru.kode.way
 import app.cash.turbine.test
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainInOrder
+import io.kotest.matchers.maps.shouldBeEmpty
+import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +18,7 @@ import ru.kode.way.nav07.NavService07Schema
 import ru.kode.way.nav08.NavService08Schema
 import ru.kode.way.nav09.NavService09ParentSchema
 import ru.kode.way.nav09.child.NavService09ChildSchema
+import ru.kode.way.nav09.child.PermissionsNodeBuilder
 import ru.kode.way.nav10.NavService10LoginSchema
 import ru.kode.way.nav10.NavService10PermissionsSchema
 import ru.kode.way.nav10.NavService10Schema
@@ -490,7 +493,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.page1" to TestScreenNode(),
           "app.page1.permissions" to TestFlowNode(
             initialTarget = Target.permissions09.intro,
-            listOf(
+            transitions = listOf(
               tr(on = "A", Target.permissions09.request),
             )
           ),
@@ -661,6 +664,234 @@ class NavigationServiceTest : ShouldSpec({
         // screen node should receive an argument
         (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
       }
+    }
+  }
+
+  should("correctly call onEntry/onExit in basic cases") {
+    val entryCounts = mutableMapOf<String, Int>()
+    val exitCounts = mutableMapOf<String, Int>()
+    val sut = NavigationService(
+      NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app10.page1,
+            onEntryImpl = { entryCounts["app"] = entryCounts["app"]?.let { it + 1 } ?: 1 },
+            onExitImpl = { exitCounts["app"] = exitCounts["app"]?.let { it + 1 } ?: 1 },
+            transitions = listOf(
+              tr("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
+            )
+          ),
+          "app.page1" to TestScreenNode(
+            onEntryImpl = { entryCounts["app.page1"] = entryCounts["app.page1"]?.let { it + 1 } ?: 1 },
+            onExitImpl = { exitCounts["app.page1"] = exitCounts["app.page1"]?.let { it + 1 } ?: 1 },
+            transitions = listOf(
+              trs("B", Target.app10.page2)
+            )
+          ),
+          "app.page2" to TestScreenNode(
+            onEntryImpl = { entryCounts["app.page2"] = entryCounts["app.page2"]?.let { it + 1 } ?: 1 },
+            onExitImpl = { exitCounts["app.page2"] = exitCounts["app.page2"]?.let { it + 1 } ?: 1 },
+            transitions = listOf(
+              trs("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
+            )
+          ),
+          "app.page1.login" to TestFlowNodeWithResult(
+            initialTarget = Target.login10.credentials,
+            dismissResult = 33,
+            onEntryImpl = { entryCounts["app.page1.login"] = entryCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
+            onExitImpl = { exitCounts["app.page1.login"] = exitCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
+            transitions = listOf(
+              tr(on = "A", target = Target.login10.permissions { result: String -> Finish(result.toInt()) }),
+            )
+          ),
+          "app.page1.login.credentials" to TestScreenNode(
+            onEntryImpl = {
+              entryCounts["app.page1.login.credentials"] =
+                entryCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
+            },
+            onExitImpl = {
+              exitCounts["app.page1.login.credentials"] =
+                exitCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
+            },
+          ),
+          "app.page1.login.credentials.permissions" to TestFlowNode(
+            initialTarget = Target.permissions10.intro,
+            onEntryImpl = {
+              entryCounts["app.page1.login.credentials.permissions"] =
+                entryCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
+            },
+            onExitImpl = {
+              exitCounts["app.page1.login.credentials.permissions"] =
+                exitCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
+            },
+            transitions = listOf(
+              tr(on = "B", Finish("42")),
+            )
+          ),
+          "app.page1.login.credentials.permissions.intro" to TestScreenNode(
+            onEntryImpl = {
+              entryCounts["app.page1.login.credentials.permissions.intro"] =
+                entryCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
+            },
+            onExitImpl = {
+              exitCounts["app.page1.login.credentials.permissions.intro"] =
+                exitCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
+            },
+          ),
+        )
+      ),
+      onFinish = { _: Unit -> Stay },
+    )
+
+    entryCounts.shouldBeEmpty()
+    exitCounts.shouldBeEmpty()
+
+    sut.collectTransitions().test {
+      awaitItem().active shouldBe "app.page1"
+      entryCounts.shouldContainExactly(
+        mapOf("app" to 1, "app.page1" to 1)
+      )
+      exitCounts.shouldBeEmpty()
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1.login.credentials"
+      entryCounts.shouldContainExactly(
+        mapOf(
+          "app" to 1,
+          "app.page1" to 1,
+          "app.page1.login" to 1,
+          "app.page1.login.credentials" to 1,
+        )
+      )
+      exitCounts.shouldBeEmpty()
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
+      entryCounts.shouldContainExactly(
+        mapOf(
+          "app" to 1,
+          "app.page1" to 1,
+          "app.page1.login" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials.permissions.intro" to 1,
+        )
+      )
+      exitCounts.shouldBeEmpty()
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().active shouldBe "app.page1"
+      entryCounts.shouldContainExactly(
+        mapOf(
+          "app" to 1,
+          "app.page1" to 1,
+          "app.page1.login" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials.permissions.intro" to 1,
+        )
+      )
+      exitCounts.shouldContainExactly(
+        mapOf(
+          "app.page1.login.credentials.permissions.intro" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login" to 1,
+        )
+      )
+
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().active shouldBe "app.page2"
+      entryCounts.shouldContainExactly(
+        mapOf(
+          "app" to 1,
+          "app.page1" to 1,
+          "app.page1.login" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials.permissions.intro" to 1,
+          "app.page2" to 1,
+        )
+      )
+      exitCounts.shouldContainExactly(
+        mapOf(
+          "app.page1.login.credentials.permissions.intro" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login" to 1,
+          "app.page1" to 1,
+        )
+      )
+
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1.login.credentials"
+      entryCounts.shouldContainExactly(
+        mapOf(
+          "app" to 1,
+          "app.page1" to 2,
+          "app.page1.login" to 2,
+          "app.page1.login.credentials" to 2,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials.permissions.intro" to 1,
+          "app.page2" to 1,
+        )
+      )
+      exitCounts.shouldContainExactly(
+        mapOf(
+          "app.page1.login.credentials.permissions.intro" to 1,
+          "app.page1.login.credentials.permissions" to 1,
+          "app.page1.login.credentials" to 1,
+          "app.page1.login" to 1,
+          "app.page1" to 1,
+          "app.page2" to 1,
+        )
+      )
+    }
+  }
+
+  // NOTE: For now this is an expected behavior: flow nodes can be built several times prior to being used
+  // in transitions (for example during initial node resolution). Users are expected to use onEntry/onExit instead of
+  // node constructors to initialize node-tree dependent data.
+  // NOTE: In case the above restriction will be lifted and node construction will be guaranteed to happen once,
+  // this test should be adjusted to test for exactly this case and this comment should be removed.
+  should("call child flow builder twice ") {
+    var createChildNodeCallCount = 0
+    val sut = NavigationService<Unit>(
+      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
+      ru.kode.way.nav09.AppNodeBuilder(
+        object : ru.kode.way.nav09.AppNodeBuilder.Factory {
+          override fun createFlowNode(): FlowNode<*> {
+            return TestFlowNode(initialTarget = Target.app09.permissions { Ignore })
+          }
+
+          override fun createPage1Node() = TestScreenNode()
+
+          override fun createPermissionsNodeBuilder(): NodeBuilder {
+            return PermissionsNodeBuilder(
+              object : PermissionsNodeBuilder.Factory {
+                override fun createFlowNode(): FlowNode<*> {
+                  createChildNodeCallCount += 1
+                  return TestFlowNode(initialTarget = Target.permissions09.intro)
+                }
+                override fun createIntroNode() = TestScreenNode()
+                override fun createRequestNode() = TestScreenNode()
+              },
+              NavService09ChildSchema()
+            )
+          }
+        },
+        NavService09ParentSchema(NavService09ChildSchema())
+      ),
+      onFinish = { Ignore }
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        active shouldBe "app.page1.permissions.intro"
+      }
+      // See NOTEs above
+      createChildNodeCallCount shouldBe 2
     }
   }
 })

@@ -44,9 +44,9 @@ open class GenerateClassesTask : SourceTask() {
   // TODO Use gradle workers api
   @TaskAction
   fun generate() {
-    logger.warn("generation started")
+    logger.debug("generation started")
     source.forEach { file ->
-      logger.warn("generating classes from schema file: $file")
+      logger.debug("generating classes from schema file: $file")
       generate(
         file,
         outputDirectory,

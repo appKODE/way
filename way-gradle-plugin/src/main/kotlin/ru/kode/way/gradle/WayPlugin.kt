@@ -56,7 +56,6 @@ class WayPlugin : Plugin<Project> {
       configureTask(task, mainSources)
     }
     mainSources.forEach { source ->
-      logger.warn("adding to a source set ${source.sourceDirectorySet.kotlin.srcDirs}")
       source.sourceDirectorySet.kotlin.srcDir(mainTask)
       source.registerGeneratedDir?.invoke(mainTask)
     }

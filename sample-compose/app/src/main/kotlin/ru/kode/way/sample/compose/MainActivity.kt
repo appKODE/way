@@ -13,6 +13,7 @@ import ru.kode.way.Event
 import ru.kode.way.NavigationService
 import ru.kode.way.Stay
 import ru.kode.way.compose.NodeHost
+import ru.kode.way.sample.compose.app.routing.AppFlow
 import ru.kode.way.sample.compose.core.routing.FlowEventSink
 import ru.kode.way.sample.compose.di.DaggerAppComponent
 import ru.kode.way.sample.compose.ui.theme.WayTheme
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
       .eventSink(eventSink)
       .build()
     val appFlowComponent = component.appFlowComponent()
-    val service = NavigationService(appFlowComponent.schema(), appFlowComponent.nodeBuilder()) { finishResult: Unit ->
+    val service = NavigationService(AppFlow.schema, AppFlow.nodeBuilder(appFlowComponent)) { _: Unit ->
       finish()
       Stay
     }

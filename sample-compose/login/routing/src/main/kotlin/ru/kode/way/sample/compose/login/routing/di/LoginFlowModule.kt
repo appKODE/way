@@ -2,15 +2,14 @@ package ru.kode.way.sample.compose.login.routing.di
 
 import dagger.Module
 import dagger.Provides
-import ru.kode.way.NodeBuilder
 import ru.kode.way.ScreenNode
 import ru.kode.way.sample.compose.login.domain.LoginService
 import ru.kode.way.sample.compose.login.routing.CredentialsNode
 import ru.kode.way.sample.compose.login.routing.LoginFlowNode
 import ru.kode.way.sample.compose.login.routing.LoginNodeBuilder
-import ru.kode.way.sample.compose.login.routing.LoginSchema
 import ru.kode.way.sample.compose.login.routing.OtpNode
-import javax.inject.Named
+import ru.kode.way.sample.compose.permissions.routing.PermissionsFlow
+import ru.kode.way.sample.compose.permissions.routing.PermissionsNodeBuilder
 import javax.inject.Provider
 import javax.inject.Scope
 
@@ -21,38 +20,27 @@ annotation class LoginScope
 object LoginFlowModule {
   @Provides
   @LoginScope
-  @Named("login")
-  fun provideNodeBuilder(
+  fun provideNodeFactory(
     flowNode: Provider<LoginFlowNode>,
     credentialsNode: Provider<CredentialsNode>,
     otpNode: Provider<OtpNode>,
     loginFlowComponent: LoginFlowComponent,
-    schema: LoginSchema,
-  ): NodeBuilder {
-    return LoginNodeBuilder(
-      nodeFactory = object : LoginNodeBuilder.Factory {
-        override fun createFlowNode() = flowNode.get()
-        override fun createPermissionsNodeBuilder() = loginFlowComponent.permissionsFlowComponent().nodeBuilder()
-        override fun createCredentialsNode() = credentialsNode.get()
-        override fun createOtpNode(maskInput: Boolean): ScreenNode {
-          return otpNode.get().apply { this.maskInput = maskInput }
-        }
-      },
-      schema = schema,
-    )
+  ): LoginNodeBuilder.Factory {
+    return object : LoginNodeBuilder.Factory {
+      override fun createFlowNode() = flowNode.get()
+      override fun createPermissionsNodeBuilder(): PermissionsNodeBuilder {
+        return PermissionsFlow.nodeBuilder(loginFlowComponent.permissionsFlowComponent())
+      }
+      override fun createCredentialsNode() = credentialsNode.get()
+      override fun createOtpNode(maskInput: Boolean): ScreenNode {
+        return otpNode.get().apply { this.maskInput = maskInput }
+      }
+    }
   }
 
   @Provides
   @LoginScope
   fun provideLoginService(): LoginService {
     return LoginService()
-  }
-
-  @Provides
-  @LoginScope
-  fun providesSchema(
-    loginFlowComponent: LoginFlowComponent
-  ): LoginSchema {
-    return LoginSchema(loginFlowComponent.permissionsFlowComponent().schema())
   }
 }

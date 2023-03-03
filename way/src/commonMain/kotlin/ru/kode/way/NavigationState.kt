@@ -1,7 +1,8 @@
 package ru.kode.way
 
 class NavigationState internal constructor(
-  internal val _regions: MutableMap<RegionId, Region>
+  internal val _regions: MutableMap<RegionId, Region>,
+  internal val _nodeExtensionPoints: MutableList<NodeExtensionPoint>,
 ) {
   val regions: Map<RegionId, Region> = _regions
 

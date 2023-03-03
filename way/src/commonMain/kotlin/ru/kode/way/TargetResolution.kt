@@ -4,11 +4,12 @@ internal fun resolveTransition(
   schema: Schema,
   regions: Map<RegionId, Region>,
   nodeBuilder: NodeBuilder,
-  event: Event
+  event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
 ): ResolvedTransition {
   return regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
     val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
-    val transition = buildTransition(event, node)
+    val transition = buildTransition(event, node, region.active, extensionPoints)
     val resolved = resolveTransitionInRegion(
       schema = schema,
       regionId = regionId,
@@ -18,7 +19,8 @@ internal fun resolveTransition(
       nodes = region.nodes,
       nodeBuilder = nodeBuilder,
       finishHandlers = region.finishHandlers,
-      event = event
+      event = event,
+      extensionPoints = extensionPoints,
     )
     ResolvedTransition(
       targetPaths = acc.targetPaths + resolved.targetPaths,
@@ -42,7 +44,8 @@ private fun resolveTransitionInRegion(
   nodes: Map<Path, Node>,
   nodeBuilder: NodeBuilder,
   finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
-  event: Event
+  event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
 ): ResolvedTransition {
   return when (transition) {
     is EnqueueEvent -> ResolvedTransition(
@@ -89,7 +92,8 @@ private fun resolveTransitionInRegion(
       val finishTransition = handler(transition.result)
       resolveTransitionInRegion(
         schema, regionId, finishTransition, parentFlowPath, activePath, nodes, nodeBuilder, finishHandlers,
-        DoneEvent
+        DoneEvent,
+        extensionPoints,
       )
     }
     is Stay -> {
@@ -102,7 +106,9 @@ private fun resolveTransitionInRegion(
     }
     is Ignore -> {
       if (path.isRootInRegion(regionId)) {
-        val resolved = maybeResolveBackEvent(schema, regionId, activePath, nodes, nodeBuilder, finishHandlers, event)
+        val resolved = maybeResolveBackEvent(
+          schema, regionId, activePath, nodes, nodeBuilder, finishHandlers, event, extensionPoints
+        )
         if (resolved == null) {
           println("no transition for event \"${event}\", ignoring")
           ResolvedTransition(
@@ -116,8 +122,8 @@ private fun resolveTransitionInRegion(
         val parentPath = path.dropLast(1)
         val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
         resolveTransitionInRegion(
-          schema, regionId, buildTransition(event, node),
-          parentPath, activePath, nodes, nodeBuilder, finishHandlers, event
+          schema, regionId, buildTransition(event, node, parentPath, extensionPoints),
+          parentPath, activePath, nodes, nodeBuilder, finishHandlers, event, extensionPoints
         )
       }
     }
@@ -132,6 +138,7 @@ private fun maybeResolveBackEvent(
   nodeBuilder: NodeBuilder,
   finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
   event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
 ): ResolvedTransition? {
   if (event != Event.Back || activePath.segments.size <= 1) {
     return null
@@ -157,13 +164,16 @@ private fun maybeResolveBackEvent(
     nodes,
     nodeBuilder,
     finishHandlers,
-    Event.Back
+    Event.Back,
+    extensionPoints,
   )
 }
 
 private fun buildTransition(
   event: Event,
-  node: Node
+  node: Node,
+  path: Path,
+  extensionPoints: List<NodeExtensionPoint>,
 ): Transition {
   return if (event is InitEvent) {
     when (node) {
@@ -175,6 +185,7 @@ private fun buildTransition(
       }
     }
   } else {
+    extensionPoints.forEach { it.onPreTransition(node, path, event) }
     when (node) {
       is FlowNode<*> -> {
         node.transition(event)
@@ -182,6 +193,8 @@ private fun buildTransition(
       is ScreenNode -> {
         node.transition(event)
       }
+    }.also { transition ->
+      extensionPoints.forEach { it.onPostTransition(node, path, event, transition) }
     }
   }
 }

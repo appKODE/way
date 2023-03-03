@@ -6,9 +6,6 @@ import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import ru.kode.way.nav01.NavService01Schema
 import ru.kode.way.nav02.NavService02Schema
 import ru.kode.way.nav04.NavService04Schema
@@ -895,24 +892,3 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 })
-
-private val NavigationState.active get() = this.regions.values.first().active.toString()
-private val NavigationState.alive get() = this.regions.values.first().alive.map { it.toString() }
-private val NavigationState.nodes get() = this.regions.values.first().nodes
-private val NavigationState.aliveNodes: Map<String, Node> get() {
-  val m = nodes.toMutableMap()
-  m.keys.retainAll(this.regions.values.first().alive.toSet())
-  return m.mapKeys { it.key.toString() }
-}
-
-private fun NavigationService<*>.collectTransitions(rootNodePayload: Any? = null): Flow<NavigationState> {
-  return callbackFlow {
-    val listener = { state: NavigationState ->
-      trySend(state)
-      Unit
-    }
-    this@collectTransitions.addTransitionListener(listener)
-    start(rootNodePayload)
-    awaitClose { this@collectTransitions.removeTransitionListener(listener) }
-  }
-}

@@ -5,7 +5,10 @@ class NavigationService<R : Any>(
   private val nodeBuilder: NodeBuilder,
   private val onFinish: (R) -> FlowTransition<Unit>
 ) {
-  private var state: NavigationState = NavigationState(_regions = mutableMapOf())
+  private var state: NavigationState = NavigationState(
+    _regions = mutableMapOf(),
+    _nodeExtensionPoints = mutableListOf()
+  )
   private val listeners = ArrayList<(NavigationState) -> Unit>()
 
   fun start(rootFlowPayload: Any? = null) {
@@ -23,6 +26,14 @@ class NavigationService<R : Any>(
     listeners.remove(listener)
   }
 
+  fun addNodeExtensionPoint(point: NodeExtensionPoint) {
+    state._nodeExtensionPoints.add(point)
+  }
+
+  fun removeNodeExtensionPoint(point: NodeExtensionPoint) {
+    state._nodeExtensionPoints.remove(point)
+  }
+
   private fun transition(state: NavigationState, event: Event): NavigationState {
     check(event is InitEvent || state.isInitialized()) {
       "internal error: no regions in state after Event.Init"
@@ -37,7 +48,7 @@ class NavigationService<R : Any>(
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
-        regionRoot.onEntry()
+        callOnEntry(regionRoot, regionRootPath, state._nodeExtensionPoints)
         state._regions[regionId] = Region(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
           _active = regionRootPath,
@@ -49,11 +60,12 @@ class NavigationService<R : Any>(
       }
     }
     println("on [$event] transition")
-    val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event)
+    val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
+    val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also {
       storeFinishHandlers(it, resolvedTransition)
-      synchronizeNodes(it, resolvedTransition.payloads)
+      synchronizeNodes(it, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(schema, it)
     }
@@ -88,13 +100,25 @@ class NavigationService<R : Any>(
     }
   }
 
-  private fun synchronizeNodes(state: NavigationState, payloads: Map<Path, Any>) {
-    state._regions.values.forEach { region ->
-      region._nodes.forEach { (path, node) -> if (!region.alive.contains(path)) node.onExit() }
+  private fun synchronizeNodes(
+    state: NavigationState,
+    payloads: Map<Path, Any>,
+    previousAlive: Map<RegionId, List<Path>>
+  ) {
+    state._regions.forEach { (regionId, region) ->
+      previousAlive[regionId].orEmpty().reversed().forEach { path ->
+        if (!region.alive.contains(path)) {
+          val node = region._nodes[path] ?: error("state doesn't contain node at \"$path\"")
+          callOnExit(node, path, state._nodeExtensionPoints)
+        }
+      }
       region.alive.forEach { path ->
         region._nodes.keys.retainAll(region.alive.toSet())
         if (!region._nodes.containsKey(path)) {
-          region._nodes[path] = nodeBuilder.build(path, payloads).also { it.onEntry() }
+          region._nodes[path] = nodeBuilder.build(path, payloads)
+            .also {
+              callOnEntry(it, path, state._nodeExtensionPoints)
+            }
         }
       }
       region._finishHandlers.keys.retainAll(region.alive.toSet())
@@ -126,3 +150,15 @@ private fun NavigationState.isInitialized(): Boolean {
 
 // TODO be more sensible, actually calculate!
 private fun Schema.regionCount() = 1
+
+private fun callOnEntry(node: Node, path: Path, extensionPoints: List<NodeExtensionPoint>) {
+  extensionPoints.forEach { it.onPreEntry(node, path) }
+  node.onEntry()
+  extensionPoints.forEach { it.onPostEntry(node, path) }
+}
+
+private fun callOnExit(node: Node, path: Path, extensionPoints: List<NodeExtensionPoint>) {
+  extensionPoints.forEach { it.onPreExit(node, path) }
+  node.onExit()
+  extensionPoints.forEach { it.onPostExit(node, path) }
+}

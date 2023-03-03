@@ -1,6 +1,10 @@
 package ru.kode.way.hook
 
+import ru.kode.way.Event
+import ru.kode.way.Ignore
+import ru.kode.way.NavigationService
 import ru.kode.way.ScreenNode
+import ru.kode.way.ScreenTransition
 
 /**
  * A basic screen node with hooks support.
@@ -8,9 +12,13 @@ import ru.kode.way.ScreenNode
  *
  * Requires [NodeHooksSupportExtensionPoint] to be added to [NavigationService] to work.
  */
-abstract class BaseScreenNode<R : Any> : ScreenNode, HasScreenNodeHooks {
+abstract class BaseScreenNode : ScreenNode, HasScreenNodeHooks {
   private val _hooks = mutableListOf<ScreenNodeHook>()
   override val hooks: List<ScreenNodeHook> = _hooks
+
+  override fun transition(event: Event): ScreenTransition {
+    return Ignore
+  }
 
   override fun addHook(hook: ScreenNodeHook) {
     _hooks.add(hook)

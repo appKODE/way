@@ -7,13 +7,11 @@ sealed interface ScreenTransition : Transition
 
 data class NavigateTo(
   val targets: Set<Target>,
-  val resolution: PathResolution = PathResolution.Relative
 ) : FlowTransition<Nothing>, ScreenTransition {
 
   constructor(
     target: Target,
-    resolution: PathResolution = PathResolution.Relative
-  ) : this(setOf(target), resolution)
+  ) : this(setOf(target))
 }
 
 data class Finish<R : Any>(val result: R) : FlowTransition<R>
@@ -28,8 +26,3 @@ object Stay : FlowTransition<Nothing>, ScreenTransition
  * Ignores event and lets any parent node with a defined handler to process it
  */
 object Ignore : FlowTransition<Nothing>, ScreenTransition
-
-enum class PathResolution {
-  Absolute,
-  Relative
-}

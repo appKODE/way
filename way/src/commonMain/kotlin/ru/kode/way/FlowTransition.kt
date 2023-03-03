@@ -25,7 +25,7 @@ data class EnqueueEvent(val event: Event) : FlowTransition<Nothing>, ScreenTrans
 object Stay : FlowTransition<Nothing>, ScreenTransition
 
 /**
- * Ignores event and lets any with a defined handler to process it
+ * Ignores event and lets any parent node with a defined handler to process it
  */
 object Ignore : FlowTransition<Nothing>, ScreenTransition
 

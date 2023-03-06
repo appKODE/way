@@ -63,11 +63,13 @@ class NavigationService<R : Any>(
     val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
+    val previousActivePath = state._regions.mapValues { it.value.active }
     return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also {
       storeFinishHandlers(it, resolvedTransition)
       synchronizeNodes(it, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(schema, it)
+      callOnActiveChildNodeChanged(schema, state, previousActivePath)
     }
   }
 
@@ -161,4 +163,48 @@ private fun callOnExit(node: Node, path: Path, extensionPoints: List<NodeExtensi
   extensionPoints.forEach { it.onPreExit(node, path) }
   node.onExit()
   extensionPoints.forEach { it.onPostExit(node, path) }
+}
+
+private fun callOnActiveChildNodeChanged(
+  schema: Schema,
+  state: NavigationState,
+  previousActivePath: Map<RegionId, Path>,
+) {
+  // example:
+  // previousActive = app.permissions.intro.login.credentials
+  // newActive = app.permissions.outro.login.otp.result_report
+  // where 'app', 'permissions' and 'login' are flows, so we must report
+  // - to 'permissions' that 'intro' changed to 'outro'
+  // - to 'login' that 'credentials' changed to 'otp.result_report'
+  // - nothing is reported to 'app' because no changes there
+  state.regions.forEach { (regionId, region) ->
+    val previousPath = previousActivePath[regionId] ?: error("no region with id=$regionId")
+    val previousChildren = mutableMapOf<Path, Path>()
+    previousPath.toSteps().drop(1)
+      .forEach { path ->
+        val parentFlow = findParentFlowPath(schema, regionId, path)
+          ?: error("no parent path for \"$path\"")
+        previousChildren[parentFlow] = path
+      }
+    val newChildren = mutableMapOf<Path, Path>()
+    region.active.toSteps().drop(1)
+      .forEach { path ->
+        val parentFlow = findParentFlowPath(schema, regionId, path)
+          ?: error("no parent path for \"$path\"")
+        newChildren[parentFlow] = path
+      }
+    newChildren.forEach { (flowPath, childPath) ->
+      if (previousChildren[flowPath] == null || previousChildren[flowPath] != newChildren[childPath]) {
+        when (val node = region.nodes[flowPath] ?: error("expected node at path $flowPath")) {
+          is FlowNode<*> -> {
+            node.onActiveChildChanged(
+              childPath.drop(flowPath.length - 1),
+              region.nodes[childPath] ?: error("no node at \"$childPath\"")
+            )
+          }
+          is ScreenNode -> error("expected flow node at $flowPath")
+        }
+      }
+    }
+  }
 }

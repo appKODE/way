@@ -1,20 +1,22 @@
 package ru.kode.way
 
-class TestFlowNode(
+open class TestFlowNode(
   initialTarget: Target,
-  private val onEntryImpl: () -> Unit = {},
-  private val onExitImpl: () -> Unit = {},
+  onEntryImpl: () -> Unit = {},
+  onExitImpl: () -> Unit = {},
   transitions: List<TestFlowTransitionSpec> = emptyList(),
   val payload: Any? = null,
-) : GenericTestFlowNode<Unit>(initialTarget, Unit, onEntryImpl, onExitImpl, transitions)
+  override val tag: String? = null,
+) : GenericTestFlowNode<Unit>(initialTarget, Unit, onEntryImpl, onExitImpl, transitions), HasTag
 
-class TestFlowNodeWithResult<R : Any>(
+open class TestFlowNodeWithResult<R : Any>(
   initialTarget: Target,
   override val dismissResult: R,
-  private val onEntryImpl: () -> Unit = {},
-  private val onExitImpl: () -> Unit = {},
-  transitions: List<TestFlowTransitionSpec> = emptyList()
-) : GenericTestFlowNode<R>(initialTarget, dismissResult, onEntryImpl, onExitImpl, transitions)
+  onEntryImpl: () -> Unit = {},
+  onExitImpl: () -> Unit = {},
+  transitions: List<TestFlowTransitionSpec> = emptyList(),
+  override val tag: String? = null,
+) : GenericTestFlowNode<R>(initialTarget, dismissResult, onEntryImpl, onExitImpl, transitions), HasTag
 
 open class GenericTestFlowNode<R : Any>(
   initialTarget: Target,
@@ -50,7 +52,8 @@ class TestScreenNode(
   private val transitions: List<TestScreenTransitionSpec> = emptyList(),
   private val onEntryImpl: () -> Unit = {},
   private val onExitImpl: () -> Unit = {},
-) : ScreenNode {
+  override val tag: String? = null,
+) : ScreenNode, HasTag {
   override fun transition(event: Event): ScreenTransition {
     return event.whenScreenEvent { e: TestEvent ->
       if (transitions.isEmpty()) Ignore else {
@@ -68,4 +71,8 @@ class TestScreenNode(
     super.onExit()
     onExitImpl()
   }
+}
+
+interface HasTag {
+  val tag: String?
 }

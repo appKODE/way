@@ -71,9 +71,7 @@ class NavigationService<R : Any>(
         )
       }
     }
-    println("on [$event] transition")
     val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event, state._nodeExtensionPoints)
-    println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     val previousActivePath = state._regions.mapValues { it.value.active }
     return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also { navigationState ->

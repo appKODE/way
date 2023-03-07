@@ -54,5 +54,7 @@ publishing {
 
 dependencies {
   api(libs.composeUi)
+  api(libs.composeAnimation)
+  api(libs.composeFoundation)
   implementation(project(":way"))
 }

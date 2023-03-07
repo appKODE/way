@@ -251,7 +251,7 @@ private fun findParentFlowPathInclusive(schema: Schema, regionId: RegionId, path
 /**
  * Returns a parent flow path of a [path]. If [path] is has only one segment, returns null.
  */
-internal fun findParentFlowPath(schema: Schema, regionId: RegionId, path: Path): Path? {
+private fun findParentFlowPath(schema: Schema, regionId: RegionId, path: Path): Path? {
   return if (path.segments.size == 1) {
     null
   } else {

@@ -1,9 +1,9 @@
 # Changelog
 
-## 0.8.2 - 2023-03-06
+## 0.8.2 - 2023-03-07
 
-* Add `onActiveChildChanged` to `FlowNode`. This is an experiment. Maybe removed in future
 * Add support for extending nodes through composition: provide `NodeExtensions` mechanism
+* Add basic support for animated transitions in `NodeHost` for `way-compose` 
 * Implement node hooks as one of `NodeExtension`s. Use `BaseFlowNode`, `BaseScreenNode` classes to take advantage of node hooks 
 * Remove excessive logging in `way-gradle-plugin`
 

@@ -1,4 +1,4 @@
-package ru.kode.way.hook
+package ru.kode.way.extension.node.hook
 
 interface ScreenNodeHook {
   fun onPreEntry()

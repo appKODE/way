@@ -10,6 +10,7 @@ class NavigationService<R : Any>(
     _nodeExtensionPoints = mutableListOf()
   )
   private val listeners = ArrayList<(NavigationState) -> Unit>()
+  private val serviceExtensionPoints = mutableListOf<ServiceExtensionPoint<R>>()
 
   fun start(rootFlowPayload: Any? = null) {
     sendEvent(InitEvent(rootFlowPayload))
@@ -34,9 +35,20 @@ class NavigationService<R : Any>(
     state._nodeExtensionPoints.remove(point)
   }
 
+  fun addServiceExtensionPoint(point: ServiceExtensionPoint<R>) {
+    serviceExtensionPoints.add(point)
+  }
+
+  fun removeServiceExtensionPoint(point: ServiceExtensionPoint<R>) {
+    serviceExtensionPoints.remove(point)
+  }
+
   private fun transition(state: NavigationState, event: Event): NavigationState {
     check(event is InitEvent || state.isInitialized()) {
       "internal error: no regions in state after Event.Init"
+    }
+    serviceExtensionPoints.forEach {
+      it.onPreTransition(this, event, state.copy())
     }
     if (event is InitEvent) {
       schema.regions.forEach { regionId ->
@@ -64,12 +76,13 @@ class NavigationService<R : Any>(
     println("=> resolved to ${resolvedTransition.targetPaths.values.first()}")
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     val previousActivePath = state._regions.mapValues { it.value.active }
-    return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also {
-      storeFinishHandlers(it, resolvedTransition)
-      synchronizeNodes(it, resolvedTransition.payloads, previousAlive)
+    return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also { navigationState ->
+      storeFinishHandlers(navigationState, resolvedTransition)
+      synchronizeNodes(navigationState, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
-      checkSchemaValidity(schema, it)
+      checkSchemaValidity(schema, navigationState)
       callOnActiveChildNodeChanged(schema, state, previousActivePath)
+      serviceExtensionPoints.forEach { it.onPostTransition(this, event, state.copy()) }
     }
   }
 

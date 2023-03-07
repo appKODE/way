@@ -24,6 +24,14 @@ class NavigationState internal constructor(
   override fun hashCode(): Int {
     return _regions.hashCode()
   }
+
+  // TODO @RemoveMutable remove if switch away from mutable collections happens
+  internal fun copy(): NavigationState {
+    return NavigationState(
+      _regions = this.regions.mapValuesTo(mutableMapOf()) { it.value.copy() },
+      _nodeExtensionPoints = this._nodeExtensionPoints.toMutableList()
+    )
+  }
 }
 
 class Region internal constructor(
@@ -49,6 +57,16 @@ class Region internal constructor(
 
   // TODO rename active -> attached/top/current, alive -> active?
   val alive: List<Path> get() = _alive
+
+  // TODO @RemoveMutable remove if switch away from mutable collections happens
+  internal fun copy(): Region {
+    return Region(
+      _nodes = this._nodes.toMutableMap(),
+      _active = this._active,
+      _alive = this._alive.toMutableList(),
+      _finishHandlers = this._finishHandlers.toMutableMap()
+    )
+  }
 
   override fun toString(): String {
     return "Region(_nodes=$_nodes, _active=$_active)"

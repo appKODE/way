@@ -600,7 +600,7 @@ class NavigationServiceTest : ShouldSpec({
     val schema = NavService12Schema(NavService12LoginSchema())
     val nodeBuilder = AppNodeBuilder(
       object : AppNodeBuilder.Factory {
-        override fun createFlowNode(timeout: Int) = TestFlowNode(
+        override fun createRootNode(timeout: Int) = TestFlowNode(
           initialTarget = Target.app12.page1(Charsets.UTF_32),
           payload = timeout,
           transitions = listOf(
@@ -614,7 +614,7 @@ class NavigationServiceTest : ShouldSpec({
         override fun createLoginNodeBuilder(): NodeBuilder {
           return LoginNodeBuilder(
             object : LoginNodeBuilder.Factory {
-              override fun createFlowNode(defaultUserName: String) = TestFlowNode(
+              override fun createRootNode(defaultUserName: String) = TestFlowNode(
                 initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
                 payload = defaultUserName,
                 transitions = listOf(
@@ -858,7 +858,7 @@ class NavigationServiceTest : ShouldSpec({
       NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
       ru.kode.way.nav09.AppNodeBuilder(
         object : ru.kode.way.nav09.AppNodeBuilder.Factory {
-          override fun createFlowNode(): FlowNode<*> {
+          override fun createRootNode(): FlowNode<*> {
             return TestFlowNode(initialTarget = Target.app09.permissions { Ignore })
           }
 
@@ -867,7 +867,7 @@ class NavigationServiceTest : ShouldSpec({
           override fun createPermissionsNodeBuilder(): NodeBuilder {
             return PermissionsNodeBuilder(
               object : PermissionsNodeBuilder.Factory {
-                override fun createFlowNode(): FlowNode<*> {
+                override fun createRootNode(): FlowNode<*> {
                   createChildNodeCallCount += 1
                   return TestFlowNode(initialTarget = Target.permissions09.intro)
                 }

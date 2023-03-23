@@ -27,7 +27,7 @@ public class Nb01appNodeBuilder(
       """illegal path build requested for "nb01app" node: $path"""
     }
     return when {
-      path == targetOrError("nb01app") -> nodeFactory.createFlowNode()
+      path == targetOrError("nb01app") -> nodeFactory.createRootNode()
       path.startsWith(targetOrError("nb01login")) -> {
         val targetPath = targetOrError("nb01login")
         _nb01loginNodeBuilder.build(path.drop(targetPath.length - 1),
@@ -54,7 +54,7 @@ public class Nb01appNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*>
+    public fun createRootNode(): FlowNode<*>
 
     public fun createNb01loginNodeBuilder(): NodeBuilder
 

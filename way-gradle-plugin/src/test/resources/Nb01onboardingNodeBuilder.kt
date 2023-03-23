@@ -37,7 +37,7 @@ public class Nb01onboardingNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*>
+    public fun createRootNode(): FlowNode<*>
 
     public fun createNb01introNode(): ScreenNode
   }

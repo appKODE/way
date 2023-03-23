@@ -294,7 +294,7 @@ private fun buildGetPayloadFunSpec(): FunSpec {
     .build()
 }
 
-private const val NODE_FACTORY_FLOW_NODE_BUILDER_NAME = "createFlowNode"
+private const val NODE_FACTORY_FLOW_NODE_BUILDER_NAME = "createRootNode"
 private const val NODE_FACTORY_PARAMETER_NAME = "nodeFactory"
 private const val SCHEMA_PARAMETER_NAME = "schema"
 private const val GET_TARGET_FUN_NAME = "targetOrError"

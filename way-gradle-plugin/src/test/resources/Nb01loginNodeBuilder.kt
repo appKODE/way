@@ -37,7 +37,7 @@ public class Nb01loginNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*>
+    public fun createRootNode(): FlowNode<*>
 
     public fun createNb01credentialsNode(): ScreenNode
   }

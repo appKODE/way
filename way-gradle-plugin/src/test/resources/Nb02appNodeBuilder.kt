@@ -20,7 +20,7 @@ public class Nb02appNodeBuilder(
       """illegal path build requested for "nb02app" node: $path"""
     }
     return when {
-      path == targetOrError("nb02app") -> nodeFactory.createFlowNode()
+      path == targetOrError("nb02app") -> nodeFactory.createRootNode()
       path == targetOrError("nb02screen3") -> nodeFactory.createNb02screen3Node()
       path == targetOrError("nb02screen1") -> nodeFactory.createNb02screen1Node()
       path == targetOrError("nb02screen2") -> nodeFactory.createNb02screen2Node()
@@ -40,7 +40,7 @@ public class Nb02appNodeBuilder(
   }
 
   public interface Factory {
-    public fun createFlowNode(): FlowNode<*>
+    public fun createRootNode(): FlowNode<*>
 
     public fun createNb02screen3Node(): ScreenNode
 

@@ -73,7 +73,7 @@ class NavigationService<R : Any>(
     }
     val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
-    return calculateAliveNodes(schema, state, resolvedTransition.targetPaths).also { navigationState ->
+    return calculateAliveNodes(state, resolvedTransition.targetPaths).also { navigationState ->
       storeFinishHandlers(navigationState, resolvedTransition)
       synchronizeNodes(navigationState, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?

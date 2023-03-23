@@ -53,7 +53,7 @@ class Region internal constructor(
   /**
    * @see _finishHandlers documentation
    */
-  val finishHandlers: Map<Path, OnFinishHandler<Any, Any>> = _finishHandlers
+  internal val finishHandlers: Map<Path, OnFinishHandler<Any, Any>> = _finishHandlers
 
   // TODO rename active -> attached/top/current, alive -> active?
   val alive: List<Path> get() = _alive

@@ -30,5 +30,15 @@ class SchemaGenerateTest : ShouldSpec({
       expectedOutputFiles = listOf("schema-composition02.kt"),
       testName = "schema composition: schemas mixed with nodes",
     ),
+    TestCase(
+      schemaFile = "schema-parallel01.dot",
+      expectedOutputFiles = listOf("schema-parallel01.kt"),
+      testName = "basic parallel flow schema",
+    ),
+    TestCase(
+      schemaFile = "schema-parallel02.dot",
+      expectedOutputFiles = listOf("schema-parallel02.kt"),
+      testName = "multiple parallel in one schema",
+    ),
   ) { runTest(it) }
 })

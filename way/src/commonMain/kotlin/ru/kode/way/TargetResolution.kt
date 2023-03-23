@@ -153,6 +153,10 @@ private fun maybeResolveBackEvent(
     Schema.NodeType.Screen -> {
       NavigateTo(ScreenTarget(newPath))
     }
+    // TODO @Parallel add back-event resolve
+    Schema.NodeType.Parallel -> {
+      TODO()
+    }
   }
 
   return resolveTransitionInRegion(
@@ -180,6 +184,9 @@ private fun buildTransition(
       is FlowNode<*> -> {
         NavigateTo(node.initial)
       }
+      is ParallelNode -> {
+        error("root parallel nodes are not supported, please use a \"flow\" node")
+      }
       is ScreenNode -> {
         error("initial event is expected to be received on flow node only")
       }
@@ -188,6 +195,9 @@ private fun buildTransition(
     extensionPoints.forEach { it.onPreTransition(node, path, event) }
     when (node) {
       is FlowNode<*> -> {
+        node.transition(event)
+      }
+      is ParallelNode -> {
         node.transition(event)
       }
       is ScreenNode -> {

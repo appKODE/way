@@ -29,7 +29,7 @@ public class TestAppSchema(
           ?: loginSchema.target(loginSchema.regions.first(), segment)
           ?.let { Path("app").append(it) }
           ?: mainSchema.target(mainSchema.regions.first(), segment)
-          ?.let { Path("app","login").append(it) }
+          ?.let { Path("app", "login").append(it) }
         }
       }
     }
@@ -41,9 +41,9 @@ public class TestAppSchema(
   public override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
     regions[0] -> {
       when {
-        path.startsWith(Path("app","login","main")) ->
-            mainSchema.nodeType(mainSchema.regions.first(), path.removePrefix(Path("app","login")))
-        path.startsWith(Path("app","login")) -> loginSchema.nodeType(loginSchema.regions.first(),
+        path.startsWith(Path("app", "login", "main")) ->
+            mainSchema.nodeType(mainSchema.regions.first(), path.removePrefix(Path("app", "login")))
+        path.startsWith(Path("app", "login")) -> loginSchema.nodeType(loginSchema.regions.first(),
             path.removePrefix(Path("app")))
         path.startsWith(Path("app")) -> appSchema.nodeType(appSchema.regions.first(),
             path.removePrefix(Path()))

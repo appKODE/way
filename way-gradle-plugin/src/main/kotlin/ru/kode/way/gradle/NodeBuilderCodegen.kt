@@ -69,7 +69,13 @@ internal fun buildNodeBuilderTypeSpec(
     .addFunction(
       FunSpec.builder(NODE_FACTORY_FLOW_NODE_BUILDER_NAME)
         .addModifiers(KModifier.ABSTRACT)
-        .returns(libraryClassName("FlowNode").parameterizedBy(STAR))
+        .returns(
+          when (flow) {
+            is Node.Flow.Local -> libraryClassName("FlowNode").parameterizedBy(STAR)
+            is Node.Flow.LocalParallel -> libraryClassName("ParallelNode")
+            is Node.Flow.Imported -> error("unexpected node type: ${flow::class.simpleName}")
+          }
+        )
         .apply {
           if (flow.parameter != null) {
             addParameter(flow.parameter!!.name, ClassName.bestGuess(flow.parameter!!.type))
@@ -136,7 +142,6 @@ internal fun buildNodeBuilderTypeSpec(
         factoryTypeSpecBuilder.addFunction(screenBuilderFunSpec)
         nodeBuilders[node] = screenBuilderFunSpec
       }
-      is Node.Parallel -> TODO()
     }
   }
   return typeSpecBuilder
@@ -247,7 +252,6 @@ private fun createBuildFunctionBody(
               )
             }
           }
-          is Node.Parallel -> TODO()
         }
       }
       addStatement("else -> error(%P)", "illegal path build requested for \"${flow.id}\" node: \$path")

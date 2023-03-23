@@ -24,13 +24,13 @@ public class TestAppSchema(
     regions[0] -> {
       when(segment.name) {
         "app" -> Path("app")
-        "page1" -> Path("app","page1")
-        "page2" -> Path("app","page1","page2")
+        "page1" -> Path("app", "page1")
+        "page2" -> Path("app", "page1", "page2")
         else ->  {
           loginSchema.target(loginSchema.regions.first(), segment)
-          ?.let { Path("app","page1","page2").append(it) }
+          ?.let { Path("app", "page1", "page2").append(it) }
           ?: mainSchema.target(mainSchema.regions.first(), segment)
-          ?.let { Path("app","page1","page2","login").append(it) }
+          ?.let { Path("app", "page1", "page2", "login").append(it) }
         }
       }
     }
@@ -43,14 +43,14 @@ public class TestAppSchema(
     regions[0] -> {
       when {
         path == Path("app") -> Schema.NodeType.Flow
-        path == Path("app","page1") -> Schema.NodeType.Screen
-        path == Path("app","page1","page2") -> Schema.NodeType.Screen
-        path.startsWith(Path("app","page1","page2","login","main")) ->
-            mainSchema.nodeType(mainSchema.regions.first(),
-            path.removePrefix(Path("app","page1","page2","login")))
-        path.startsWith(Path("app","page1","page2","login")) ->
-            loginSchema.nodeType(loginSchema.regions.first(),
-            path.removePrefix(Path("app","page1","page2")))
+        path == Path("app", "page1") -> Schema.NodeType.Screen
+        path == Path("app", "page1", "page2") -> Schema.NodeType.Screen
+        path.startsWith(Path("app", "page1", "page2", "login", "main")) ->
+            mainSchema.nodeType(mainSchema.regions.first(), path.removePrefix(Path("app", "page1",
+            "page2", "login")))
+        path.startsWith(Path("app", "page1", "page2", "login")) ->
+            loginSchema.nodeType(loginSchema.regions.first(), path.removePrefix(Path("app", "page1",
+            "page2")))
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

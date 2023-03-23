@@ -18,9 +18,9 @@ public class TestAppSchema : Schema {
     regions[0] -> {
       when(segment.name) {
         "permissions" -> Path("permissions")
-        "screen1" -> Path("permissions","screen1")
-        "screen2" -> Path("permissions","screen1","screen2")
-        "screen3" -> Path("permissions","screen1","screen2","screen3")
+        "screen1" -> Path("permissions", "screen1")
+        "screen2" -> Path("permissions", "screen1", "screen2")
+        "screen3" -> Path("permissions", "screen1", "screen2", "screen3")
         else -> null
       }
     }
@@ -33,9 +33,9 @@ public class TestAppSchema : Schema {
     regions[0] -> {
       when {
         path == Path("permissions") -> Schema.NodeType.Flow
-        path == Path("permissions","screen1") -> Schema.NodeType.Screen
-        path == Path("permissions","screen1","screen2") -> Schema.NodeType.Screen
-        path == Path("permissions","screen1","screen2","screen3") -> Schema.NodeType.Screen
+        path == Path("permissions", "screen1") -> Schema.NodeType.Screen
+        path == Path("permissions", "screen1", "screen2") -> Schema.NodeType.Screen
+        path == Path("permissions", "screen1", "screen2", "screen3") -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

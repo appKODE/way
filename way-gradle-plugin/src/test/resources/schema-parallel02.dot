@@ -1,0 +1,16 @@
+digraph TestApp {
+  schemaFileName = "schema-parallel02"
+
+  // Multiple parallel nodes in one file
+
+  main [type = parallel]
+
+  one [type = parallel]
+  two [type = flow]
+  alpha [type = flow]
+  beta [type = flow]
+
+  main -> one -> alpha -> introa1
+  main -> one -> beta -> introb1
+  main -> two -> intro1
+}

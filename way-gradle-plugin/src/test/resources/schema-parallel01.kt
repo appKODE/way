@@ -8,7 +8,8 @@ import ru.kode.way.Schema
 import ru.kode.way.Segment
 
 public class TestAppSchema : Schema {
-  public override val regions: List<RegionId> = listOf(RegionId(Path("app")))
+  public override val regions: List<RegionId> = listOf(RegionId(Path("main", "one")),
+      RegionId(Path("main", "two")))
 
   public override fun children(regionId: RegionId): Set<Segment> = emptySet()
 
@@ -17,10 +18,16 @@ public class TestAppSchema : Schema {
   public override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
     regions[0] -> {
       when(segment.name) {
-        "app" -> Path("app")
-        "screen1" -> Path("app", "screen1")
-        "screen2" -> Path("app", "screen1", "screen2")
-        "screen3" -> Path("app", "screen1", "screen2", "screen3")
+        "one" -> Path("main", "one")
+        "intro1" -> Path("main", "one", "intro1")
+        "intro11" -> Path("main", "one", "intro1", "intro11")
+        else -> null
+      }
+    }
+    regions[1] -> {
+      when(segment.name) {
+        "two" -> Path("main", "two")
+        "intro2" -> Path("main", "two", "intro2")
         else -> null
       }
     }
@@ -32,10 +39,12 @@ public class TestAppSchema : Schema {
   public override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
     regions[0] -> {
       when {
-        path == Path("app") -> Schema.NodeType.Flow
-        path == Path("app", "screen1") -> Schema.NodeType.Screen
-        path == Path("app", "screen1", "screen2") -> Schema.NodeType.Screen
-        path == Path("app", "screen1", "screen2", "screen3") -> Schema.NodeType.Screen
+        path == Path("main") -> Schema.NodeType.Parallel
+        path == Path("main", "one") -> Schema.NodeType.Flow
+        path == Path("main", "two") -> Schema.NodeType.Flow
+        path == Path("main", "one", "intro1") -> Schema.NodeType.Screen
+        path == Path("main", "one", "intro1", "intro11") -> Schema.NodeType.Screen
+        path == Path("main", "two", "intro2") -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

@@ -23,8 +23,9 @@ private class Visitor : DotBaseVisitor<Unit>() {
   private var customTargetsFileName: String? = null
   private var customPackage: String? = null
 
-  private val adjacencyList: MutableMap<String, MutableList<String>> = mutableMapOf()
+  private val adjacencyList: MutableMap<String, MutableSet<String>> = mutableMapOf()
   private val flowNodes: MutableList<String> = mutableListOf()
+  private val parallelNodes: MutableList<String> = mutableListOf()
   private val schemaNodes: MutableList<String> = mutableListOf()
   private val flowNodeResultTypes: MutableMap<String, String> = mutableMapOf()
   private val nodeParameters: MutableMap<String, Parameter> = mutableMapOf()
@@ -37,6 +38,9 @@ private class Visitor : DotBaseVisitor<Unit>() {
         }
         schemaNodes.contains(this) -> {
           Node.Flow.Imported(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+        }
+        parallelNodes.contains(this) -> {
+          Node.Flow.LocalParallel(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
         }
         else -> Node.Screen(this, nodeParameters[this])
       }
@@ -77,8 +81,10 @@ private class Visitor : DotBaseVisitor<Unit>() {
       .any { (id, value) -> id.asString() == ATTR_NAME_NODE_TYPE && value.asString() == ATTR_VALUE_NODE_TYPE_FLOW }
     val isSchemaNode = attrs
       .any { (id, value) -> id.asString() == ATTR_NAME_NODE_TYPE && value.asString() == ATTR_VALUE_NODE_TYPE_SCHEMA }
+    val isParallelNode = attrs
+      .any { (id, value) -> id.asString() == ATTR_NAME_NODE_TYPE && value.asString() == ATTR_VALUE_NODE_TYPE_PARALLEL }
     if (isFlowNode) {
-      adjacencyList.getOrPut(nodeId) { mutableListOf() }
+      adjacencyList.getOrPut(nodeId) { mutableSetOf() }
       flowNodes.add(nodeId)
       val resultType = attrs
         .find { (id, _) -> id.asString() == ATTR_NAME_FLOW_RESULT_TYPE }
@@ -88,7 +94,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
         flowNodeResultTypes[nodeId] = resultType
       }
     } else if (isSchemaNode) {
-      adjacencyList.getOrPut(nodeId) { mutableListOf() }
+      adjacencyList.getOrPut(nodeId) { mutableSetOf() }
       schemaNodes.add(nodeId)
       val resultType = attrs
         .find { (id, _) -> id.asString() == ATTR_NAME_FLOW_RESULT_TYPE }
@@ -97,6 +103,9 @@ private class Visitor : DotBaseVisitor<Unit>() {
       if (resultType != null) {
         flowNodeResultTypes[nodeId] = resultType
       }
+    } else if (isParallelNode) {
+      adjacencyList.getOrPut(nodeId) { mutableSetOf() }
+      parallelNodes.add(nodeId)
     }
 
     val parameterType = attrs
@@ -116,16 +125,16 @@ private class Visitor : DotBaseVisitor<Unit>() {
     val nodeId = ctx.node_id().id_().asString()
     super.visitEdge_stmt(ctx)
     val rhsFirstNode = ctx.edgeRHS().node_id(0).id_().asString()
-    adjacencyList.getOrPut(nodeId) { mutableListOf() }
-    adjacencyList.getOrPut(rhsFirstNode) { mutableListOf() }
+    adjacencyList.getOrPut(nodeId) { mutableSetOf() }
+    adjacencyList.getOrPut(rhsFirstNode) { mutableSetOf() }
     adjacencyList[nodeId]?.add(rhsFirstNode)
   }
 
   override fun visitEdgeRHS(ctx: DotParser.EdgeRHSContext) {
     val nodeIds = ctx.node_id()
     nodeIds.windowed(2).forEach { (id1, id2) ->
-      adjacencyList.getOrPut(id1.id_().asString()) { mutableListOf() }
-      adjacencyList.getOrPut(id2.id_().asString()) { mutableListOf() }
+      adjacencyList.getOrPut(id1.id_().asString()) { mutableSetOf() }
+      adjacencyList.getOrPut(id2.id_().asString()) { mutableSetOf() }
       adjacencyList[id1.id_().asString()]?.add(id2.text)
     }
     super.visitEdgeRHS(ctx)
@@ -157,6 +166,12 @@ internal sealed class Node {
       override val parameter: Parameter?,
     ) : Flow()
 
+    data class LocalParallel(
+      override val id: String,
+      override val resultType: String,
+      override val parameter: Parameter?,
+    ) : Flow()
+
     data class Imported(
       override val id: String,
       override val resultType: String,
@@ -164,7 +179,6 @@ internal sealed class Node {
     ) : Flow()
   }
   data class Screen(override val id: String, val parameter: Parameter?) : Node()
-  data class Parallel(override val id: String) : Node()
 }
 
 internal data class Parameter(
@@ -175,6 +189,7 @@ internal data class Parameter(
 private const val ATTR_NAME_NODE_TYPE = "type"
 private const val ATTR_VALUE_NODE_TYPE_FLOW = "flow"
 private const val ATTR_VALUE_NODE_TYPE_SCHEMA = "schema"
+private const val ATTR_VALUE_NODE_TYPE_PARALLEL = "parallel"
 
 private const val ATTR_NAME_FLOW_RESULT_TYPE = "resultType"
 private const val ATTR_NAME_PARAMETER_NAME = "parameterName"

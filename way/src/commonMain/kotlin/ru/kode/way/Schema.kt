@@ -12,6 +12,6 @@ interface Schema {
   fun nodeType(regionId: RegionId, path: Path): NodeType
 
   enum class NodeType {
-    Flow, Screen
+    Flow, Parallel, Screen
   }
 }

@@ -92,6 +92,11 @@ class NavigationService<R : Any>(
               "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
             }
           }
+          is ParallelNode -> {
+            check(nodeType == Schema.NodeType.Parallel) {
+              "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
+            }
+          }
           is ScreenNode -> {
             check(nodeType == Schema.NodeType.Screen) {
               "according to schema, \"$path\" should be a $nodeType, but it is a ${ScreenNode::class.simpleName}"

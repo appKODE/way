@@ -17,9 +17,7 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
     parseResult.customPackage ?: config.outputPackageName,
     parseResult.customSchemaFileName ?: schemaClassName
   )
-  // TODO proper regions. NOTE it's likely that there will always be one root node, it will be a ParallelNode,
-  val regionRoots = listOf(parseResult.adjacencyList.findRootNode())
-  val regions = regionRoots.map { it.id }
+  val regionRoots = buildRegionRoots(parseResult.adjacencyList)
   val constructorParameters = buildConstructorParameters(parseResult.adjacencyList)
   val constructorProperties = constructorParameters.map {
     PropertySpec.builder(it.name, it.type, KModifier.PRIVATE)
@@ -41,9 +39,16 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
           CodeBlock.builder()
             .add("listOf(")
             .apply {
-              regions.forEachIndexed { index, regionName ->
-                add("%T(%T(%S))", libraryClassName("RegionId"), libraryClassName("Path"), regionName)
-                if (index != regions.lastIndex) add(",")
+              regionRoots.forEachIndexed { index, r ->
+                add(
+                  "%T(%T(%L))",
+                  libraryClassName("RegionId"),
+                  libraryClassName("Path"),
+                  findPathSegmentsEncoded(r, parseResult.adjacencyList)
+                )
+                if (index != regionRoots.lastIndex) {
+                  add(", ")
+                }
               }
             }
             .add(")")
@@ -69,12 +74,25 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
         .build()
     )
     .addFunction(
-      buildSchemaTargetsSpec(regions, parseResult.adjacencyList)
+      buildSchemaTargetsSpec(parseResult.adjacencyList)
     )
     .addFunction(
       buildSchemaNodeTypeSpec(parseResult.adjacencyList)
     )
   return schemaFileSpec.addType(schemaTypeSpec.build()).build()
+}
+
+private fun buildRegionRoots(adjacencyList: AdjacencyList): List<Node> {
+  val regionRoots = mutableListOf<Node>()
+  adjacencyList.forEach { (node, children) ->
+    if (node is Node.Flow.LocalParallel) {
+      regionRoots.addAll(children)
+    }
+  }
+  if (regionRoots.isEmpty()) {
+    regionRoots.add(adjacencyList.findRootNode())
+  }
+  return regionRoots
 }
 
 private fun buildConstructorParameters(adjacencyList: AdjacencyList): List<ParameterSpec> {
@@ -90,13 +108,7 @@ private fun buildConstructorParameters(adjacencyList: AdjacencyList): List<Param
   return parameters
 }
 
-private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: AdjacencyList): FunSpec {
-  val regionRoot = if (regions.size == 1) {
-    adjacencyList.findRootNode()
-  } else {
-    // children of a parallel node as region roots
-    TODO()
-  }
+private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
   return FunSpec.builder("target")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
@@ -105,66 +117,67 @@ private fun buildSchemaTargetsSpec(regions: List<String>, adjacencyList: Adjacen
     .addCode(
       CodeBlock.builder()
         .beginControlFlow("return·when·(regionId)·{")
-        .beginControlFlow("regions[0] -> {")
-        .beginControlFlow("when(segment.name) {")
         .apply {
-          val importedFlowNodes = mutableListOf<Node>()
-          // TODO @AdjacencyMatrix
-          //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
-          //  adjacency matrix would allow to find parent nodes more easily.
-          //  This stuff is going on in many places during codegen, search for them if will be optimizing
-          dfs(adjacencyList, regionRoot) { node ->
-            when (node) {
-              is Node.Flow.Imported -> {
-                importedFlowNodes.add(node)
-              }
-              is Node.Flow.Local,
-              is Node.Parallel,
-              is Node.Screen -> {
-                addStatement(
-                  "%S -> %T(%L)",
-                  node.id,
-                  libraryClassName("Path"),
-                  adjacencyList
-                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" }
-                )
-              }
-            }
-          }
-          if (importedFlowNodes.isNotEmpty()) {
-            beginControlFlow("else -> ")
-            importedFlowNodes.forEachIndexed { index, node ->
-              val elvis = if (index > 0) "?: " else ""
-              addStatement(
-                "$elvis%L.target(%L.regions.first(), segment)",
-                schemaConstructorPropertyName(node),
-                schemaConstructorPropertyName(node),
-              )
-              // append prefix unless root node is an imported node too (in which case there's nothing to append)
-              if (node != regionRoot) {
-                addStatement(
-                  "?.let { %T(%L).%M(it) }",
-                  libraryClassName("Path"),
-                  adjacencyList
-                    .findAllParents(node, includeThis = true)
-                    .reversed()
-                    .dropLast(1)
-                    .joinToString(",") { "\"${it.id}\"" },
-                  libraryMemberName("append"),
-                )
-              }
-            }
-            endControlFlow()
-          } else {
-            addStatement("else -> null")
+          buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
+            beginControlFlow("regions[$regionRootIndex] -> {")
+            beginControlFlow("when(segment.name) {")
+                val importedFlowNodes = mutableListOf<Node>()
+                // TODO @AdjacencyMatrix
+                //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
+                //  adjacency matrix would allow to find parent nodes more easily.
+                //  This stuff is going on in many places during codegen, search for them if will be optimizing
+                dfs(adjacencyList, regionRoot) { node ->
+                  when (node) {
+                    is Node.Flow.Imported -> {
+                      importedFlowNodes.add(node)
+                    }
+                    is Node.Flow.Local,
+                    is Node.Flow.LocalParallel,
+                    is Node.Screen -> {
+                      addStatement(
+                        "%S -> %T(%L)",
+                        node.id,
+                        libraryClassName("Path"),
+                        findPathSegmentsEncoded(node, adjacencyList)
+                      )
+                    }
+                  }
+                }
+                if (importedFlowNodes.isNotEmpty()) {
+                  beginControlFlow("else -> ")
+                  importedFlowNodes.forEachIndexed { index, node ->
+                    val elvis = if (index > 0) "?: " else ""
+                    addStatement(
+                      "$elvis%L.target(%L.regions.first(), segment)",
+                      schemaConstructorPropertyName(node),
+                      schemaConstructorPropertyName(node),
+                    )
+                    // append prefix unless root node is an imported node too (in which case there's nothing to append)
+                    if (node != regionRoot) {
+                      addStatement(
+                        "?.let { %T(%L).%M(it) }",
+                        libraryClassName("Path"),
+                        adjacencyList
+                          .findAllParents(node, includeThis = true)
+                          .reversed()
+                          .dropLast(1)
+                          .joinToString { "\"${it.id}\"" },
+                        libraryMemberName("append"),
+                      )
+                    }
+                  }
+                  endControlFlow()
+                } else {
+                  addStatement("else -> null")
+                }
+            endControlFlow() // when (segment.name)
+            endControlFlow() // regions[index] -> {
           }
         }
-        .endControlFlow()
-        .endControlFlow()
         .beginControlFlow("else -> {")
         .addStatement("error(%P)", "unknown regionId=\$regionId")
         .endControlFlow()
-        .endControlFlow()
+        .endControlFlow() // return when
         .build()
     )
     .build()
@@ -192,21 +205,26 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
                 addStatement(
                   "path == %T(%L) -> %T.NodeType.Flow",
                   libraryClassName("Path"),
-                  adjacencyList
-                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
+                  findPathSegmentsEncoded(node, adjacencyList),
                   libraryClassName("Schema")
                 )
               }
               is Node.Flow.Imported -> {
                 importedFlowNodes.add(node)
               }
-              is Node.Parallel -> TODO()
+              is Node.Flow.LocalParallel -> {
+                addStatement(
+                  "path == %T(%L) -> %T.NodeType.Parallel",
+                  libraryClassName("Path"),
+                  findPathSegmentsEncoded(node, adjacencyList),
+                  libraryClassName("Schema")
+                )
+              }
               is Node.Screen -> {
                 addStatement(
                   "path == %T(%L) -> %T.NodeType.Screen",
                   libraryClassName("Path"),
-                  adjacencyList
-                    .findAllParents(node, includeThis = true).reversed().joinToString(",") { "\"${it.id}\"" },
+                  findPathSegmentsEncoded(node, adjacencyList),
                   libraryClassName("Schema")
                 )
               }
@@ -219,12 +237,12 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
                 "path.%M(%T(%L)) -> %L.nodeType(%L.regions.first(), path.%M(%T(%L)))",
                 libraryMemberName("startsWith"),
                 libraryClassName("Path"),
-                parents.reversed().joinToString(",") { "\"${it.id}\"" },
+                parents.reversed().joinToString { "\"${it.id}\"" },
                 schemaConstructorPropertyName(node),
                 schemaConstructorPropertyName(node),
                 libraryMemberName("removePrefix"),
                 libraryClassName("Path"),
-                parents.reversed().dropLast(1).joinToString(",") { "\"${it.id}\"" },
+                parents.reversed().dropLast(1).joinToString { "\"${it.id}\"" },
               )
             }
           beginControlFlow("else -> {")
@@ -246,4 +264,12 @@ private fun schemaConstructorPropertyName(node: Node) = "${node.id}Schema"
 
 internal fun schemaClassName(parseResult: SchemaParseResult, config: CodeGenConfig): String {
   return parseResult.graphId?.let { "${it}Schema" } ?: config.outputSchemaClassName
+}
+
+/**
+ * Returns a list of segment names encoded in a string suitable to passing to Path constructor, e.g
+ * '"app", "profile", "main"'
+ */
+private fun findPathSegmentsEncoded(node: Node, adjacencyList: AdjacencyList): String {
+  return adjacencyList.findAllParents(node, includeThis = true).reversed().joinToString { "\"${it.id}\"" }
 }

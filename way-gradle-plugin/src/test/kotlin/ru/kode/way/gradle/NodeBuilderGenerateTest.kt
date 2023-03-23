@@ -21,5 +21,21 @@ class NodeBuilderGenerateTest : ShouldSpec({
       ),
       testName = "single flow",
     ),
+    TestCase(
+      schemaFile = "node-builders-parallel01.dot",
+      expectedOutputFiles = listOf(
+        "Nbp01mainNodeBuilder.kt",
+        "Nbp01headNodeBuilder.kt",
+        "Nbp01sheetNodeBuilder.kt"
+      ),
+      testName = "parallel node children in same schema",
+    ),
+    TestCase(
+      schemaFile = "node-builders-parallel02.dot",
+      expectedOutputFiles = listOf(
+        "Nbp02mainNodeBuilder.kt",
+      ),
+      testName = "parallel node children are imported schemas",
+    ),
   ) { runTest(it) }
 })

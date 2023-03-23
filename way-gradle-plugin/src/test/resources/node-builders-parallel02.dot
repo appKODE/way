@@ -1,0 +1,11 @@
+digraph NodeBuildersParallel02 {
+  schemaFileName = "node-builders-parallel02-schema"
+  targetsFileName = "node-builders-parallel02-targets"
+
+  nbp02head [type=schema]
+  nbp02sheet [type=schema]
+
+  nbp02main [type=parallel]
+  nbp02main -> nbp02head
+  nbp02main -> nbp02sheet
+}

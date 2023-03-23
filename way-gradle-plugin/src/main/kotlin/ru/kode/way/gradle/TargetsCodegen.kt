@@ -28,8 +28,8 @@ internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGe
         when (node) {
           is Node.Flow.Local -> addProperty(buildTargetExtensionSpec(node, packageName))
           is Node.Flow.Imported,
-          is Node.Screen,
-          is Node.Parallel -> Unit
+          is Node.Flow.LocalParallel,
+          is Node.Screen -> Unit
         }
       }
     }
@@ -89,7 +89,6 @@ private fun buildFlowTargets(
               }
             }
           }
-          is Node.Parallel -> TODO()
         }
       }
     }

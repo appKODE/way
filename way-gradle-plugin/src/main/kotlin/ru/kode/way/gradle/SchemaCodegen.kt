@@ -121,55 +121,55 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
           buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
             beginControlFlow("regions[$regionRootIndex] -> {")
             beginControlFlow("when(segment.name) {")
-                val importedFlowNodes = mutableListOf<Node>()
-                // TODO @AdjacencyMatrix
-                //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
-                //  adjacency matrix would allow to find parent nodes more easily.
-                //  This stuff is going on in many places during codegen, search for them if will be optimizing
-                dfs(adjacencyList, regionRoot) { node ->
-                  when (node) {
-                    is Node.Flow.Imported -> {
-                      importedFlowNodes.add(node)
-                    }
-                    is Node.Flow.Local,
-                    is Node.Flow.LocalParallel,
-                    is Node.Screen -> {
-                      addStatement(
-                        "%S -> %T(%L)",
-                        node.id,
-                        libraryClassName("Path"),
-                        findPathSegmentsEncoded(node, adjacencyList)
-                      )
-                    }
-                  }
+            val importedFlowNodes = mutableListOf<Node>()
+            // TODO @AdjacencyMatrix
+            //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
+            //  adjacency matrix would allow to find parent nodes more easily.
+            //  This stuff is going on in many places during codegen, search for them if will be optimizing
+            dfs(adjacencyList, regionRoot) { node ->
+              when (node) {
+                is Node.Flow.Imported -> {
+                  importedFlowNodes.add(node)
                 }
-                if (importedFlowNodes.isNotEmpty()) {
-                  beginControlFlow("else -> ")
-                  importedFlowNodes.forEachIndexed { index, node ->
-                    val elvis = if (index > 0) "?: " else ""
-                    addStatement(
-                      "$elvis%L.target(%L.regions.first(), segment)",
-                      schemaConstructorPropertyName(node),
-                      schemaConstructorPropertyName(node),
-                    )
-                    // append prefix unless root node is an imported node too (in which case there's nothing to append)
-                    if (node != regionRoot) {
-                      addStatement(
-                        "?.let { %T(%L).%M(it) }",
-                        libraryClassName("Path"),
-                        adjacencyList
-                          .findAllParents(node, includeThis = true)
-                          .reversed()
-                          .dropLast(1)
-                          .joinToString { "\"${it.id}\"" },
-                        libraryMemberName("append"),
-                      )
-                    }
-                  }
-                  endControlFlow()
-                } else {
-                  addStatement("else -> null")
+                is Node.Flow.Local,
+                is Node.Flow.LocalParallel,
+                is Node.Screen -> {
+                  addStatement(
+                    "%S -> %T(%L)",
+                    node.id,
+                    libraryClassName("Path"),
+                    findPathSegmentsEncoded(node, adjacencyList)
+                  )
                 }
+              }
+            }
+            if (importedFlowNodes.isNotEmpty()) {
+              beginControlFlow("else -> ")
+              importedFlowNodes.forEachIndexed { index, node ->
+                val elvis = if (index > 0) "?: " else ""
+                addStatement(
+                  "$elvis%L.target(%L.regions.first(), segment)",
+                  schemaConstructorPropertyName(node),
+                  schemaConstructorPropertyName(node),
+                )
+                // append prefix unless root node is an imported node too (in which case there's nothing to append)
+                if (node != regionRoot) {
+                  addStatement(
+                    "?.let { %T(%L).%M(it) }",
+                    libraryClassName("Path"),
+                    adjacencyList
+                      .findAllParents(node, includeThis = true)
+                      .reversed()
+                      .dropLast(1)
+                      .joinToString { "\"${it.id}\"" },
+                    libraryMemberName("append"),
+                  )
+                }
+              }
+              endControlFlow()
+            } else {
+              addStatement("else -> null")
+            }
             endControlFlow() // when (segment.name)
             endControlFlow() // regions[index] -> {
           }

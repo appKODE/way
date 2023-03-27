@@ -12,7 +12,7 @@ class AppFlowComponentImpl : AppFlowComponent {
   override fun nodeBuilder(): NodeBuilder {
     return AppNodeBuilder(
       nodeFactory = object : AppNodeBuilder.Factory {
-        override fun createFlowNode(): FlowNode<*> {
+        override fun createRootNode(): FlowNode<*> {
           return AppFlowNode()
         }
 

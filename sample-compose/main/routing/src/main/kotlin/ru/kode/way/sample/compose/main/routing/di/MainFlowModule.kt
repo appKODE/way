@@ -20,7 +20,7 @@ object MainFlowModule {
     homeNode: Provider<HomeNode>,
   ): MainNodeBuilder.Factory {
     return object : MainNodeBuilder.Factory {
-      override fun createFlowNode() = flowNode.get()
+      override fun createRootNode() = flowNode.get()
       override fun createHomeNode() = homeNode.get()
     }
   }

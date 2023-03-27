@@ -27,7 +27,7 @@ object LoginFlowModule {
     loginFlowComponent: LoginFlowComponent,
   ): LoginNodeBuilder.Factory {
     return object : LoginNodeBuilder.Factory {
-      override fun createFlowNode() = flowNode.get()
+      override fun createRootNode() = flowNode.get()
       override fun createPermissionsNodeBuilder(): PermissionsNodeBuilder {
         return PermissionsFlow.nodeBuilder(loginFlowComponent.permissionsFlowComponent())
       }

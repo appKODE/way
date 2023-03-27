@@ -4,7 +4,9 @@ digraph App {
   app [type=flow]
   login [type=schema, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
   main [type=schema, resultType = "ru.kode.way.sample.compose.main.routing.MainFlowResult"]
+  mainParallel [type=schema]
 
   app -> login
   app -> main
+  app -> mainParallel
 }

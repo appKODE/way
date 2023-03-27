@@ -2,8 +2,8 @@
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
   id(libs.plugins.kotlinAndroid.get().pluginId)
-  id("kotlin-kapt")
   alias(libs.plugins.way)
+  id("kotlin-kapt")
 }
 
 android {
@@ -17,13 +17,21 @@ android {
   kotlinOptions {
     jvmTarget = "1.8"
   }
+
+  buildFeatures {
+    compose = true
+  }
+
+  composeOptions {
+    kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+  }
 }
 
 dependencies {
   implementation(project(":way"))
-  api(project(":sample-compose:login:routing"))
-  api(project(":sample-compose:main:routing"))
-  api(project(":sample-compose:main-parallel:routing"))
+  implementation(project(":way-compose"))
+  implementation(project(":sample-compose:categories:ui"))
+  implementation(project(":sample-compose:core:routing"))
 
   implementation(libs.dagger)
   kapt(libs.daggerCompiler)

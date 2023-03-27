@@ -1,0 +1,9 @@
+digraph MainParallel {
+  package = "ru.kode.way.sample.compose.main.parallel.routing"
+  head [type=flow]
+  sheet [type=schema]
+
+  mainParallel [type=parallel]
+  mainParallel -> head
+  mainParallel -> sheet
+}

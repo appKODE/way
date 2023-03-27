@@ -1,0 +1,10 @@
+digraph CategoriesFlow {
+  package = "ru.kode.way.sample.compose.category.routing"
+
+  categories [type=flow]
+  top [type=flow]
+  bottom [type=flow]
+
+  categories -> top
+  categories -> bottom
+}

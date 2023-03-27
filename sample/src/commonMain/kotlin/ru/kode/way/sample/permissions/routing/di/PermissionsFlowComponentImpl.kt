@@ -11,7 +11,7 @@ class PermissionsFlowComponentImpl : PermissionsFlowComponent {
   override fun nodeBuilder(): NodeBuilder {
     return PermissionsNodeBuilder(
       nodeFactory = object : PermissionsNodeBuilder.Factory {
-        override fun createFlowNode() = PermissionsFlowNode()
+        override fun createRootNode() = PermissionsFlowNode()
         override fun createIntroNode() = IntroScreenNode()
         override fun createRequestNode() = RequestScreenNode()
       },

@@ -1,0 +1,6 @@
+digraph HeadFlow {
+  package = "ru.kode.way.sample.compose.main.parallel.routing.head"
+
+  head [type=flow]
+  head -> intro -> headMain
+}

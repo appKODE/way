@@ -23,7 +23,7 @@ object PermissionsFlowModule {
     requestNode: Provider<RequestNode>,
   ): PermissionsNodeBuilder.Factory {
     return object : PermissionsNodeBuilder.Factory {
-      override fun createFlowNode() = flowNode.get()
+      override fun createRootNode() = flowNode.get()
       override fun createIntroNode() = introNode.get()
       override fun createRequestNode() = requestNode.get()
     }

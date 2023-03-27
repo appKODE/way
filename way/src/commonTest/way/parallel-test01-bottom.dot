@@ -1,0 +1,6 @@
+digraph Parallel01Bottom {
+  package = "ru.kode.way.par01.bottom"
+
+  par01Bottom [type=flow]
+  par01Bottom -> par01BottomMain
+}

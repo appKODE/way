@@ -1,0 +1,6 @@
+digraph Parallel01Top {
+  package = "ru.kode.way.par01.top"
+
+  par01Top [type=flow]
+  par01Top -> par01TopIntro
+}

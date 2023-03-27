@@ -1,0 +1,10 @@
+digraph Parallel01Main {
+  package = "ru.kode.way.par01.main"
+
+  par01Main [type=parallel]
+  par01Top [type=schema]
+  par01Bottom [type=schema]
+
+  par01Main -> par01Top
+  par01Main -> par01Bottom
+}

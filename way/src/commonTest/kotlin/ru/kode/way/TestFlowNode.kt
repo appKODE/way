@@ -69,3 +69,21 @@ class TestScreenNode(
     onExitImpl()
   }
 }
+
+class TestParallelNode(
+  val payload: Any? = null,
+  private val transitions: List<TestFlowTransitionSpec> = emptyList(),
+  private val onEntryImpl: () -> Unit = {},
+  private val onExitImpl: () -> Unit = {},
+) : ParallelNode {
+  override val backDispatchStrategy: BackDispatchStrategy
+    get() = TODO("create fake for this or use some default implementation")
+
+  override fun transition(event: Event): FlowTransition<Unit> {
+    return event.whenFlowEvent { e: TestEvent ->
+      if (transitions.isEmpty()) Ignore else {
+        transitions.find { it.event == e.name }?.transition as FlowTransition<Unit>? ?: Ignore
+      }
+    }
+  }
+}

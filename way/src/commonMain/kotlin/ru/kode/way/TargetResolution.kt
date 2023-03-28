@@ -60,12 +60,11 @@ private fun resolveTransitionInRegion(
       val payloads = mutableMapOf<Path, Any>()
       transition.targets.forEach { target ->
         // there maybe several targets in different regions
-        val targetRegionId = regionIdOfPath(schema.regions, target.path)
-          ?: error("failed to find regionId for path=\"${target.path}\"")
+        val targetRegionId = findRegionIdUnsafe(schema.regions, target.path)
         val targetPathAbs = schema.target(targetRegionId, target.path.segments.last())
           ?: error("failed to find schema entry for target \"${target.path}\"")
         target.payload?.also { payloads[targetPathAbs] = it }
-        targetPaths[targetRegionId] = maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, payloads)
+        targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
         when (target) {
           is FlowTarget<*, *> -> {
             val handlers = transitionFinishHandlers ?: HashMap(schema.regions.size)
@@ -214,26 +213,54 @@ private fun maybeResolveInitial(
   targetPathAbs: Path,
   nodeBuilder: NodeBuilder,
   nodes: Map<Path, Node>,
+  schema: Schema,
   payloads: MutableMap<Path, Any>,
-): Path {
+): Map<RegionId, Path> {
   return when (target) {
-    is ScreenTarget -> targetPathAbs
+    is ScreenTarget -> {
+      mapOf(findRegionIdUnsafe(schema.regions, targetPathAbs) to targetPathAbs)
+    }
     is FlowTarget<*, *> -> {
-      val flowNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs, payloads = payloads) }
-      require(flowNode is FlowNode<*>) {
-        "expected FlowNode at $targetPathAbs, but builder returned ${flowNode::class.simpleName}"
-      }
-      val nextTargetPathAbs = targetPathAbs.append(flowNode.initial.path)
-      flowNode.initial.payload?.also { payloads[nextTargetPathAbs] = it }
-      // TODO rework to be iterative, would be clearer in presence of mutable payloads parameter...
-      maybeResolveInitial(flowNode.initial, nextTargetPathAbs, nodeBuilder, nodes, payloads)
+      maybeResolveInitial(targetPathAbs, nodeBuilder, nodes, schema, payloads)
     }
   }
 }
 
-private fun regionIdOfPath(regions: List<RegionId>, path: Path): RegionId? {
-  // TODO implement this correctly, rather than always returning a first region!
+private fun maybeResolveInitial(
+  targetPathAbs: Path,
+  nodeBuilder: NodeBuilder,
+  nodes: Map<Path, Node>,
+  schema: Schema,
+  payloads: MutableMap<Path, Any>,
+): Map<RegionId, Path> {
+  @Suppress("MoveVariableDeclarationIntoWhen")
+  val targetNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs, payloads = payloads) }
+  return when (targetNode) {
+    is FlowNode<*> -> {
+      val nextTargetPathAbs = targetPathAbs.append(targetNode.initial.path)
+      targetNode.initial.payload?.also { payloads[nextTargetPathAbs] = it }
+      // TODO rework to be iterative, would be clearer in presence of mutable payloads parameter...
+      maybeResolveInitial(targetNode.initial, nextTargetPathAbs, nodeBuilder, nodes, schema, payloads)
+    }
+    is ParallelNode -> {
+      TODO()
+//      val resolved = mutableMapOf<RegionId, Path>()
+//      schema.regionIds(targetPathAbs).associateWith { regionId: RegionId ->
+//        val regionRootNodePathAbs = targetPathAbs.append(regionId.path)
+//        resolved.putAll(maybeResolveInitial(regionRootNodePathAbs, nodeBuilder, nodes, schema, payloads))
+//      }
+    }
+    is ScreenNode -> {
+      error("expected FlowNode or ParallelNode at $targetPathAbs, but builder returned ${targetNode::class.simpleName}")
+    }
+  }
+}
+
+private fun findRegionIdUnsafe(regions: Collection<RegionId>, path: Path): RegionId {
   return regions.first()
+  // TODO Use this instead
+  return regions.sortedByDescending { it.path.length }.find { path.startsWith(it.path) }
+    ?: error("failed to find regionId for path=\"${path}\", searched in ${regions.joinToString { it.path.toString() }}")
 }
 
 /**

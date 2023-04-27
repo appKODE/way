@@ -82,6 +82,7 @@ class WayPlugin : Plugin<Project> {
   }
 
   private fun Project.findMainSources(): List<Source> {
+    // Multiplatform project
     project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.run {
       return listOf(
         Source(
@@ -91,6 +92,7 @@ class WayPlugin : Plugin<Project> {
       )
     }
 
+    // Android project
     (project.extensions.findByName("android") as BaseExtension?)?.run {
       val variants: DomainObjectSet<out BaseVariant> = when (this) {
         is AppExtension -> applicationVariants
@@ -111,9 +113,15 @@ class WayPlugin : Plugin<Project> {
       }
     }
 
-    // TODO Kotlin-only project
-
-    return emptyList()
+    // Kotlin project
+    (project.extensions.getByName("kotlin") as KotlinProjectExtension).run {
+      return listOf(
+        Source(
+          sourceSets = listOf(sourceSets.getByName("main")),
+          sourceDirectorySet = sourceSets.getByName("main")
+        )
+      )
+    }
   }
 
   private fun Project.findTestSources(): List<Source> {

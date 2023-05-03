@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.3 - 2023-05-03
+
+* Add support for kotlin-jvm projects to gradle plugin
+* Rename `NodeFactory.createFlowNode()` to `NodeFactory.createRootNode()`
+
 ## 0.8.2 - 2023-03-07
 
 * Add support for extending nodes through composition: provide `NodeExtensions` mechanism

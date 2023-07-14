@@ -16,6 +16,10 @@ class NavigationService<R : Any>(
     sendEvent(InitEvent(rootFlowPayload))
   }
 
+  fun isStarted(): Boolean {
+    return state.isInitialized()
+  }
+
   fun addTransitionListener(listener: (NavigationState) -> Unit) {
     listeners.add(listener)
     if (state.isInitialized()) {

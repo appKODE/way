@@ -35,7 +35,9 @@ fun NodeHost(
   transitionSpec: AnimatedContentScope<NodeWithPath?>.() -> ContentTransform = defaultTransitionSpec
 ) {
   LaunchedEffect(service) {
-    service.start()
+    if (!service.isStarted()) {
+      service.start()
+    }
   }
   val activeNode by collectActiveNode(service)
   AnimatedContent(
@@ -54,6 +56,13 @@ fun NodeHost(
       Box() {}
     }
   }
+}
+
+@ExperimentalAnimationApi
+@Composable
+fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinish: (R) -> FlowTransition<Unit>) {
+  val service = remember(schema) { NavigationService(schema, nodeBuilder, onFinish) }
+  NodeHost(service)
 }
 
 @ExperimentalAnimationApi
@@ -80,15 +89,8 @@ val defaultTransitionSpec: AnimatedContentScope<NodeWithPath?>.() -> ContentTran
   }
 }
 
-@ExperimentalAnimationApi
 @Composable
-fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinish: (R) -> FlowTransition<Unit>) {
-  val service = remember(schema) { NavigationService(schema, nodeBuilder, onFinish) }
-  NodeHost(service)
-}
-
-@Composable
-private fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> {
+fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> {
   return produceState<NodeWithPath?>(initialValue = null, service) {
     val listener = { s: NavigationState ->
       // TODO figure out how to render multiple regions

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.4 - 2023-06-28
+
+* Improve NodeHost: optional starting, make utility functions public. This will aid in cases where one wishes to build their own NodeHost
+
 ## 0.8.3 - 2023-05-03
 
 * Add support for kotlin-jvm projects to gradle plugin

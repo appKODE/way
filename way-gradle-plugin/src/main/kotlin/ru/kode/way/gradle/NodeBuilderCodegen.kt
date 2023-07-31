@@ -16,6 +16,7 @@ import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import kotlin.reflect.jvm.internal.impl.builtins.functions.FunctionClassScope
 
 internal fun buildNodeBuilderFileSpecs(
   parseResult: SchemaParseResult,
@@ -63,6 +64,7 @@ internal fun buildNodeBuilderTypeSpec(
   val constructorBuilder = FunSpec.constructorBuilder()
   val nodeBuilders = mutableMapOf<Node, FunSpec>()
   val lazyBuilderProperties = mutableMapOf<Node, PropertySpec>()
+  val lazyBuilderPropertyBuilders = mutableMapOf<Node, FunSpec>()
 
   val factoryBuilderTypeName = className.nestedClass("Factory")
   val factoryTypeSpecBuilder = TypeSpec.interfaceBuilder(factoryBuilderTypeName)
@@ -120,14 +122,51 @@ internal fun buildNodeBuilderTypeSpec(
           FunSpec.builder(flowFactoryName)
             .addModifiers(KModifier.ABSTRACT)
             .returns(libraryClassName("NodeBuilder"))
+            .apply {
+              if (node.parameter != null) {
+                addParameter(node.parameter!!.name, ClassName.bestGuess(node.parameter!!.type))
+              }
+            }
             .build()
         )
         val lazyPropertyName = "_${node.id.toCamelCase()}NodeBuilder"
         val lazyBuilderProperty = PropertySpec
-          .builder(lazyPropertyName, libraryClassName("NodeBuilder"), KModifier.PRIVATE)
-          .delegate("lazy(LazyThreadSafetyMode.NONE) { %N.%L() }", factoryParameter, flowFactoryName)
+          .builder(lazyPropertyName, libraryClassName("NodeBuilder").copy(nullable = true), KModifier.PRIVATE)
+          .mutable()
+          .initializer("null")
           .build()
         lazyBuilderProperties[node] = lazyBuilderProperty
+        val lazyPropertyBuilderFun = FunSpec
+          .builder("${node.id.toCamelCase()}NodeBuilder")
+          .addModifiers(KModifier.PRIVATE)
+          .returns(libraryClassName("NodeBuilder"))
+          .apply {
+            if (node.parameter != null) {
+              addParameter("payloads", MAP.parameterizedBy(libraryClassName("Path"), ANY))
+            }
+          }
+          .beginControlFlow("if (%L == null)", lazyPropertyName)
+          .apply {
+            if (node.parameter != null) {
+              addStatement(
+                "%L = nodeFactory.%L(%L(%S, payloads))",
+                lazyPropertyName,
+                flowFactoryName,
+                GET_PAYLOAD_FUN_NAME,
+                node.id
+              )
+            } else {
+              addStatement(
+                "%L = nodeFactory.%L()",
+                lazyPropertyName,
+                flowFactoryName,
+              )
+            }
+          }
+          .endControlFlow()
+          .addStatement("return %L!!", lazyPropertyName)
+          .build()
+        lazyBuilderPropertyBuilders[node] = lazyPropertyBuilderFun
       }
       is Node.Screen -> {
         val screenBuilderFunSpec = FunSpec.builder("create${node.id.toPascalCase()}Node")
@@ -146,7 +185,15 @@ internal fun buildNodeBuilderTypeSpec(
   }
   return typeSpecBuilder
     .primaryConstructor(constructorBuilder.build())
-    .addProperties(lazyBuilderProperties.values)
+    .apply {
+      check(lazyBuilderProperties.size == lazyBuilderPropertyBuilders.size) {
+        "lazy property and their builder sizes do not match "
+      }
+      lazyBuilderProperties.entries.forEach { (node, property) ->
+        addProperty(property)
+        addFunction(lazyBuilderPropertyBuilders[node] ?: error("no lazy builder for property of node ${node.id}"))
+      }
+    }
     .addType(factoryTypeSpecBuilder.build())
     .addSuperinterface(libraryClassName("NodeBuilder"))
     .addFunction(
@@ -159,7 +206,7 @@ internal fun buildNodeBuilderTypeSpec(
           createBuildFunctionBody(
             flow,
             adjacencyList,
-            lazyBuilderProperties,
+            lazyBuilderPropertyBuilders,
             nodeBuilders,
             isRootNode
           )
@@ -174,7 +221,7 @@ internal fun buildNodeBuilderTypeSpec(
 private fun createBuildFunctionBody(
   flow: Node,
   adjacencyList: Map<Node, List<Node>>,
-  lazyBuilderProperties: Map<Node, PropertySpec>,
+  lazyBuilderPropertyBuilders: Map<Node, FunSpec>,
   nodeBuilders: Map<Node, FunSpec>,
   isRootNode: Boolean,
 ): CodeBlock {
@@ -221,10 +268,20 @@ private fun createBuildFunctionBody(
                 node.id,
               )
               addStatement("val targetPath = %L(%S)", GET_TARGET_FUN_NAME, node.id)
+              if (node.parameter != null) {
+                addStatement(
+                  "val nodeBuilder = %N(payloads)",
+                  lazyBuilderPropertyBuilders[node] ?: error("no lazy builder property for \"${node.id}\""),
+                )
+              } else {
+                addStatement(
+                  "val nodeBuilder = %N()",
+                  lazyBuilderPropertyBuilders[node] ?: error("no lazy builder property for \"${node.id}\""),
+                )
+              }
               addStatement(
-                "%N.build(path.%M(targetPath.length·-·1)," +
+                "nodeBuilder.build(path.%M(targetPath.length·-·1)," +
                   " payloads·=·payloads.mapKeys·{·it.key.%M(targetPath.length·-·1)·})",
-                lazyBuilderProperties[node] ?: error("no lazy builder property for \"${node.id}\""),
                 MemberName(LIBRARY_PACKAGE, "drop"),
                 MemberName(LIBRARY_PACKAGE, "drop"),
               )

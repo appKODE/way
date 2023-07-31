@@ -16,11 +16,23 @@ public class Nb01appNodeBuilder(
   private val nodeFactory: Factory,
   private val schema: NodeBuildersTest01Schema,
 ) : NodeBuilder {
-  private val _nb01loginNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nodeFactory.createNb01loginNodeBuilder() }
+  private var _nb01loginNodeBuilder: NodeBuilder? = null
 
-  private val _nb01onboardingNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nodeFactory.createNb01onboardingNodeBuilder() }
+  private var _nb01onboardingNodeBuilder: NodeBuilder? = null
+
+  private fun nb01loginNodeBuilder(): NodeBuilder {
+    if (_nb01loginNodeBuilder == null) {
+      _nb01loginNodeBuilder = nodeFactory.createNb01loginNodeBuilder()
+    }
+    return _nb01loginNodeBuilder!!
+  }
+
+  private fun nb01onboardingNodeBuilder(): NodeBuilder {
+    if (_nb01onboardingNodeBuilder == null) {
+      _nb01onboardingNodeBuilder = nodeFactory.createNb01onboardingNodeBuilder()
+    }
+    return _nb01onboardingNodeBuilder!!
+  }
 
   public override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nb01app") {
@@ -30,12 +42,14 @@ public class Nb01appNodeBuilder(
       path == targetOrError("nb01app") -> nodeFactory.createRootNode()
       path.startsWith(targetOrError("nb01login")) -> {
         val targetPath = targetOrError("nb01login")
-        _nb01loginNodeBuilder.build(path.drop(targetPath.length - 1),
+        val nodeBuilder = nb01loginNodeBuilder()
+        nodeBuilder.build(path.drop(targetPath.length - 1),
             payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
       }
       path.startsWith(targetOrError("nb01onboarding")) -> {
         val targetPath = targetOrError("nb01onboarding")
-        _nb01onboardingNodeBuilder.build(path.drop(targetPath.length - 1),
+        val nodeBuilder = nb01onboardingNodeBuilder()
+        nodeBuilder.build(path.drop(targetPath.length - 1),
             payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
       }
       else -> error("""illegal path build requested for "nb01app" node: $path""")

@@ -8,32 +8,32 @@ class NodeBuilderGenerateTest : ShouldSpec({
     TestCase(
       schemaFile = "node-builders-multiple-flows.dot",
       expectedOutputFiles = listOf(
-        "Nb01appNodeBuilder.kt",
-        "Nb01loginNodeBuilder.kt",
-        "Nb01onboardingNodeBuilder.kt"
+        "Nb01appNodeBuilder.txt",
+        "Nb01loginNodeBuilder.txt",
+        "Nb01onboardingNodeBuilder.txt"
       ),
       testName = "multiple flows",
     ),
     TestCase(
       schemaFile = "node-builders-single-flow.dot",
       expectedOutputFiles = listOf(
-        "Nb02appNodeBuilder.kt",
+        "Nb02appNodeBuilder.txt",
       ),
       testName = "single flow",
     ),
     TestCase(
       schemaFile = "node-builders-parallel01.dot",
       expectedOutputFiles = listOf(
-        "Nbp01mainNodeBuilder.kt",
-        "Nbp01headNodeBuilder.kt",
-        "Nbp01sheetNodeBuilder.kt"
+        "Nbp01mainNodeBuilder.txt",
+        "Nbp01headNodeBuilder.txt",
+        "Nbp01sheetNodeBuilder.txt"
       ),
       testName = "parallel node children in same schema",
     ),
     TestCase(
       schemaFile = "node-builders-parallel02.dot",
       expectedOutputFiles = listOf(
-        "Nbp02mainNodeBuilder.kt",
+        "Nbp02mainNodeBuilder.txt",
       ),
       testName = "parallel node children are imported schemas",
     ),

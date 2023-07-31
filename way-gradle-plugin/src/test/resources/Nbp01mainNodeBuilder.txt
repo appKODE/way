@@ -16,11 +16,23 @@ public class Nbp01mainNodeBuilder(
   private val nodeFactory: Factory,
   private val schema: NodeBuildersParallel01Schema,
 ) : NodeBuilder {
-  private val _nbp01sheetNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nodeFactory.createNbp01sheetNodeBuilder() }
+  private var _nbp01sheetNodeBuilder: NodeBuilder? = null
 
-  private val _nbp01headNodeBuilder: NodeBuilder by lazy(LazyThreadSafetyMode.NONE) {
-      nodeFactory.createNbp01headNodeBuilder() }
+  private var _nbp01headNodeBuilder: NodeBuilder? = null
+
+  private fun nbp01sheetNodeBuilder(): NodeBuilder {
+    if (_nbp01sheetNodeBuilder == null) {
+      _nbp01sheetNodeBuilder = nodeFactory.createNbp01sheetNodeBuilder()
+    }
+    return _nbp01sheetNodeBuilder!!
+  }
+
+  private fun nbp01headNodeBuilder(): NodeBuilder {
+    if (_nbp01headNodeBuilder == null) {
+      _nbp01headNodeBuilder = nodeFactory.createNbp01headNodeBuilder()
+    }
+    return _nbp01headNodeBuilder!!
+  }
 
   public override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nbp01main") {
@@ -30,12 +42,14 @@ public class Nbp01mainNodeBuilder(
       path == targetOrError("nbp01main") -> nodeFactory.createRootNode()
       path.startsWith(targetOrError("nbp01sheet")) -> {
         val targetPath = targetOrError("nbp01sheet")
-        _nbp01sheetNodeBuilder.build(path.drop(targetPath.length - 1),
+        val nodeBuilder = nbp01sheetNodeBuilder()
+        nodeBuilder.build(path.drop(targetPath.length - 1),
             payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
       }
       path.startsWith(targetOrError("nbp01head")) -> {
         val targetPath = targetOrError("nbp01head")
-        _nbp01headNodeBuilder.build(path.drop(targetPath.length - 1),
+        val nodeBuilder = nbp01headNodeBuilder()
+        nodeBuilder.build(path.drop(targetPath.length - 1),
             payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
       }
       else -> error("""illegal path build requested for "nbp01main" node: $path""")

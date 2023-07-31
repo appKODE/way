@@ -153,32 +153,32 @@ internal data class SchemaParseResult(
   val adjacencyList: AdjacencyList,
 )
 
-internal sealed class Node {
-  abstract val id: String
+internal sealed interface Node {
+  val id: String
 
-  sealed class Flow : Node() {
-    abstract val resultType: String
-    abstract val parameter: Parameter?
+  sealed interface Flow : Node {
+    val resultType: String
+    val parameter: Parameter?
 
     data class Local(
       override val id: String,
       override val resultType: String,
       override val parameter: Parameter?,
-    ) : Flow()
+    ) : Flow
 
     data class LocalParallel(
       override val id: String,
       override val resultType: String,
       override val parameter: Parameter?,
-    ) : Flow()
+    ) : Flow
 
     data class Imported(
       override val id: String,
       override val resultType: String,
       override val parameter: Parameter?,
-    ) : Flow()
+    ) : Flow
   }
-  data class Screen(override val id: String, val parameter: Parameter?) : Node()
+  data class Screen(override val id: String, val parameter: Parameter?) : Node
 }
 
 internal data class Parameter(

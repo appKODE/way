@@ -7,6 +7,7 @@ import okio.FileSystem
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
 import okio.buffer
+import okio.source
 import java.io.File
 import java.nio.file.Files
 
@@ -26,7 +27,8 @@ suspend fun runTest(testCase: TestCase) {
   expectedResults.forEach { expectedFile ->
     FileSystem.SYSTEM.apply {
       val outputFile = outputDirectory /
-        config.outputPackageName.replace('.', '/').toPath(normalize = true) / expectedFile.name
+        config.outputPackageName.replace('.', '/').toPath(normalize = true) /
+        expectedFile.name.removeSuffix(".txt").plus(".kt")
       source(outputFile).buffer().readUtf8() shouldBe
         source(expectedFile.toOkioPath()).buffer().readUtf8()
       withContext(Dispatchers.IO) {

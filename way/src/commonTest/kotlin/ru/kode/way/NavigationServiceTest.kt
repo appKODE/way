@@ -611,7 +611,7 @@ class NavigationServiceTest : ShouldSpec({
         override fun createPage2Node() = TestScreenNode()
         override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
 
-        override fun createLoginNodeBuilder(): NodeBuilder {
+        override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder {
           return LoginNodeBuilder(
             object : LoginNodeBuilder.Factory {
               override fun createRootNode(defaultUserName: String) = TestFlowNode(

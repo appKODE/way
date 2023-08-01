@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.5 - 2023-08-01
+
+* Generated node builder factories now have an argument corresponding to the flow parameter (if any)
+
 ## 0.8.4 - 2023-06-28
 
 * Improve NodeHost: optional starting, make utility functions public. This will aid in cases where one wishes to build their own NodeHost

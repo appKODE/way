@@ -478,6 +478,41 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
+  should("consume event if Stay transition is returned") {
+    val sut = NavigationService(
+      NavService06Schema(),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app06.intro,
+            transitions = listOf(
+              tr(on = "A", Target.app06.test),
+              tr(on = "B", Target.app06.intro),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.intro.main" to TestScreenNode(
+            tr(on = "B", Stay),
+          ),
+          "app.intro.main.test" to TestScreenNode(),
+        )
+      ),
+      onFinish = { _: Unit -> Stay },
+    )
+
+    sut.collectTransitions().test {
+      awaitItem()
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test"
+      }
+      sut.sendEvent(TestEvent("B"))
+      awaitItem().apply {
+        active shouldBe "app.intro.main.test"
+      }
+    }
+  }
+
   should("correctly navigate when using imported schemas") {
     val sut = NavigationService(
       NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),

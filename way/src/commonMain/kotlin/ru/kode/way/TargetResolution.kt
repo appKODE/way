@@ -97,7 +97,7 @@ private fun resolveTransitionInRegion(
     }
     is Stay -> {
       ResolvedTransition(
-        targetPaths = mapOf(regionId to path),
+        targetPaths = mapOf(regionId to activePath),
         finishHandlers = null,
         payloads = emptyMap(),
         enqueuedEvents = null,

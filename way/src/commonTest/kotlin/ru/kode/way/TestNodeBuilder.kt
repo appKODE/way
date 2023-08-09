@@ -9,4 +9,6 @@ class TestNodeBuilder(
     return mapping[path.segments.joinToString(".") { it.name }]
       ?: error("no test node mapping for path $path. Existing keys: ${mapping.keys}")
   }
+
+  override fun invalidateCache(path: Path) = Unit
 }

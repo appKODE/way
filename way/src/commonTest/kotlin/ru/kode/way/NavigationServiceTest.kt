@@ -3,9 +3,11 @@ package ru.kode.way
 import app.cash.turbine.test
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainInOrder
+import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import ru.kode.way.nav01.NavService01Schema
 import ru.kode.way.nav02.NavService02Schema
 import ru.kode.way.nav04.NavService04Schema
@@ -889,6 +891,83 @@ class NavigationServiceTest : ShouldSpec({
       }
       // See NOTEs above
       createChildNodeCallCount shouldBe 2
+    }
+  }
+
+  should("cleanup nodes after flow finish") {
+    val sut = NavigationService<Unit>(
+      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
+      ru.kode.way.nav09.AppNodeBuilder(
+        object : ru.kode.way.nav09.AppNodeBuilder.Factory {
+          override fun createRootNode(): FlowNode<*> {
+            return TestFlowNode(
+              initialTarget = Target.app09.permissions { Ignore },
+              transitions = listOf(
+                tr(on = "A", NavigateTo(Target.app09.page1)),
+                tr(on = "B", NavigateTo(Target.app09.permissions { Ignore })),
+              )
+            )
+          }
+
+          override fun createPage1Node() = TestScreenNode()
+
+          override fun createPermissionsNodeBuilder(): NodeBuilder {
+            return PermissionsNodeBuilder(
+              object : PermissionsNodeBuilder.Factory {
+                // This emulates flow node being cached by DI.
+                // Generated node builders should cache their child node builders only while path is active, i.e.
+                // AppNodeBuilder should cache PermissionsNodeBuilder only while "permissions" flow is active,
+                // and then it should drop PermissionsNodeBuilder + its factory + this lazy node, and reconstruct
+                // all this next time permission flow is started
+                private val flowNode: FlowNode<*> by lazy {
+                  TestFlowNode(
+                    initialTarget = Target.permissions09.request,
+                    transitions = listOf(
+                      tr(on = "C", NavigateTo(Target.permissions09.intro)),
+                      tr(on = "D", NavigateTo(Target.permissions09.request)),
+                    )
+                  )
+                }
+                override fun createRootNode(): FlowNode<*> {
+                  return flowNode
+                }
+                override fun createIntroNode() = TestScreenNode()
+                override fun createRequestNode() = TestScreenNode()
+              },
+              NavService09ChildSchema()
+            )
+          }
+        },
+        NavService09ParentSchema(NavService09ChildSchema())
+      ),
+      onFinish = { Ignore }
+    )
+
+    sut.collectTransitions().test {
+      awaitItem().apply {
+        active shouldBe "app.page1.permissions.intro.request"
+        val permissionNodes = aliveNodes.filter { it.key.contains("permissions") }.values
+
+        sut.sendEvent(TestEvent("A"))
+        active shouldBe "app.page1"
+
+        // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
+        // be reconstructed again
+
+        sut.sendEvent(TestEvent("B"))
+        active shouldBe "app.page1.permissions.intro.request"
+        val newPermissionNodes = aliveNodes.filter { it.key.contains("permissions") }.values
+        newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
+        val requestNode = aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+
+        sut.sendEvent(TestEvent("C"))
+        sut.sendEvent(TestEvent("D"))
+        val newRequestNode = aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+
+        requestNode shouldNotBe newRequestNode
+
+        cancelAndIgnoreRemainingEvents()
+      }
     }
   }
 })

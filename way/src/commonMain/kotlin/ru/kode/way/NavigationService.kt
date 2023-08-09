@@ -142,6 +142,7 @@ class NavigationService<R : Any>(
         }
       }
       region._finishHandlers.keys.retainAll(region.alive.toSet())
+      nodeBuilder.invalidateCache(region.active)
     }
   }
 

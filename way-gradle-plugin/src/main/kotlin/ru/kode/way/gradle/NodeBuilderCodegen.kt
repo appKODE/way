@@ -224,7 +224,6 @@ internal fun buildNodeBuilderTypeSpec(
           val includeDebug = true
           if (lazyNodeBuilderFactories.isNotEmpty()) {
             if (includeDebug) {
-              addStatement("println(%P)", "\${this::class.simpleName}: cleaning up cache for \$path")
               beginControlFlow(
                 "%L.keys.filter { !path.%M(it) }.forEach",
                 builderCachePropertyName,
@@ -238,9 +237,9 @@ internal fun buildNodeBuilderTypeSpec(
               builderCachePropertyName,
               MemberName(LIBRARY_PACKAGE, "startsWith"),
             )
-            beginControlFlow("%L.values.forEach", builderCachePropertyName)
+            beginControlFlow("%L.forEach { (builderPath, builder) ->", builderCachePropertyName)
             addStatement(
-              "it.invalidateCache(path.%M(path.length - 1))",
+              "builder.invalidateCache(path.%M(builderPath.length - 1))",
               MemberName(LIBRARY_PACKAGE, "drop"),
             )
             endControlFlow()

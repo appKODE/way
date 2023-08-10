@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.6 - 2023-08-10
+
+* Generated NodeBuilders now have an improved caching mechanism which is coupled with the correct cache invalidation: no more create-once-use-forever child nodes
+* Fixed few bugs with Stay transition
+
 ## 0.8.5 - 2023-08-01
 
 * Generated node builder factories now have an argument corresponding to the flow parameter (if any)

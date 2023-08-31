@@ -3,12 +3,14 @@ package ru.kode.way.compose
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
-import androidx.compose.animation.AnimatedContentScope.SlideDirection
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.with
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -32,7 +34,7 @@ import ru.kode.way.startsWith
 @Composable
 fun NodeHost(
   service: NavigationService<*>,
-  transitionSpec: AnimatedContentScope<NodeWithPath?>.() -> ContentTransform = defaultTransitionSpec
+  transitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> ContentTransform = defaultTransitionSpec
 ) {
   LaunchedEffect(service) {
     if (!service.isStarted()) {
@@ -43,6 +45,7 @@ fun NodeHost(
   AnimatedContent(
     transitionSpec = transitionSpec,
     targetState = activeNode,
+    label = "NodeHost",
   ) { state ->
     if (state != null) {
       val (path, node) = state
@@ -66,7 +69,7 @@ fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinish: (R) -
 }
 
 @ExperimentalAnimationApi
-val defaultTransitionSpec: AnimatedContentScope<NodeWithPath?>.() -> ContentTransform = {
+val defaultTransitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> ContentTransform = {
   val initial = initialState
   val target = targetState
   when {
@@ -79,13 +82,14 @@ val defaultTransitionSpec: AnimatedContentScope<NodeWithPath?>.() -> ContentTran
       //   determine least common parent Flow of two paths and also can query actual alive Nodes for hints on
       //   transitions they desire in ambiguous situations
       if (!(initial.path.length > target.path.length && initial.path.startsWith(target.path))) {
-        slideIntoContainer(SlideDirection.Left) with slideOutOfContainer(SlideDirection.Left)
+        slideIntoContainer(SlideDirection.Left) togetherWith slideOutOfContainer(SlideDirection.Left)
       } else {
-        slideIntoContainer(SlideDirection.Right) with slideOutOfContainer(SlideDirection.Right)
+        slideIntoContainer(SlideDirection.Right) togetherWith slideOutOfContainer(SlideDirection.Right)
       }
     }
     // these defaults are taken from AnimatedContent's sources
-    else -> fadeIn(animationSpec = tween(220, delayMillis = 90)) with fadeOut(animationSpec = tween(90))
+    else -> (fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith fadeOut(animationSpec = tween(90)))
+      .using(sizeTransform = null)
   }
 }
 

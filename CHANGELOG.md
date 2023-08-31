@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.7 - 2023-09-12
+
+* Update to kotlin 1.9.10 
+* Update `way-compose` to Compose 1.5.1
+
 ## 0.8.6 - 2023-08-10
 
 * Generated NodeBuilders now have an improved caching mechanism which is coupled with the correct cache invalidation: no more create-once-use-forever child nodes

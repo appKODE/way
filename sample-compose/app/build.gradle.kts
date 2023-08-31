@@ -7,11 +7,11 @@ plugins {
 
 android {
   namespace = "ru.kode.way.sample.compose"
-  compileSdk = 33
+  compileSdk = 34
 
   defaultConfig {
     minSdk = 26
-    targetSdk = 33
+    targetSdk = 34
     vectorDrawables {
       useSupportLibrary = true
     }

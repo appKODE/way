@@ -52,19 +52,24 @@ class WayPlugin : Plugin<Project> {
     // TODO add "way" dependencies to project (see sqldelight-gradle-plugin for an example)
 
     val mainSources = findMainSources()
-    val mainTask = project.tasks.register("generateWayClasses", GenerateClassesTask::class.java) { task ->
-      configureTask(task, mainSources)
-    }
-    mainSources.forEach { source ->
-      source.sourceDirectorySet.kotlin.srcDir(mainTask)
-      source.registerGeneratedDir?.invoke(mainTask)
+    if (mainSources.isNotEmpty()) {
+      val mainTask = project.tasks.register("generateWayClasses", GenerateClassesTask::class.java) { task ->
+        task.outputDirectory = task.outputDirectory.resolve(mainSources.first().name)
+        configureTask(task, mainSources)
+      }
+      mainSources.forEach { source ->
+        source.sourceDirectorySet.kotlin.srcDir(mainTask)
+        source.registerGeneratedDir?.invoke(mainTask)
+      }
     }
 
     val testSources = findTestSources()
     if (testSources.isNotEmpty()) {
       val testTask = project.tasks.register("generateTestWayClasses", GenerateClassesTask::class.java) { task ->
+        task.outputDirectory = task.outputDirectory.resolve(testSources.first().name)
         configureTask(task, testSources)
       }
+
       testSources.forEach { source ->
         source.sourceDirectorySet.kotlin.srcDir(testTask)
       }
@@ -86,6 +91,7 @@ class WayPlugin : Plugin<Project> {
     project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.run {
       return listOf(
         Source(
+          name = "commonMain",
           sourceSets = listOf(sourceSets.getByName("commonMain")),
           sourceDirectorySet = sourceSets.getByName("commonMain")
         )
@@ -103,6 +109,7 @@ class WayPlugin : Plugin<Project> {
         .associateBy { it.name }
       return variants.map { variant ->
         Source(
+          name = variant.name,
           sourceSets = variant.sourceSets.mapNotNull { variantSourceSet -> sourceSets[variantSourceSet.name] },
           sourceDirectorySet = sourceSets[variant.name]
             ?: error("failed to find sourceSet for variant ${variant.name}"),
@@ -117,6 +124,7 @@ class WayPlugin : Plugin<Project> {
     (project.extensions.getByName("kotlin") as KotlinProjectExtension).run {
       return listOf(
         Source(
+          name = "main",
           sourceSets = listOf(sourceSets.getByName("main")),
           sourceDirectorySet = sourceSets.getByName("main")
         )
@@ -128,6 +136,7 @@ class WayPlugin : Plugin<Project> {
     project.extensions.findByType(KotlinMultiplatformExtension::class.java)?.run {
       return listOf(
         Source(
+          name = "commonTest",
           sourceSets = listOf(sourceSets.getByName("commonTest")),
           sourceDirectorySet = sourceSets.getByName("commonTest")
         )
@@ -141,6 +150,7 @@ class WayPlugin : Plugin<Project> {
 }
 
 private data class Source(
+  val name: String,
   val sourceSets: List<KotlinSourceSet>,
   val sourceDirectorySet: KotlinSourceSet,
   val registerGeneratedDir: ((TaskProvider<GenerateClassesTask>) -> Unit)? = null

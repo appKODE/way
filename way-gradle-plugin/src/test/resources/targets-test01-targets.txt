@@ -20,9 +20,10 @@ public class AppTargets(
 
   public val screen3: ScreenTarget = ScreenTarget(flowPath(Path("screen1","screen2","screen3")))
 
-  public fun permissions(onFinish: (result: PermissionFlowResult) -> FlowTransition<FlowResult>):
+  public
+      fun permissions(onFinishRequest: (result: PermissionFlowResult) -> FlowTransition<FlowResult>):
       FlowTarget<PermissionFlowResult, FlowResult> = FlowTarget(flowPath(Path("permissions")),
-      payload = null, onFinish)
+      payload = null, onFinishRequest)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

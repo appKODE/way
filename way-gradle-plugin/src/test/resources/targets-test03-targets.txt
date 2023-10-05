@@ -15,9 +15,9 @@ public class AppTargets(
   public val intro: ScreenTarget = ScreenTarget(flowPath(Path("intro")))
 
   public
-      fun permissions(onFinish: (result: PermissionsFlowResult) -> FlowTransition<AppFlowResult>):
+      fun permissions(onFinishRequest: (result: PermissionsFlowResult) -> FlowTransition<AppFlowResult>):
       FlowTarget<PermissionsFlowResult, AppFlowResult> =
-      FlowTarget(flowPath(Path("intro","permissions")), payload = null, onFinish)
+      FlowTarget(flowPath(Path("intro","permissions")), payload = null, onFinishRequest)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

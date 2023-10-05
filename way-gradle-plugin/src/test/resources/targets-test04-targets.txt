@@ -17,9 +17,9 @@ public class AppTargets(
 ) {
   public val intro: ScreenTarget = ScreenTarget(flowPath(Path("intro")))
 
-  public fun main(userId: Int, onFinish: (result: Unit) -> FlowTransition<AppFlowResult>):
+  public fun main(userId: Int, onFinishRequest: (result: Unit) -> FlowTransition<AppFlowResult>):
       FlowTarget<Unit, AppFlowResult> = FlowTarget(flowPath(Path("main")), payload = userId,
-      onFinish)
+      onFinishRequest)
 
   public fun page1(charset: Charset): ScreenTarget = ScreenTarget(flowPath(Path("intro","page1")),
       payload = charset)
@@ -28,9 +28,10 @@ public class AppTargets(
       ScreenTarget(flowPath(Path("intro","page1","page2")), payload = userCount)
 
   public fun permissions(requireGrantAll: Boolean,
-      onFinish: (result: Unit) -> FlowTransition<AppFlowResult>): FlowTarget<Unit, AppFlowResult> =
+      onFinishRequest: (result: Unit) -> FlowTransition<AppFlowResult>):
+      FlowTarget<Unit, AppFlowResult> =
       FlowTarget(flowPath(Path("intro","page1","page2","permissions")), payload = requireGrantAll,
-      onFinish)
+      onFinishRequest)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

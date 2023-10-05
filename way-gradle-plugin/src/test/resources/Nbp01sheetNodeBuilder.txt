@@ -14,7 +14,7 @@ public class Nbp01sheetNodeBuilder(
   private val nodeFactory: Factory,
   private val schema: NodeBuildersParallel01Schema,
 ) : NodeBuilder {
-  public override fun build(path: Path, payloads: Map<Path, Any>): Node {
+  override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nbp01sheet") {
       """illegal path build requested for "nbp01sheet" node: $path"""
     }

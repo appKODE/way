@@ -15,7 +15,7 @@ public class Nb01onboardingNodeBuilder(
   private val nodeFactory: Factory,
   private val schema: NodeBuildersTest01Schema,
 ) : NodeBuilder {
-  public override fun build(path: Path, payloads: Map<Path, Any>): Node {
+  override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nb01onboarding") {
       """illegal path build requested for "nb01onboarding" node: $path"""
     }

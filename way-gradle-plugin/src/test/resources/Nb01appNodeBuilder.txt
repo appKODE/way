@@ -34,7 +34,7 @@ public class Nb01appNodeBuilder(
     return _nb01onboardingNodeBuilder!!
   }
 
-  public override fun build(path: Path, payloads: Map<Path, Any>): Node {
+  override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nb01app") {
       """illegal path build requested for "nb01app" node: $path"""
     }

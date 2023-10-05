@@ -15,13 +15,13 @@ public class TestAppSchema(
   private val loginSchema: Schema,
   private val mainSchema: Schema,
 ) : Schema {
-  public override val regions: List<RegionId> = listOf(RegionId(Path("app")))
+  override val regions: List<RegionId> = listOf(RegionId(Path("app")))
 
-  public override fun children(regionId: RegionId): Set<Segment> = emptySet()
+  override fun children(regionId: RegionId): Set<Segment> = emptySet()
 
-  public override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
+  override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
 
-  public override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
+  override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
     regions[0] -> {
       when(segment.name) {
         else ->  {
@@ -38,7 +38,7 @@ public class TestAppSchema(
     }
   }
 
-  public override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
+  override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
     regions[0] -> {
       when {
         path.startsWith(Path("app", "login", "main")) ->

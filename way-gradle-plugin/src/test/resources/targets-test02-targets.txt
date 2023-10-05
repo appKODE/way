@@ -13,13 +13,15 @@ import ru.kode.way.append
 public class AppTargets(
   private val prefix: Path? = null,
 ) {
-  public fun login(onFinish: (result: LoginFlowResult) -> FlowTransition<AppFlowResult>):
+  public fun login(onFinishRequest: (result: LoginFlowResult) -> FlowTransition<AppFlowResult>):
       FlowTarget<LoginFlowResult, AppFlowResult> = FlowTarget(flowPath(Path("login")), payload =
-      null, onFinish)
+      null, onFinishRequest)
 
-  public fun onboarding(onFinish: (result: OnboardingFlowResult) -> FlowTransition<AppFlowResult>):
+  public
+      fun onboarding(onFinishRequest: (result: OnboardingFlowResult) -> FlowTransition<AppFlowResult>):
       FlowTarget<OnboardingFlowResult, AppFlowResult> =
-      FlowTarget(flowPath(Path("login","credentials","onboarding")), payload = null, onFinish)
+      FlowTarget(flowPath(Path("login","credentials","onboarding")), payload = null,
+      onFinishRequest)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

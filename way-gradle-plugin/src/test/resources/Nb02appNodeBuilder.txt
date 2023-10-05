@@ -15,7 +15,7 @@ public class Nb02appNodeBuilder(
   private val nodeFactory: Factory,
   private val schema: NodeBuildersTest02Schema,
 ) : NodeBuilder {
-  public override fun build(path: Path, payloads: Map<Path, Any>): Node {
+  override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nb02app") {
       """illegal path build requested for "nb02app" node: $path"""
     }

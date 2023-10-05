@@ -34,7 +34,7 @@ public class Nbp01mainNodeBuilder(
     return _nbp01headNodeBuilder!!
   }
 
-  public override fun build(path: Path, payloads: Map<Path, Any>): Node {
+  override fun build(path: Path, payloads: Map<Path, Any>): Node {
     check(path.segments.firstOrNull()?.name == "nbp01main") {
       """illegal path build requested for "nbp01main" node: $path"""
     }

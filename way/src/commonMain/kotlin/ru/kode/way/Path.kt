@@ -53,7 +53,27 @@ fun Path.take(count: Int): Path {
 }
 
 fun Path.startsWith(other: Path): Boolean {
-  return this.take(other.segments.size) == other
+  if (this.length < other.length) {
+    return false
+  }
+  for (i in (0..other.length - 1)) {
+    if (this.segments[i] != other.segments[i]) {
+      return false
+    }
+  }
+  return true
+}
+
+fun Path.endsWith(other: Path): Boolean {
+  if (this.length < other.length) {
+    return false
+  }
+  for (i in (0..other.length - 1)) {
+    if (this.segments[this.segments.lastIndex - i] != other.segments[other.segments.lastIndex - i]) {
+      return false
+    }
+  }
+  return true
 }
 
 fun Path.prepend(path: Path): Path {

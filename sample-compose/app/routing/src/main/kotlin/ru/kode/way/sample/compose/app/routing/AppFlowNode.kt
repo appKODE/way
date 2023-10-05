@@ -11,10 +11,10 @@ import ru.kode.way.sample.compose.login.routing.LoginFlowResult
 import javax.inject.Inject
 
 class AppFlowNode @Inject constructor() : FlowNode<Unit> {
-  override val initial: Target = Target.app.login(onFinish = { result ->
+  override val initial: Target = Target.app.login(onFinishRequest = { result ->
     when (result) {
       LoginFlowResult.Success -> {
-        NavigateTo(Target.app.main(onFinish = { Finish(Unit) }))
+        NavigateTo(Target.app.main(onFinishRequest = { Finish(Unit) }))
       }
       LoginFlowResult.Dismissed -> {
         Finish(Unit)

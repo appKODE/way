@@ -19,16 +19,14 @@ class AppFlowNode : FlowNode<AppFlowResult> {
 
   override val initial = Target.app.permissions { result ->
     when (result) {
-      FlowResult.Done -> NavigateTo(Target.app.main(onFinish = { Finish(AppFlowResult.Dismissed) }))
+      FlowResult.Done -> NavigateTo(Target.app.main(onFinishRequest = { Finish(AppFlowResult.Dismissed) }))
       FlowResult.Dismissed -> Finish(AppFlowResult.Dismissed)
     }
   }
 
   override fun onEntry() {
-    TODO("Not yet implemented")
   }
 
   override fun onExit() {
-    TODO("Not yet implemented")
   }
 }

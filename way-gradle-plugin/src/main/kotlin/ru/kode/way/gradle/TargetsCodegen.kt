@@ -119,7 +119,7 @@ private fun buildFlowTargetSpec(
     }
     .addParameter(
       ParameterSpec.builder(
-        "onFinish",
+        "onFinishRequest",
         LambdaTypeName.get(
           receiver = null,
           ParameterSpec.builder("result", targetResultTypeName).build(),
@@ -130,7 +130,7 @@ private fun buildFlowTargetSpec(
     )
     .returns(libraryClassName("FlowTarget").parameterizedBy(targetResultTypeName, resultTypeName))
     .addCode(
-      "return %T(flowPath(%T(%L)), payload = %L, onFinish)",
+      "return %T(flowPath(%T(%L)), payload = %L, onFinishRequest)",
       libraryClassName("FlowTarget"),
       libraryClassName("Path"),
       adjacencyList

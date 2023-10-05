@@ -61,7 +61,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Int -> Stay },
+      onFinishRequest = { _: Int -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -83,7 +83,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.permissions.intro" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -137,7 +137,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.permissions.intro" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -179,7 +179,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.profile.main" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -214,7 +214,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.test" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -259,7 +259,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -298,7 +298,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -315,7 +315,7 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("call onFinish to inform parent flow of result") {
+  should("call onFinishRequest to inform parent flow of result") {
     val sut = NavigationService(
       NavService07Schema(),
       TestNodeBuilder(
@@ -343,7 +343,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.login.credentials" to TestScreenNode()
         )
       ),
-      onFinish = { _: Double -> Stay },
+      onFinishRequest = { _: Double -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -355,7 +355,7 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("call onFinish to inform parent flow of result from non-initial node in the sub-flow") {
+  should("call onFinishRequest to inform parent flow of result from non-initial node in the sub-flow") {
     val sut = NavigationService(
       NavService08Schema(),
       TestNodeBuilder(
@@ -385,7 +385,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.login.credentials" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -399,7 +399,7 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("correctly call onFinish if parent flow finishes as a result of a child flow finish") {
+  should("correctly call onFinishRequest if parent flow finishes as a result of a child flow finish") {
     val sut = NavigationService(
       NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
       TestNodeBuilder(
@@ -428,7 +428,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.page1.login.credentials.permissions.intro" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -462,7 +462,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -497,7 +497,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -535,7 +535,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.page1.permissions.intro.request" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     sut.collectTransitions().test {
@@ -558,7 +558,7 @@ class NavigationServiceTest : ShouldSpec({
       TestNodeBuilder(
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app11.login(onFinish = { NavigateTo(Target.app11.main) }),
+            initialTarget = Target.app11.login(onFinishRequest = { NavigateTo(Target.app11.main) }),
           ),
           "app.intro" to TestScreenNode(),
           "app.intro.main" to TestScreenNode(),
@@ -570,7 +570,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro.main.test.login.credentials.otp" to TestScreenNode(),
         )
       ),
-      onFinish = { _: Unit -> isFinished = true; Ignore },
+      onFinishRequest = { _: Unit -> isFinished = true; Ignore },
     )
 
     sut.collectTransitions().test {
@@ -601,7 +601,7 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("use service.onFinish when receiving finish event") {
+  should("use service.onFinishRequest when receiving finish event") {
     var isFinished = false
     val sut = NavigationService(
       NavService01Schema(),
@@ -616,7 +616,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro" to TestScreenNode(),
         )
       ),
-      onFinish = { result: Int ->
+      onFinishRequest = { result: Int ->
         if (result == 33) {
           isFinished = true
         }
@@ -641,7 +641,7 @@ class NavigationServiceTest : ShouldSpec({
           initialTarget = Target.app12.page1(Charsets.UTF_32),
           payload = timeout,
           transitions = listOf(
-            tr("A", Target.app12.login(defaultUserName = "Dima", onFinish = { Stay }))
+            tr("A", Target.app12.login(defaultUserName = "Dima", onFinishRequest = { Stay }))
           )
         )
 
@@ -672,7 +672,7 @@ class NavigationServiceTest : ShouldSpec({
     val sut = NavigationService(
       schema,
       nodeBuilder,
-      onFinish = { _: Int -> Ignore },
+      onFinishRequest = { _: Int -> Ignore },
     )
 
     sut.collectTransitions(rootNodePayload = 42).test {
@@ -775,7 +775,7 @@ class NavigationServiceTest : ShouldSpec({
           ),
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
 
     entryCounts.shouldBeEmpty()
@@ -917,7 +917,7 @@ class NavigationServiceTest : ShouldSpec({
         },
         NavService09ParentSchema(NavService09ChildSchema())
       ),
-      onFinish = { Ignore }
+      onFinishRequest = { Ignore }
     )
 
     sut.collectTransitions().test {
@@ -975,7 +975,7 @@ class NavigationServiceTest : ShouldSpec({
         },
         NavService09ParentSchema(NavService09ChildSchema())
       ),
-      onFinish = { Ignore }
+      onFinishRequest = { Ignore }
     )
 
     sut.collectTransitions().test {

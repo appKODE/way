@@ -45,7 +45,7 @@ class NodeExtensionsTest : ShouldSpec({
           "app.profile.main" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
     sut.addNodeExtensionPoint(point)
 
@@ -109,7 +109,7 @@ class NodeExtensionsTest : ShouldSpec({
           "app.profile.main" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
     sut.addNodeExtensionPoint(point)
 

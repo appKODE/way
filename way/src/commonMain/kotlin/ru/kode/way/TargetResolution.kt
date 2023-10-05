@@ -43,7 +43,7 @@ private fun resolveTransitionInRegion(
   activePath: Path,
   nodes: Map<Path, Node>,
   nodeBuilder: NodeBuilder,
-  finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
+  finishHandlers: Map<Path, FinishRequestHandler<Any, Any>>,
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
 ): ResolvedTransition {
@@ -70,7 +70,7 @@ private fun resolveTransitionInRegion(
             val handlers = transitionFinishHandlers ?: HashMap(schema.regions.size)
             handlers[targetRegionId] = ResolvedTransition.FinishHandler(
               flowPath = findParentFlowPathInclusive(schema, regionId, targetPathAbs),
-              callback = target.onFinish as OnFinishHandler<Any, Any>
+              callback = target.onFinishRequest as FinishRequestHandler<Any, Any>
             )
             transitionFinishHandlers = handlers
           }
@@ -135,7 +135,7 @@ private fun maybeResolveBackEvent(
   activePath: Path,
   nodes: Map<Path, Node>,
   nodeBuilder: NodeBuilder,
-  finishHandlers: Map<Path, OnFinishHandler<Any, Any>>,
+  finishHandlers: Map<Path, FinishRequestHandler<Any, Any>>,
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
 ): ResolvedTransition? {
@@ -313,6 +313,6 @@ internal data class ResolvedTransition(
 
   data class FinishHandler(
     val flowPath: Path,
-    val callback: OnFinishHandler<Any, Any>
+    val callback: FinishRequestHandler<Any, Any>
   )
 }

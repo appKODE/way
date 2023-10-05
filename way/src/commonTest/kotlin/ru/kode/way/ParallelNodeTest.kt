@@ -82,7 +82,7 @@ class ParallelNodeTest : ShouldSpec() {
       val sut = NavigationService<Unit>(
         schema = appSchema,
         nodeBuilder = appNodeBuilder,
-        onFinish = { Ignore }
+        onFinishRequest = { Ignore }
       )
 
       sut.collectTransitions().test {

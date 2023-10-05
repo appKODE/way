@@ -10,7 +10,7 @@ fun main() {
   val service = NavigationService<Unit>(
     SampleAppSchema(),
     component.nodeBuilder(),
-    onFinish = {
+    onFinishRequest = {
       Stay
     }
   )

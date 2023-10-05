@@ -41,10 +41,10 @@ class Region internal constructor(
   /**
    * A mapping from a path to a flow to its finish handler.
    * For example if "app.main" flow node transitions to "app.main.onboarding" flow, then
-   * this will result in a mapping from "app.main.onboarding" to "onFinish" callback provided by "app.main" flow
+   * this will result in a mapping from "app.main.onboarding" to "onFinishRequest" callback provided by "app.main" flow
    * when defining an "app.main" node
    */
-  internal val _finishHandlers: MutableMap<Path, OnFinishHandler<Any, Any>>,
+  internal val _finishHandlers: MutableMap<Path, FinishRequestHandler<Any, Any>>,
 ) {
   val nodes: Map<Path, Node> = _nodes
   val active: Path get() = _active
@@ -53,7 +53,7 @@ class Region internal constructor(
   /**
    * @see _finishHandlers documentation
    */
-  internal val finishHandlers: Map<Path, OnFinishHandler<Any, Any>> = _finishHandlers
+  internal val finishHandlers: Map<Path, FinishRequestHandler<Any, Any>> = _finishHandlers
 
   // TODO rename active -> attached/top/current, alive -> active?
   val alive: List<Path> get() = _alive

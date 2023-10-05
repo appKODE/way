@@ -2,7 +2,6 @@ package ru.kode.way.compose
 
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.animation.ContentTransform
@@ -11,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.with
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -63,8 +61,8 @@ fun NodeHost(
 
 @ExperimentalAnimationApi
 @Composable
-fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinish: (R) -> FlowTransition<Unit>) {
-  val service = remember(schema) { NavigationService(schema, nodeBuilder, onFinish) }
+fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTransition<Unit>) {
+  val service = remember(schema) { NavigationService(schema, nodeBuilder, onFinishRequest) }
   NodeHost(service)
 }
 

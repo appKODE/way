@@ -42,7 +42,7 @@ class ServiceExtensionsTest : ShouldSpec({
           "app.profile.main" to TestScreenNode()
         )
       ),
-      onFinish = { _: Unit -> Stay },
+      onFinishRequest = { _: Unit -> Stay },
     )
     sut.addServiceExtensionPoint(point)
 

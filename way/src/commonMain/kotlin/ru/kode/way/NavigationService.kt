@@ -3,7 +3,7 @@ package ru.kode.way
 class NavigationService<R : Any>(
   private val schema: Schema,
   private val nodeBuilder: NodeBuilder,
-  private val onFinish: (R) -> FlowTransition<Unit>
+  private val onFinishRequest: (R) -> FlowTransition<Unit>,
 ) {
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
@@ -70,7 +70,7 @@ class NavigationService<R : Any>(
           _active = regionRootPath,
           _alive = mutableListOf(regionRootPath),
           _finishHandlers = mutableMapOf(
-            regionRootPath to (onFinish as (Any) -> FlowTransition<Any>)
+            regionRootPath to (onFinishRequest as (Any) -> FlowTransition<Any>)
           ),
         )
       }

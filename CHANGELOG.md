@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.8 - 2023-10-05
+
+* Add `Path.endsWith(other: Path)`
+* Rename `onFinish` → `onFinishRequest`
+* Fix issue which caused publishing jar to include code generated for tests
+
 ## 0.8.7 - 2023-09-12
 
 * Update to kotlin 1.9.10 

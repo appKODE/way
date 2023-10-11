@@ -1,0 +1,15 @@
+digraph MCMainFlow {
+  package = "ru.kode.way.mc01"
+
+  loginFlow [
+    type="schema",
+    parameterName="section",
+    parameterType="kotlin.Int"
+  ]
+
+  mainFlow [
+    type="flow"
+  ]
+
+  mainFlow -> main -> loginFlow
+}

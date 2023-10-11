@@ -1,0 +1,11 @@
+digraph MCLoginFlow {
+  package = "ru.kode.way.mc01"
+
+  loginFlow [
+    type="flow",
+    parameterName="section",
+    parameterType="kotlin.Int"
+  ]
+
+  loginFlow -> credentials -> otp
+}

@@ -61,7 +61,7 @@ private fun resolveTransitionInRegion(
       transition.targets.forEach { target ->
         // there maybe several targets in different regions
         val targetRegionId = findRegionIdUnsafe(schema.regions, target.path)
-        val targetPathAbs = schema.target(targetRegionId, target.path.segments.last())
+        val targetPathAbs = schema.target(targetRegionId, target.path.lastSegment().id, rootSegmentAlias = null)
           ?: error("failed to find schema entry for target \"${target.path}\"")
         target.payload?.also { payloads[targetPathAbs] = it }
         targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
@@ -143,7 +143,7 @@ private fun maybeResolveBackEvent(
     return null
   }
   val newPath = activePath.dropLast(1)
-  val transition = when (schema.nodeType(regionId, newPath)) {
+  val transition = when (schema.nodeType(regionId, newPath, rootSegmentAlias = null)) {
     Schema.NodeType.Flow -> {
       val result = (nodes[newPath] as FlowNode<*>?)?.dismissResult
         ?: error("no flow node at path $newPath")
@@ -234,7 +234,9 @@ private fun maybeResolveInitial(
   payloads: MutableMap<Path, Any>,
 ): Map<RegionId, Path> {
   @Suppress("MoveVariableDeclarationIntoWhen")
-  val targetNode = nodes.getOrElse(targetPathAbs) { nodeBuilder.build(targetPathAbs, payloads = payloads) }
+  val targetNode = nodes.getOrElse(targetPathAbs) {
+    nodeBuilder.build(targetPathAbs, payloads = payloads, rootSegmentAlias = null)
+  }
   return when (targetNode) {
     is FlowNode<*> -> {
       val nextTargetPathAbs = targetPathAbs.append(targetNode.initial.path)
@@ -259,8 +261,8 @@ private fun maybeResolveInitial(
 private fun findRegionIdUnsafe(regions: Collection<RegionId>, path: Path): RegionId {
   return regions.first()
   // TODO Use this instead
-  return regions.sortedByDescending { it.path.length }.find { path.startsWith(it.path) }
-    ?: error("failed to find regionId for path=\"${path}\", searched in ${regions.joinToString { it.path.toString() }}")
+//  return regions.sortedByDescending { it.path.length }.find { path.startsWith(it.path) }
+//    ?: error("failed to find regionId for path=\"${path}\", searched in ${regions.joinToString { it.path.toString() }}")
 }
 
 /**
@@ -278,10 +280,10 @@ private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Pat
  * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
  */
 private fun findParentFlowPathInclusive(schema: Schema, regionId: RegionId, path: Path): Path {
-  return if (schema.nodeType(regionId, path) == Schema.NodeType.Flow) {
+  return if (schema.nodeType(regionId, path, rootSegmentAlias = null) == Schema.NodeType.Flow) {
     path
   } else {
-    path.toStepsReversed().first { schema.nodeType(regionId, it) != Schema.NodeType.Screen }
+    path.toStepsReversed().first { schema.nodeType(regionId, it, rootSegmentAlias = null) != Schema.NodeType.Screen }
   }
 }
 

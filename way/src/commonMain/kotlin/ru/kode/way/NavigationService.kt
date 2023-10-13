@@ -59,7 +59,8 @@ class NavigationService<R : Any>(
         val regionRootPath = regionId.path
         val regionRoot = nodeBuilder.build(
           regionRootPath,
-          payloads = event.payload?.let { mapOf(regionRootPath to it) } ?: emptyMap()
+          payloads = event.payload?.let { mapOf(regionRootPath to it) } ?: emptyMap(),
+          rootSegmentAlias = null
         )
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
@@ -89,7 +90,7 @@ class NavigationService<R : Any>(
   private fun checkSchemaValidity(schema: Schema, state: NavigationState) {
     state.regions.forEach { (regionId, region) ->
       region._nodes.forEach { (path, node) ->
-        val nodeType = schema.nodeType(regionId, path)
+        val nodeType = schema.nodeType(regionId, path, rootSegmentAlias = null)
         when (node) {
           is FlowNode<*> -> {
             check(nodeType == Schema.NodeType.Flow) {
@@ -135,7 +136,7 @@ class NavigationService<R : Any>(
       region.alive.forEach { path ->
         region._nodes.keys.retainAll(region.alive.toSet())
         if (!region._nodes.containsKey(path)) {
-          region._nodes[path] = nodeBuilder.build(path, payloads)
+          region._nodes[path] = nodeBuilder.build(path, payloads, rootSegmentAlias = null)
             .also {
               callOnEntry(it, path, state._nodeExtensionPoints)
             }

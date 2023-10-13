@@ -45,7 +45,7 @@ class SchemaCompositionTest : ShouldSpec() {
         sut.sendEvent(TestEvent("A"))
         awaitItem().active shouldBe "appFlow.mainFlow.main"
         sut.sendEvent(TestEvent("B"))
-        awaitItem().active shouldBe "appFlow.mainFlow.loginFlow.credentials"
+        awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials.otp"
       }
     }
   }

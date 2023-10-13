@@ -20,7 +20,14 @@ internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGe
   )
     .apply {
       parseResult.adjacencyList.forEachFlow { node, _ ->
-        addType(buildFlowTargets(node, parseResult.adjacencyList, isRootNode = node == rootNode))
+        addType(
+          buildFlowTargets(
+            node,
+            parseResult.adjacencyList,
+            isRootNode = node == rootNode,
+            buildSegmentId = { buildSegmentId(parseResult.filePath, it) }
+          )
+        )
       }
     }
     .apply {
@@ -51,7 +58,8 @@ private fun buildTargetExtensionSpec(node: Node.Flow, packageName: String): Prop
 private fun buildFlowTargets(
   node: Node.Flow,
   adjacencyList: AdjacencyList,
-  isRootNode: Boolean
+  isRootNode: Boolean,
+  buildSegmentId: (Node) -> String
 ): TypeSpec {
   return TypeSpec.classBuilder(targetsClassName(node))
     .primaryConstructor(
@@ -77,15 +85,17 @@ private fun buildFlowTargets(
         when (targetNode) {
           is Node.Flow -> {
             if (isRootNode) {
-              addFunction(buildFlowTargetSpec(node, targetNode, adjacencyList))
+              addFunction(buildFlowTargetSpec(node, targetNode, adjacencyList, buildSegmentId))
             }
           }
           is Node.Screen -> {
             if (adjacencyList.findParentFlow(targetNode) == node) {
               if (targetNode.parameter != null) {
-                addFunction(buildScreenTargetFunSpec(node, targetNode, adjacencyList, targetNode.parameter))
+                addFunction(
+                  buildScreenTargetFunSpec(node, targetNode, adjacencyList, targetNode.parameter, buildSegmentId)
+                )
               } else {
-                addProperty(buildScreenTargetPropertySpec(node, targetNode, adjacencyList))
+                addProperty(buildScreenTargetPropertySpec(node, targetNode, adjacencyList, buildSegmentId))
               }
             }
           }
@@ -107,6 +117,7 @@ private fun buildFlowTargetSpec(
   node: Node.Flow,
   targetNode: Node.Flow,
   adjacencyList: AdjacencyList,
+  buildSegmentId: (Node) -> String
 ): FunSpec {
   val resultTypeName = ClassName.bestGuess(node.resultType)
   val targetResultTypeName = ClassName.bestGuess(targetNode.resultType)
@@ -130,14 +141,15 @@ private fun buildFlowTargetSpec(
     )
     .returns(libraryClassName("FlowTarget").parameterizedBy(targetResultTypeName, resultTypeName))
     .addCode(
-      "return %T(flowPath(%T(%L)), payload = %L, onFinishRequest)",
+      "return %T(flowPath(%L), payload = %L, onFinishRequest)",
       libraryClassName("FlowTarget"),
-      libraryClassName("Path"),
-      adjacencyList
-        .findAllParents(targetNode, includeThis = true)
-        .takeWhile { it != node }
-        .reversed()
-        .joinToString(",") { "\"${it.id}\"" },
+      buildPathConstructorCall(
+        nodes = adjacencyList
+          .findAllParents(targetNode, includeThis = true)
+          .takeWhile { it != node }
+          .reversed(),
+        buildSegmentId = buildSegmentId
+      ),
       parameter?.name ?: "null"
     )
     .build()
@@ -146,18 +158,20 @@ private fun buildFlowTargetSpec(
 private fun buildScreenTargetPropertySpec(
   node: Node.Flow,
   targetNode: Node.Screen,
-  adjacencyList: AdjacencyList
+  adjacencyList: AdjacencyList,
+  buildSegmentId: (Node) -> String
 ): PropertySpec {
   return PropertySpec.builder(targetNode.id, libraryClassName("ScreenTarget"))
     .initializer(
-      "%T(flowPath(%T(%L)))",
+      "%T(flowPath(%L))",
       libraryClassName("ScreenTarget"),
-      libraryClassName("Path"),
-      adjacencyList
-        .findAllParents(targetNode, includeThis = true)
-        .takeWhile { it != node }
-        .reversed()
-        .joinToString(",") { "\"${it.id}\"" }
+      buildPathConstructorCall(
+        nodes = adjacencyList
+          .findAllParents(targetNode, includeThis = true)
+          .takeWhile { it != node }
+          .reversed(),
+        buildSegmentId = buildSegmentId
+      ),
     )
     .build()
 }
@@ -167,19 +181,21 @@ private fun buildScreenTargetFunSpec(
   targetNode: Node.Screen,
   adjacencyList: AdjacencyList,
   parameter: Parameter,
+  buildSegmentId: (Node) -> String
 ): FunSpec {
   return FunSpec.builder(targetNode.id)
     .addParameter(parameter.name, ClassName.bestGuess(parameter.type))
     .returns(libraryClassName("ScreenTarget"))
     .addCode(
-      "return %T(flowPath(%T(%L)), payload = %L)",
+      "return %T(flowPath(%L), payload = %L)",
       libraryClassName("ScreenTarget"),
-      libraryClassName("Path"),
-      adjacencyList
-        .findAllParents(targetNode, includeThis = true)
-        .takeWhile { it != node }
-        .reversed()
-        .joinToString(",") { "\"${it.id}\"" },
+      buildPathConstructorCall(
+        nodes = adjacencyList
+          .findAllParents(targetNode, includeThis = true)
+          .takeWhile { it != node }
+          .reversed(),
+        buildSegmentId = buildSegmentId
+      ),
       parameter.name,
     )
     .build()

@@ -1,21 +1,29 @@
 package ru.kode.way
 
+import java.util.UUID
 import kotlin.jvm.JvmInline
 
 @JvmInline
 value class Path(val segments: List<Segment>) {
 
   constructor(segment: Segment) : this(listOf(segment))
+//  constructor(
+//    segmentName: String,
+//    vararg segmentNames: String
+//  ) : this(listOf(segmentName, *segmentNames).map(::Segment))
   constructor(
-    segmentName: String,
-    vararg segmentNames: String
-  ) : this(listOf(segmentName, *segmentNames).map(::Segment))
+    segment: Segment,
+    vararg segments: Segment
+  ) : this(listOf(segment, *segments))
 
   companion object;
 
   init {
     check(segments.isNotEmpty()) { "path must have at least one segment" }
-    check(segments.all { it.name.isNotBlank() }) { "all path segments must be non-blank in path=$this" }
+    check(segments.all { it.name.isNotBlank() && it.id.value.isNotBlank() }) {
+      "all path segments names and " +
+        "ids must be non-blank in path=$this"
+    }
   }
 
   override fun toString(): String {
@@ -25,8 +33,10 @@ value class Path(val segments: List<Segment>) {
   val length get() = segments.size
 }
 
+data class Segment(val name: String, val id: SegmentId = SegmentId(UUID.randomUUID().toString()))
+
 @JvmInline
-value class Segment(val name: String)
+value class SegmentId(val value: String)
 
 fun Path.tail(): Path {
   return Path(segments.drop(1))
@@ -34,6 +44,14 @@ fun Path.tail(): Path {
 
 fun Path.head(): Segment {
   return segments.first()
+}
+
+fun Path.firstSegment(): Segment {
+  return segments.first()
+}
+
+fun Path.lastSegment(): Segment {
+  return segments.last()
 }
 
 fun Path.drop(count: Int): Path {

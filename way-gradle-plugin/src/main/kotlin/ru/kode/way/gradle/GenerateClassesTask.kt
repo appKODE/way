@@ -49,6 +49,7 @@ open class GenerateClassesTask : SourceTask() {
       logger.debug("generating classes from schema file: $file")
       generate(
         file,
+        project.projectDir,
         outputDirectory,
         CodeGenConfig(
           outputPackageName = packageName,

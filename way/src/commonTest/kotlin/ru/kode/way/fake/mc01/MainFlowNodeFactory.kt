@@ -17,10 +17,10 @@ class MainFlowNodeFactory(
   private val loginFlowTransitions: List<TestFlowTransitionSpec> = emptyList()
 ) : MainFlowNodeBuilder.Factory {
   override fun createRootNode(): FlowNode<*> {
-    return TestFlowNode(Target.mainFlow.main, transitions = flowTransitions)
+    return TestFlowNode(Target.mainFlow.main(42), transitions = flowTransitions)
   }
 
-  override fun createMainNode(): ScreenNode {
+  override fun createMainNode(count: Int): ScreenNode {
     return TestScreenNode()
   }
 

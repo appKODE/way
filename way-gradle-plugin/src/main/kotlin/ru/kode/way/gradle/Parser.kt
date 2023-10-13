@@ -5,16 +5,19 @@ import org.antlr.v4.runtime.CommonTokenStream
 import ru.kode.way.gradle.DotParser.GraphContext
 import ru.kode.way.gradle.DotParser.Id_Context
 import java.io.File
+import java.nio.file.Path
+import kotlin.io.path.relativeTo
 
 internal fun parseSchemaDotFile(
   file: File,
+  projectDir: File,
 ): SchemaParseResult {
   val stream = CommonTokenStream(DotLexer(CharStreams.fromPath(file.toPath())))
   val parser = DotParser(stream)
   val parseTree = parser.graph()
   val visitor = Visitor()
   visitor.visitGraph(parseTree)
-  return visitor.buildResult()
+  return visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()))
 }
 
 private class Visitor : DotBaseVisitor<Unit>() {
@@ -30,7 +33,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
   private val flowNodeResultTypes: MutableMap<String, String> = mutableMapOf()
   private val nodeParameters: MutableMap<String, Parameter> = mutableMapOf()
 
-  fun buildResult(): SchemaParseResult {
+  fun buildResult(filePath: Path): SchemaParseResult {
     fun String.toNode(): Node {
       return when {
         flowNodes.contains(this) -> {
@@ -46,6 +49,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
       }
     }
     return SchemaParseResult(
+      filePath = filePath,
       adjacencyList = this.adjacencyList.entries.associate { (nodeId, adjacentIds) ->
         nodeId.toNode() to adjacentIds.map { it.toNode() }
       },
@@ -146,6 +150,10 @@ private class Visitor : DotBaseVisitor<Unit>() {
 }
 
 internal data class SchemaParseResult(
+  /**
+   * Schema file path, relative to project directory
+   */
+  val filePath: Path,
   val graphId: String?,
   val customSchemaFileName: String?,
   val customTargetsFileName: String?,

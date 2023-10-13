@@ -1,13 +1,20 @@
 package ru.kode.way.gradle
 
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.MemberName
 import org.gradle.configurationcache.extensions.capitalized
 import java.io.File
+import java.nio.file.Path
 
-internal fun generate(file: File, outputDirectory: File, config: CodeGenConfig) {
-  buildSpecs(file, config).apply {
+internal fun generate(
+  file: File,
+  projectDir: File,
+  outputDirectory: File,
+  config: CodeGenConfig,
+) {
+  buildSpecs(file, projectDir, config).apply {
     schemaFileSpec.writeTo(outputDirectory)
     targetsFileSpec.writeTo(outputDirectory)
     nodeBuilderSpecs.forEach {
@@ -18,9 +25,10 @@ internal fun generate(file: File, outputDirectory: File, config: CodeGenConfig) 
 
 internal fun buildSpecs(
   file: File,
-  config: CodeGenConfig
+  projectDir: File,
+  config: CodeGenConfig,
 ): SchemaOutputSpecs {
-  val parseResult = parseSchemaDotFile(file = file)
+  val parseResult = parseSchemaDotFile(file, projectDir)
   return SchemaOutputSpecs(
     schemaFileSpec = buildSchemaFileSpec(parseResult, config),
     targetsFileSpec = buildTargetsFileSpec(parseResult, config),
@@ -48,6 +56,48 @@ internal fun String.toPascalCase(): String {
 
 internal fun String.toCamelCase(): String {
   return this
+}
+
+internal fun buildSegmentId(schemaFilePath: Path, node: Node): String {
+  return "${node.id}@$schemaFilePath"
+}
+
+internal fun buildPathConstructorCall(
+  nodes: List<Node>,
+  buildSegmentId: (Node) -> String
+): CodeBlock {
+  return CodeBlock.builder()
+    .add(
+      "%T(%L)",
+      libraryClassName("Path"),
+      buildSegmentArgumentList(nodes, buildSegmentId)
+    )
+    .build()
+}
+
+internal fun buildSegmentArgumentList(
+  nodes: List<Node>,
+  buildSegmentId: (Node) -> String
+): CodeBlock {
+  return CodeBlock.builder()
+    .add(
+      buildString {
+        for (index in (0..nodes.lastIndex)) {
+          if (index > 0)
+            append(", ")
+          append("%T(%S, %T(%S))") // Segment("app", SegmentId("app..."))
+        }
+      },
+      *buildList {
+        nodes.forEach { node ->
+          add(libraryClassName("Segment"))
+          add(node.id)
+          add(libraryClassName("SegmentId"))
+          add(buildSegmentId(node))
+        }
+      }.toTypedArray()
+    )
+    .build()
 }
 
 internal const val NBSP = '·'

@@ -11,5 +11,10 @@ digraph MCMainFlow {
     type="flow"
   ]
 
+  main [
+    parameterName="count",
+    parameterType="kotlin.Int"
+  ]
+
   mainFlow -> main -> loginFlow
 }

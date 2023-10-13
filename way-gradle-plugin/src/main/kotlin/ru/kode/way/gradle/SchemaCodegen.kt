@@ -8,7 +8,6 @@ import com.squareup.kotlinpoet.LIST
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.SET
 import com.squareup.kotlinpoet.TypeSpec
 
 internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
@@ -23,6 +22,10 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
     PropertySpec.builder(it.name, it.type, KModifier.PRIVATE)
       .initializer(it.name)
       .build()
+  }
+
+  fun buildSegmentId(node: Node): String {
+    return buildSegmentId(parseResult.filePath, node)
   }
 
   val schemaTypeSpec = TypeSpec.classBuilder(name = schemaClassName)
@@ -41,10 +44,9 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
             .apply {
               regionRoots.forEachIndexed { index, r ->
                 add(
-                  "%T(%T(%L))",
+                  "%T(%L)",
                   libraryClassName("RegionId"),
-                  libraryClassName("Path"),
-                  findPathSegmentsEncoded(r, parseResult.adjacencyList)
+                  buildPathConstructorCall(reversedParents(r, parseResult.adjacencyList), ::buildSegmentId)
                 )
                 if (index != regionRoots.lastIndex) {
                   add(", ")
@@ -57,10 +59,10 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
         .build()
     )
     .addFunction(
-      buildSchemaTargetsSpec(parseResult.adjacencyList)
+      buildSchemaTargetsSpec(parseResult.adjacencyList, ::buildSegmentId)
     )
     .addFunction(
-      buildSchemaNodeTypeSpec(parseResult.adjacencyList)
+      buildSchemaNodeTypeSpec(parseResult.adjacencyList, ::buildSegmentId)
     )
   return schemaFileSpec.addType(schemaTypeSpec.build()).build()
 }
@@ -91,11 +93,15 @@ private fun buildConstructorParameters(adjacencyList: AdjacencyList): List<Param
   return parameters
 }
 
-private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
+private fun buildSchemaTargetsSpec(
+  adjacencyList: AdjacencyList,
+  buildSegmentId: (Node) -> String
+): FunSpec {
   return FunSpec.builder("target")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
-    .addParameter("segment", libraryClassName("Segment"))
+    .addParameter("segmentId", libraryClassName("SegmentId"))
+    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
     .returns(libraryClassName("Path").copy(nullable = true))
     .addCode(
       CodeBlock.builder()
@@ -103,7 +109,14 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
         .apply {
           buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
             beginControlFlow("regions[$regionRootIndex] -> {")
-            beginControlFlow("when(segment.name) {")
+            addStatement(
+              "val rootSegment = rootSegmentAlias ?: %T(%S, %T(%S))",
+              libraryClassName("Segment"),
+              regionRoot.id,
+              libraryClassName("SegmentId"),
+              buildSegmentId(regionRoot)
+            )
+            beginControlFlow("when(segmentId.value) {")
             val importedFlowNodes = mutableListOf<Node>()
             // TODO @AdjacencyMatrix
             //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
@@ -117,12 +130,19 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
                 is Node.Flow.Local,
                 is Node.Flow.LocalParallel,
                 is Node.Screen -> {
-                  addStatement(
-                    "%S -> %T(%L)",
-                    node.id,
-                    libraryClassName("Path"),
-                    findPathSegmentsEncoded(node, adjacencyList)
-                  )
+                  if (node.id == regionRoot.id) {
+                    addStatement(
+                      "rootSegment.id.value -> %T(rootSegment)",
+                      libraryClassName("Path"),
+                    )
+                  } else {
+                    addStatement(
+                      "%S -> %T(rootSegment, %L)",
+                      buildSegmentId(node),
+                      libraryClassName("Path"),
+                      buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId)
+                    )
+                  }
                 }
               }
             }
@@ -131,20 +151,20 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
               importedFlowNodes.forEachIndexed { index, node ->
                 val elvis = if (index > 0) "?: " else ""
                 addStatement(
-                  "$elvis%L.target(%L.regions.first(), segment)",
+                  "$elvis%L.target(%L.regions.first(), segmentId, rootSegmentAlias = %T(%S, %T(%S)))",
                   schemaConstructorPropertyName(node),
                   schemaConstructorPropertyName(node),
+                  libraryClassName("Segment"),
+                  node.id,
+                  libraryClassName("SegmentId"),
+                  buildSegmentId(node)
                 )
                 // append prefix unless root node is an imported node too (in which case there's nothing to append)
                 if (node != regionRoot) {
                   addStatement(
-                    "?.let { %T(%L).%M(it) }",
+                    "?.let { %T(rootSegment, %L).%M(it) }",
                     libraryClassName("Path"),
-                    adjacencyList
-                      .findAllParents(node, includeThis = true)
-                      .reversed()
-                      .dropLast(1)
-                      .joinToString { "\"${it.id}\"" },
+                    buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1).dropLast(1), buildSegmentId),
                     libraryMemberName("append"),
                   )
                 }
@@ -166,78 +186,100 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList): FunSpec {
     .build()
 }
 
-private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList): FunSpec {
+private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId: (Node) -> String): FunSpec {
   return FunSpec.builder("nodeType")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
     .addParameter("path", libraryClassName("Path"))
+    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
     .returns(libraryClassName("Schema").nestedClass("NodeType"))
     .addCode(
       CodeBlock.builder()
         .beginControlFlow("return when (regionId) {")
-        .beginControlFlow("regions[0] -> {")
-        .beginControlFlow("when {")
         .apply {
-          // imported flow nodes must be sorted by largest path length descending, so that when used in "when"
-          // startsWith("app.login.main") would be correctly resolved in presence of shorter paths, e.g
-          // startsWith("app.login")
-          val importedFlowNodes = mutableListOf<Node>()
-          adjacencyList.keys.forEach { node ->
-            when (node) {
-              is Node.Flow.Local -> {
-                addStatement(
-                  "path == %T(%L) -> %T.NodeType.Flow",
-                  libraryClassName("Path"),
-                  findPathSegmentsEncoded(node, adjacencyList),
-                  libraryClassName("Schema")
-                )
-              }
-              is Node.Flow.Imported -> {
-                importedFlowNodes.add(node)
-              }
-              is Node.Flow.LocalParallel -> {
-                addStatement(
-                  "path == %T(%L) -> %T.NodeType.Parallel",
-                  libraryClassName("Path"),
-                  findPathSegmentsEncoded(node, adjacencyList),
-                  libraryClassName("Schema")
-                )
-              }
-              is Node.Screen -> {
-                addStatement(
-                  "path == %T(%L) -> %T.NodeType.Screen",
-                  libraryClassName("Path"),
-                  findPathSegmentsEncoded(node, adjacencyList),
-                  libraryClassName("Schema")
-                )
+          buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
+            beginControlFlow("regions[$regionRootIndex] -> {")
+            addStatement(
+              "val rootSegment = rootSegmentAlias ?: %T(%S, %T(%S))",
+              libraryClassName("Segment"),
+              regionRoot.id,
+              libraryClassName("SegmentId"),
+              buildSegmentId(regionRoot)
+            )
+            beginControlFlow("when {")
+            // imported flow nodes must be sorted by largest path length descending, so that when used in "when"
+            // startsWith("app.login.main") would be correctly resolved in presence of shorter paths, e.g
+            // startsWith("app.login")
+            val importedFlowNodes = mutableListOf<Node>()
+            dfs(adjacencyList, regionRoot) { node ->
+              when (node) {
+                is Node.Flow.Local -> {
+                  if (node.id == regionRoot.id) {
+                    addStatement(
+                      "path == %T(rootSegment) -> %T.NodeType.Flow",
+                      libraryClassName("Path"),
+                      libraryClassName("Schema")
+                    )
+                  } else {
+                    addStatement(
+                      "path == %T(rootSegment, %L) -> %T.NodeType.Flow",
+                      libraryClassName("Path"),
+                      buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
+                      libraryClassName("Schema")
+                    )
+                  }
+                }
+                is Node.Flow.Imported -> {
+                  importedFlowNodes.add(node)
+                }
+                is Node.Flow.LocalParallel -> {
+                  addStatement(
+                    "path == %T(rootSegment, %L) -> %T.NodeType.Parallel",
+                    libraryClassName("Path"),
+                    buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
+                    libraryClassName("Schema")
+                  )
+                }
+                is Node.Screen -> {
+                  addStatement(
+                    "path == %T(rootSegment, %L) -> %T.NodeType.Screen",
+                    libraryClassName("Path"),
+                    buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
+                    libraryClassName("Schema")
+                  )
+                }
               }
             }
+            importedFlowNodes
+              .map { it to adjacencyList.findAllParents(it, includeThis = true) }
+              .sortedByDescending { (_, parents) -> parents.size }.forEach { (node, parents) ->
+                addStatement(
+                  "path.%M(%T(rootSegment, %L)) -> " +
+                    "%L.nodeType(%L.regions.first(), path.%M(%L), rootSegmentAlias = %T(%S, %T(%S)))",
+                  libraryMemberName("startsWith"),
+                  libraryClassName("Path"),
+                  buildSegmentArgumentList(parents.reversed().drop(1), buildSegmentId),
+                  schemaConstructorPropertyName(node),
+                  schemaConstructorPropertyName(node),
+                  libraryMemberName("drop"),
+                  parents.reversed().size - 1,
+                  libraryClassName("Segment"),
+                  node.id,
+                  libraryClassName("SegmentId"),
+                  buildSegmentId(node)
+                )
+              }
+            beginControlFlow("else -> {")
+            addStatement("error(%P)", "internal error: no nodeType for path=\$path")
+            endControlFlow() // else -> {
+            endControlFlow() // when {
+            endControlFlow() // regions[i] -> {
           }
-          importedFlowNodes
-            .map { it to adjacencyList.findAllParents(it, includeThis = true) }
-            .sortedByDescending { (_, parents) -> parents.size }.forEach { (node, parents) ->
-              addStatement(
-                "path.%M(%T(%L)) -> %L.nodeType(%L.regions.first(), path.%M(%T(%L)))",
-                libraryMemberName("startsWith"),
-                libraryClassName("Path"),
-                parents.reversed().joinToString { "\"${it.id}\"" },
-                schemaConstructorPropertyName(node),
-                schemaConstructorPropertyName(node),
-                libraryMemberName("removePrefix"),
-                libraryClassName("Path"),
-                parents.reversed().dropLast(1).joinToString { "\"${it.id}\"" },
-              )
-            }
           beginControlFlow("else -> {")
-          addStatement("error(%P)", "internal error: no nodeType for path=\$path")
+          addStatement("error(%P)", "unknown regionId=\$regionId")
           endControlFlow()
         }
-        .endControlFlow()
-        .endControlFlow()
-        .beginControlFlow("else -> {")
-        .addStatement("error(%P)", "unknown regionId=\$regionId")
-        .endControlFlow()
-        .endControlFlow()
+        .endControlFlow() // return when (regionId) {
         .build()
     )
     .build()
@@ -249,10 +291,11 @@ internal fun schemaClassName(parseResult: SchemaParseResult, config: CodeGenConf
   return parseResult.graphId?.let { "${it}Schema" } ?: config.outputSchemaClassName
 }
 
-/**
- * Returns a list of segment names encoded in a string suitable to passing to Path constructor, e.g
- * '"app", "profile", "main"'
- */
-private fun findPathSegmentsEncoded(node: Node, adjacencyList: AdjacencyList): String {
-  return adjacencyList.findAllParents(node, includeThis = true).reversed().joinToString { "\"${it.id}\"" }
+private fun reversedParents(
+  node: Node,
+  adjacencyList: AdjacencyList,
+): List<Node> {
+  return adjacencyList
+    .findAllParents(node, includeThis = true)
+    .reversed()
 }

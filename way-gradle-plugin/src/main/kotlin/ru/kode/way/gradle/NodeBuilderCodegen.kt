@@ -14,9 +14,9 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STAR
-import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
+import java.nio.file.Path
 
 internal fun buildNodeBuilderFileSpecs(
   parseResult: SchemaParseResult,
@@ -31,7 +31,8 @@ internal fun buildNodeBuilderFileSpecs(
       packageName,
       parseResult.adjacencyList,
       schemaClassName,
-      isRootNode = rootNode == flow
+      isRootNode = rootNode == flow,
+      schemaFilePath = parseResult.filePath
     )
   }
 }
@@ -41,7 +42,8 @@ private fun buildNodeBuilderFileSpec(
   packageName: String,
   adjacencyList: AdjacencyList,
   schemaClassName: ClassName,
-  isRootNode: Boolean
+  isRootNode: Boolean,
+  schemaFilePath: Path,
 ): FileSpec {
   val className = ClassName(packageName, flow.id.toPascalCase() + "NodeBuilder")
   return FileSpec
@@ -49,7 +51,7 @@ private fun buildNodeBuilderFileSpec(
       packageName,
       className.simpleName
     )
-    .addType(buildNodeBuilderTypeSpec(flow, className, schemaClassName, adjacencyList, isRootNode))
+    .addType(buildNodeBuilderTypeSpec(flow, className, schemaClassName, adjacencyList, isRootNode, schemaFilePath))
     .build()
 }
 
@@ -59,7 +61,12 @@ internal fun buildNodeBuilderTypeSpec(
   schemaClassName: ClassName,
   adjacencyList: AdjacencyList,
   isRootNode: Boolean,
+  schemaFilePath: Path,
 ): TypeSpec {
+  fun buildSegmentId(node: Node): String {
+    return "${node.id}@$schemaFilePath"
+  }
+
   val typeSpecBuilder = TypeSpec.classBuilder(className)
   val constructorBuilder = FunSpec.constructorBuilder()
   val nodeBuilders = mutableMapOf<Node, FunSpec>()
@@ -138,19 +145,22 @@ internal fun buildNodeBuilderTypeSpec(
               addParameter("payloads", MAP.parameterizedBy(libraryClassName("Path"), ANY))
             }
           }
+          .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
           .beginControlFlow(
-            "return %L.getOrPut(%L(%S))",
+            "return %L.getOrPut(%L(%T(%S), rootSegmentAlias))",
             builderCachePropertyName,
             GET_TARGET_FUN_NAME,
-            node.id
+            libraryClassName("SegmentId"),
+            buildSegmentId(node)
           )
           .apply {
             if (node.parameter != null) {
               addStatement(
-                "nodeFactory.%L(%L(%S, payloads))",
+                "nodeFactory.%L(%L(%T(%S), payloads, rootSegmentAlias))",
                 flowFactoryName,
                 GET_PAYLOAD_FUN_NAME,
-                node.id
+                libraryClassName("SegmentId"),
+                buildSegmentId(node)
               )
             } else {
               addStatement(
@@ -204,6 +214,7 @@ internal fun buildNodeBuilderTypeSpec(
         .addModifiers(KModifier.OVERRIDE)
         .addParameter("path", libraryClassName("Path"))
         .addParameter("payloads", MAP.parameterizedBy(libraryClassName("Path"), ANY))
+        .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
         .returns(libraryClassName("Node"))
         .addCode(
           createBuildFunctionBody(
@@ -211,7 +222,8 @@ internal fun buildNodeBuilderTypeSpec(
             adjacencyList,
             lazyNodeBuilderFactories,
             nodeBuilders,
-            isRootNode
+            isRootNode,
+            schemaFilePath
           )
         )
         .build()
@@ -250,7 +262,7 @@ internal fun buildNodeBuilderTypeSpec(
         .build()
     )
     .addFunction(buildGetTargetFunSpec())
-    .addFunction(buildGetPayloadFunSpec())
+    .addFunction(buildGetPayloadBySegmentIdFunSpec())
     .build()
 }
 
@@ -260,11 +272,26 @@ private fun createBuildFunctionBody(
   lazyNodeBuilderFactories: Map<Node, FunSpec>,
   nodeBuilders: Map<Node, FunSpec>,
   isRootNode: Boolean,
+  schemaFilePath: Path,
 ): CodeBlock {
+  fun buildSegmentId(node: Node): String {
+    return "${node.id}@$schemaFilePath"
+  }
+
   return CodeBlock.builder()
+    .addStatement(
+      "val rootPath = rootSegmentAlias?.let { %T(it) } ?: %T(%T(%S, %T(%S)))",
+      libraryClassName("Path"),
+      libraryClassName("Path"),
+      libraryClassName("Segment"),
+      flow.id,
+      libraryClassName("SegmentId"),
+      buildSegmentId(flow)
+    )
     .beginControlFlow(
-      "check(path.segments.firstOrNull()?.name == %S)",
-      flow.id
+      "check(path.%M().id == rootPath.%M().id)",
+      libraryMemberName("firstSegment"),
+      libraryMemberName("firstSegment"),
     )
     .addStatement("%P", "illegal path build requested for \"${flow.id}\" node: \$path")
     .endControlFlow()
@@ -279,47 +306,51 @@ private fun createBuildFunctionBody(
             if (node == flow) {
               if (node.parameter != null) {
                 addStatement(
-                  "path == %L(%S) -> %L.%L(%L(%S, payloads))",
-                  GET_TARGET_FUN_NAME,
-                  node.id,
+                  "path == rootPath -> %L.%L(%L(rootPath.%M().id, payloads, rootSegmentAlias))",
                   NODE_FACTORY_PARAMETER_NAME,
                   NODE_FACTORY_FLOW_NODE_BUILDER_NAME,
                   GET_PAYLOAD_FUN_NAME,
-                  node.id
+                  libraryMemberName("firstSegment")
                 )
               } else {
                 addStatement(
-                  "path == %L(%S) -> %L.%L()",
-                  GET_TARGET_FUN_NAME,
-                  node.id,
+                  "path == rootPath -> %L.%L()",
                   NODE_FACTORY_PARAMETER_NAME,
                   NODE_FACTORY_FLOW_NODE_BUILDER_NAME
                 )
               }
             } else {
               beginControlFlow(
-                "path.%M(%L(%S)) ->",
+                "path.%M(%L(%T(%S), rootSegmentAlias)) ->",
                 MemberName(LIBRARY_PACKAGE, "startsWith"),
                 GET_TARGET_FUN_NAME,
-                node.id,
+                libraryClassName("SegmentId"),
+                buildSegmentId(node),
               )
-              addStatement("val targetPath = %L(%S)", GET_TARGET_FUN_NAME, node.id)
+              addStatement(
+                "val targetPath = %L(%T(%S), rootSegmentAlias)",
+                GET_TARGET_FUN_NAME,
+                libraryClassName("SegmentId"),
+                buildSegmentId(node),
+              )
               if (node.parameter != null) {
                 addStatement(
-                  "val nodeBuilder = %N(payloads)",
+                  "val nodeBuilder = %N(payloads, rootSegmentAlias)",
                   lazyNodeBuilderFactories[node] ?: error("no lazy builder property for \"${node.id}\""),
                 )
               } else {
                 addStatement(
-                  "val nodeBuilder = %N()",
+                  "val nodeBuilder = %N(rootSegmentAlias)",
                   lazyNodeBuilderFactories[node] ?: error("no lazy builder property for \"${node.id}\""),
                 )
               }
               addStatement(
                 "nodeBuilder.build(path.%M(targetPath.length·-·1)," +
-                  " payloads·=·payloads.mapKeys·{·it.key.%M(targetPath.length·-·1)·})",
+                  " payloads·=·payloads.mapKeys·{·it.key.%M(targetPath.length·-·1)·}," +
+                  " rootSegmentAlias·=·targetPath.%M())",
                 MemberName(LIBRARY_PACKAGE, "drop"),
                 MemberName(LIBRARY_PACKAGE, "drop"),
+                MemberName(LIBRARY_PACKAGE, "lastSegment"),
               )
               endControlFlow()
             }
@@ -328,19 +359,22 @@ private fun createBuildFunctionBody(
           is Node.Screen -> {
             if (node.parameter != null) {
               addStatement(
-                "path == %L(%S) -> %L.%N(%L(%S, payloads))",
+                "path == %L(%T(%S), rootSegmentAlias) -> %L.%N(%L(%T(%S), payloads, rootSegmentAlias))",
                 GET_TARGET_FUN_NAME,
-                node.id,
+                libraryClassName("SegmentId"),
+                buildSegmentId(node),
                 NODE_FACTORY_PARAMETER_NAME,
                 nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\""),
                 GET_PAYLOAD_FUN_NAME,
-                node.id
+                libraryClassName("SegmentId"),
+                buildSegmentId(node)
               )
             } else {
               addStatement(
-                "path == %L(%S) -> %L.%N()",
+                "path == %L(%T(%S), rootSegmentAlias) -> %L.%N()",
                 GET_TARGET_FUN_NAME,
-                node.id,
+                libraryClassName("SegmentId"),
+                buildSegmentId(node),
                 NODE_FACTORY_PARAMETER_NAME,
                 nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\"")
               )
@@ -357,18 +391,18 @@ private fun createBuildFunctionBody(
 private fun buildGetTargetFunSpec(): FunSpec {
   return FunSpec.builder(GET_TARGET_FUN_NAME)
     .returns(libraryClassName("Path"))
-    .addParameter("segmentName", STRING)
+    .addParameter("segmentId", libraryClassName("SegmentId"))
+    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
     .addCode(
-      "return %L.target(%L.regions.first(),$NBSP%T(segmentName)) ?: error(%P)",
+      "return %L.target(%L.regions.first(),${NBSP}segmentId, rootSegmentAlias) ?: error(%P)",
       SCHEMA_PARAMETER_NAME,
       SCHEMA_PARAMETER_NAME,
-      libraryClassName("Segment"),
-      "internal error: no target generated for segment \"\$segmentName\""
+      "internal error: no target generated for segment \"\$segmentId\""
     )
     .build()
 }
 
-private fun buildGetPayloadFunSpec(): FunSpec {
+private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec {
   return FunSpec.builder(GET_PAYLOAD_FUN_NAME)
     .addTypeVariable(TypeVariableName("T"))
     .returns(TypeVariableName("T"))
@@ -377,11 +411,12 @@ private fun buildGetPayloadFunSpec(): FunSpec {
         .addMember("%S", "UNCHECKED_CAST")
         .build()
     )
-    .addParameter("segmentName", STRING)
+    .addParameter("segmentId", libraryClassName("SegmentId"))
     .addParameter("payloads", MAP.parameterizedBy(libraryClassName("Path"), ANY))
+    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
     .addCode(
       CodeBlock.builder()
-        .addStatement("val targetPath = $GET_TARGET_FUN_NAME(segmentName)")
+        .addStatement("val targetPath = $GET_TARGET_FUN_NAME(segmentId, rootSegmentAlias)")
         .addStatement(
           "val payload = payloads[targetPath] ?: error(%P)",
           "no payload for \"\$targetPath\""

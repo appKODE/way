@@ -13,7 +13,9 @@ class LoginFlowNodeFactory(
   private val flowTransitions: List<TestFlowTransitionSpec> = emptyList()
 ) : LoginFlowNodeBuilder.Factory {
   override fun createRootNode(section: Int): FlowNode<*> {
-    return TestFlowNode(Target.loginFlow.credentials, transitions = flowTransitions)
+    return TestFlowNode(
+      if (section == 42) Target.loginFlow.credentials else Target.loginFlow.otp, transitions = flowTransitions
+    )
   }
 
   override fun createCredentialsNode(): ScreenNode {

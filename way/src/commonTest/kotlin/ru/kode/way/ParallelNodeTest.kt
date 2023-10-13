@@ -92,7 +92,8 @@ class ParallelNodeTest : ShouldSpec() {
             "par01App.par01Main.par01Top",
             "par01App.par01Main.par01Bottom"
           )
-          regions[RegionId(Path("par01App"))]?.alive.orEmpty().map { it.toString() }
+          regions.entries.find { it.key.path.lastSegment().name == "par01App" }
+            ?.value?.alive.orEmpty().map { it.toString() }
             .shouldContainInOrder(
               "par01App",
               "par01App.par01Main",
@@ -101,12 +102,14 @@ class ParallelNodeTest : ShouldSpec() {
               "par01App.par01Main.par01Bottom",
               "par01App.par01Main.par01Bottom.par01BottomMain"
             )
-          regions[RegionId(Path("par01App.par01Main.par01Top"))]?.alive.orEmpty().map { it.toString() }
+          regions.entries.find { it.key.path.lastSegment().name == "par01Top" }
+            ?.value?.alive.orEmpty().map { it.toString() }
             .shouldContainInOrder(
               "par01App.par01Main.par01Top",
               "par01App.par01Main.par01Top.par01TopIntro",
             )
-          regions[RegionId(Path("par01App.par01Main.par01Bottom"))]?.alive.orEmpty().map { it.toString() }
+          regions.entries.find { it.key.path.lastSegment().name == "par01Bottom" }
+            ?.value?.alive.orEmpty().map { it.toString() }
             .shouldContainInOrder(
               "par01App.par01Main.par01Bottom",
               "par01App.par01Main.par01Bottom.par01BottomMain"

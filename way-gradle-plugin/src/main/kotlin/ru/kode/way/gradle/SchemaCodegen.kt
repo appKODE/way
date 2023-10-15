@@ -57,23 +57,6 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
         .build()
     )
     .addFunction(
-      FunSpec.builder("children")
-        .addModifiers(KModifier.OVERRIDE)
-        .addParameter("regionId", libraryClassName("RegionId"))
-        .returns(SET.parameterizedBy(libraryClassName("Segment")))
-        .addCode("return emptySet()")
-        .build()
-    )
-    .addFunction(
-      FunSpec.builder("children")
-        .addModifiers(KModifier.OVERRIDE)
-        .addParameter("regionId", libraryClassName("RegionId"))
-        .addParameter("segment", libraryClassName("Segment"))
-        .returns(SET.parameterizedBy(libraryClassName("Segment")))
-        .addCode("return emptySet()")
-        .build()
-    )
-    .addFunction(
       buildSchemaTargetsSpec(parseResult.adjacencyList)
     )
     .addFunction(

@@ -5,8 +5,6 @@ interface Schema {
 
   val regions: List<RegionId>
 
-  fun children(regionId: RegionId): Set<Segment>
-  fun children(regionId: RegionId, segment: Segment): Set<Segment>
   fun target(regionId: RegionId, segment: Segment): Path?
 
   fun nodeType(regionId: RegionId, path: Path): NodeType

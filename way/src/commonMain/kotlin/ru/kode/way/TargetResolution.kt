@@ -61,15 +61,14 @@ private fun resolveTransitionInRegion(
       transition.targets.forEach { target ->
         // there maybe several targets in different regions
         val targetRegionId = findRegionIdUnsafe(schema.regions, target.path)
-        val targetPathAbs = schema.target(targetRegionId, target.path.lastSegment().id, rootSegmentAlias = null)
-          ?: error("failed to find schema entry for target \"${target.path}\"")
+        val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
         target.payload?.also { payloads[targetPathAbs] = it }
         targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
         when (target) {
           is FlowTarget<*, *> -> {
             val handlers = transitionFinishHandlers ?: HashMap(schema.regions.size)
             handlers[targetRegionId] = ResolvedTransition.FinishHandler(
-              flowPath = findParentFlowPathInclusive(schema, regionId, targetPathAbs),
+              flowPath = findParentFlowPathInclusive(schema, targetPathAbs),
               callback = target.onFinishRequest as FinishRequestHandler<Any, Any>
             )
             transitionFinishHandlers = handlers
@@ -85,7 +84,7 @@ private fun resolveTransitionInRegion(
       )
     }
     is Finish<*> -> {
-      val flowPath = findParentFlowPathInclusive(schema, regionId, path)
+      val flowPath = findParentFlowPathInclusive(schema, path)
       val parentFlowPath = if (flowPath.isRootInRegion(regionId)) flowPath else flowPath.dropLast(1)
       val handler = finishHandlers[flowPath] ?: error("no finish handler for \"$flowPath\"")
       val finishTransition = handler(transition.result)
@@ -129,6 +128,85 @@ private fun resolveTransitionInRegion(
   }
 }
 
+private fun resolveAbsoluteTargetPath(
+  schema: Schema,
+  activePath: Path,
+  targetPath: Path
+): Path {
+  val (activeSchema, activeSchemaPath) = findParentSchema(schema, activePath, inclusive = true)
+  val regionId = activeSchema.regions.first() // TODO @Parallel select correct region if there are multiple!
+  val relativeResolvedPath = activeSchema.target(regionId, targetPath.lastSegment().id)
+    ?: error("failed to resolve path=\"$targetPath\" relative to schema \"${activeSchema.rootSegment.name}\"")
+  return activeSchemaPath.append(relativeResolvedPath.drop(1))
+}
+
+data class SchemaWithPath(
+  val schema: Schema,
+  val path: Path
+)
+
+/**
+ * Searches for a schema which contains the specified [path], search starts from the [root].
+ *
+ * @param root a schema to start search from
+ * @param path a path relative to the root schema
+ * @param inclusive when `true` and last segment is a flow node with a schema, will return this schema, otherwise
+ * will return its parent. For example, for path "appFlow.loginFlow":
+ * - `inclusive == true` will return schema of the loginFlow
+ * - `inclusive == false` will return schema of the appFlow
+ */
+private fun findParentSchema(
+  root: Schema,
+  path: Path,
+  inclusive: Boolean,
+  enableDebugLog: Boolean = false
+): SchemaWithPath {
+  check(root.rootSegment == path.firstSegment()) {
+    "path first segment must match schema rootSegment, " +
+      "but \"${path.firstSegment().id.value}\" != \"${root.rootSegment.id.value}\""
+  }
+  // Search works like this:
+  // Given the path "appFlow.intro.loginFlow.credentials.mainFlow.profile
+  // - appFlow schema is "root", assign it to "activeSchema"
+  // - search for "intro" child schema in "activeSchema" -> fails, "intro" is a screen node
+  // - search for "loginFlow" child schema in "activeSchema" -> success, assign it to "activeSchema"
+  // - search for "credentials" in "activeSchema" -> fail
+  // - search for "mainFlow" in "activeSchema" -> success, assign it to "activeSchema"
+  // - result: activeSchema is "mainFlow" schema
+  var activeSchema: Schema = root
+  // for "appFlow.screen1" activeSchemaSegmentIndex = 0 (appFlow)
+  // for "appFlow.screen1.loginFlow" activeSchemaSegmentIndex = 2 (loginFlow)
+  var activeSchemaSegmentIndex = 0
+  path.segments
+    .drop(1)
+    .let { if (!inclusive) it.dropLast(1) else it }
+    .forEachIndexed { index, segment ->
+      if (enableDebugLog) {
+        println("searching schema: \"${activeSchema.rootSegment.name}\" for child schema by segmentId=${segment.id}")
+      }
+      val child = activeSchema.childSchemas.entries.find { (segmentId, _) -> segmentId == segment.id }?.value
+      if (child != null) {
+        if (enableDebugLog) {
+          println("  found ${child.rootSegment.name}!")
+        }
+        activeSchema = child
+        activeSchemaSegmentIndex = index + 1
+      } else {
+        if (enableDebugLog) {
+          println("  no child schema found for this id, trying next segment")
+        }
+      }
+    }
+  val activeSchemaPath = path.take(activeSchemaSegmentIndex + 1)
+  if (enableDebugLog) {
+    println("  found schema: \"${activeSchema.rootSegment.name}\" at path \"${activeSchemaPath}\"")
+  }
+  return SchemaWithPath(
+    schema = activeSchema,
+    path = activeSchemaPath
+  )
+}
+
 private fun maybeResolveBackEvent(
   schema: Schema,
   regionId: RegionId,
@@ -143,7 +221,7 @@ private fun maybeResolveBackEvent(
     return null
   }
   val newPath = activePath.dropLast(1)
-  val transition = when (schema.nodeType(regionId, newPath, rootSegmentAlias = null)) {
+  val transition = when (findNodeType(schema, newPath)) {
     Schema.NodeType.Flow -> {
       val result = (nodes[newPath] as FlowNode<*>?)?.dismissResult
         ?: error("no flow node at path $newPath")
@@ -262,7 +340,8 @@ private fun findRegionIdUnsafe(regions: Collection<RegionId>, path: Path): Regio
   return regions.first()
   // TODO Use this instead
 //  return regions.sortedByDescending { it.path.length }.find { path.startsWith(it.path) }
-//    ?: error("failed to find regionId for path=\"${path}\", searched in ${regions.joinToString { it.path.toString() }}")
+//    ?: error("failed to find regionId for path=\"${path}\",
+//    searched in ${regions.joinToString { it.path.toString() }}")
 }
 
 /**
@@ -279,23 +358,33 @@ private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Pat
 /**
  * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
  */
-private fun findParentFlowPathInclusive(schema: Schema, regionId: RegionId, path: Path): Path {
-  return if (schema.nodeType(regionId, path, rootSegmentAlias = null) == Schema.NodeType.Flow) {
+private fun findParentFlowPathInclusive(schema: Schema, path: Path): Path {
+  return if (findNodeType(schema, path) == Schema.NodeType.Flow) {
     path
   } else {
-    path.toStepsReversed().first { schema.nodeType(regionId, it, rootSegmentAlias = null) != Schema.NodeType.Screen }
+    path.toStepsReversed().first {
+      findNodeType(schema, it) != Schema.NodeType.Screen
+    }
   }
 }
 
 /**
  * Returns a parent flow path of a [path]. If [path] is has only one segment, returns null.
  */
-private fun findParentFlowPath(schema: Schema, regionId: RegionId, path: Path): Path? {
+private fun findParentFlowPath(schema: Schema, path: Path): Path? {
   return if (path.segments.size == 1) {
     null
   } else {
-    findParentFlowPathInclusive(schema, regionId, path.dropLast(1))
+    findParentFlowPathInclusive(schema, path.dropLast(1))
   }
+}
+
+internal fun findNodeType(rootSchema: Schema, path: Path): Schema.NodeType {
+  val (activeSchema, schemaPath) = findParentSchema(rootSchema, path, inclusive = false)
+  val regionId = activeSchema.regions.first()
+  // TODO switch nodeType() to have "segment" parameter and pass path.lastSegment()
+  val relativePath = path.drop(schemaPath.length - 1)
+  return activeSchema.nodeType(regionId, relativePath, rootSegmentAlias = relativePath.firstSegment())
 }
 
 private fun Path.isRootInRegion(regionId: RegionId): Boolean {

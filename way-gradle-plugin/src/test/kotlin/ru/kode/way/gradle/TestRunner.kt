@@ -18,7 +18,8 @@ suspend fun runTest(testCase: TestCase) {
   val config = createConfig()
   buildSpecs(
     file = schema,
-    config = config
+    config = config,
+    projectDir = File("."),
   ).apply {
     schemaFileSpec.writeTo(outputDirectory.toNioPath())
     targetsFileSpec.writeTo(outputDirectory.toNioPath())

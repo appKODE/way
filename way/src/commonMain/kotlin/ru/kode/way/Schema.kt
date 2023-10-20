@@ -5,6 +5,9 @@ interface Schema {
 
   val regions: List<RegionId>
 
+  val rootSegment: Segment
+  val childSchemas: Map<SegmentId, Schema>
+
   /**
    * Builds a path for given [segmentId]. If this schema has child schemas they will be searched next when
    * the current schema has no segment with id equal to [segmentId].

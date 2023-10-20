@@ -88,9 +88,9 @@ class NavigationService<R : Any>(
   }
 
   private fun checkSchemaValidity(schema: Schema, state: NavigationState) {
-    state.regions.forEach { (regionId, region) ->
+    state.regions.forEach { (_, region) ->
       region._nodes.forEach { (path, node) ->
-        val nodeType = schema.nodeType(regionId, path, rootSegmentAlias = null)
+        val nodeType = findNodeType(schema, path)
         when (node) {
           is FlowNode<*> -> {
             check(nodeType == Schema.NodeType.Flow) {

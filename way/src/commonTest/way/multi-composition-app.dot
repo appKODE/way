@@ -13,6 +13,6 @@ digraph MCAppFlow {
     type="schema"
   ]
 
-  appFlow -> loginFlow
   appFlow -> mainFlow
+  appFlow -> loginFlow
 }

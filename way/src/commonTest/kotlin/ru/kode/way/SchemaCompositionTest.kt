@@ -9,6 +9,7 @@ import ru.kode.way.mc01.MCAppFlowSchema
 import ru.kode.way.mc01.MCLoginFlowSchema
 import ru.kode.way.mc01.MCMainFlowSchema
 import ru.kode.way.mc01.appFlow
+import ru.kode.way.mc01.loginFlow
 import ru.kode.way.mc01.mainFlow
 
 class SchemaCompositionTest : ShouldSpec() {
@@ -21,6 +22,7 @@ class SchemaCompositionTest : ShouldSpec() {
           loginFlowSchema = MCLoginFlowSchema()
         )
       )
+      var navServiceFinished = false
       val sut = NavigationService<Unit>(
         schema = schema,
         nodeBuilder = AppFlowNodeBuilder(
@@ -33,11 +35,15 @@ class SchemaCompositionTest : ShouldSpec() {
             ),
             mainFlowTransitions = listOf(
               tr(on = "B", Target.mainFlow.loginFlow(section = 55, onFinishRequest = { Finish(Unit) }))
-            )
+            ),
+            mainLoginFlowTransitions = listOf(
+              tr(on = "C", NavigateTo(Target.loginFlow.credentials)),
+              tr(on = "D", Finish(Unit))
+            ),
           ),
           schema = schema
         ),
-        onFinishRequest = { Ignore }
+        onFinishRequest = { navServiceFinished = true; Ignore }
       )
 
       sut.collectTransitions().test {
@@ -46,6 +52,11 @@ class SchemaCompositionTest : ShouldSpec() {
         awaitItem().active shouldBe "appFlow.mainFlow.main"
         sut.sendEvent(TestEvent("B"))
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials.otp"
+        sut.sendEvent(TestEvent("C"))
+        awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials"
+        sut.sendEvent(TestEvent("D"))
+        awaitItem()
+        navServiceFinished shouldBe true
       }
     }
   }

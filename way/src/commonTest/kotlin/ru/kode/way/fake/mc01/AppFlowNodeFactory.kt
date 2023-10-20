@@ -15,7 +15,8 @@ class AppFlowNodeFactory(
   private val initialTarget: Target,
   private val flowTransitions: List<TestFlowTransitionSpec> = emptyList(),
   private val mainFlowTransitions: List<TestFlowTransitionSpec> = emptyList(),
-  private val appLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList()
+  private val appLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList(),
+    private val mainLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList()
 ) : AppFlowNodeBuilder.Factory {
   override fun createRootNode(): FlowNode<*> {
     return TestFlowNode(
@@ -26,7 +27,10 @@ class AppFlowNodeFactory(
 
   override fun createMainFlowNodeBuilder(): NodeBuilder {
     return MainFlowNodeBuilder(
-      MainFlowNodeFactory(flowTransitions = mainFlowTransitions), MCMainFlowSchema(MCLoginFlowSchema())
+      MainFlowNodeFactory(
+        flowTransitions = mainFlowTransitions,
+        loginFlowTransitions = mainLoginFlowTransitions,
+      ), MCMainFlowSchema(MCLoginFlowSchema())
     )
   }
 

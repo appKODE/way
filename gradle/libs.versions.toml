@@ -13,7 +13,7 @@ agp = "7.4.0"
 kotlinPoet = "1.14.2"
 antlr = "4.11.1"
 okio = "3.3.0"
-wayPlugin = "0.8.9"
+wayPlugin = "0.8.10"
 dagger = "2.46.1"
 gradlePublishPlugin = "1.1.0"
 

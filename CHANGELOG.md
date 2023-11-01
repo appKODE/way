@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.10 - 2023-11-01
+
+* Fix issue with incorrect target resolution. Make code generator to generate segments having have a unique id (internally)
+
 ## 0.8.9 - 2023-10-16
 
 * Fix issue with incorrect target resolution. Make code generator to generate segments having have a unique id (internally)

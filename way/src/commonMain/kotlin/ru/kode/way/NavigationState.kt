@@ -3,6 +3,7 @@ package ru.kode.way
 class NavigationState internal constructor(
   internal val _regions: MutableMap<RegionId, Region>,
   internal val _nodeExtensionPoints: MutableList<NodeExtensionPoint>,
+  internal val _enqueuedEvents: ArrayDeque<Event>,
 ) {
   val regions: Map<RegionId, Region> = _regions
 
@@ -29,7 +30,8 @@ class NavigationState internal constructor(
   internal fun copy(): NavigationState {
     return NavigationState(
       _regions = this.regions.mapValuesTo(mutableMapOf()) { it.value.copy() },
-      _nodeExtensionPoints = this._nodeExtensionPoints.toMutableList()
+      _nodeExtensionPoints = this._nodeExtensionPoints.toMutableList(),
+      _enqueuedEvents = ArrayDeque(this._enqueuedEvents)
     )
   }
 }

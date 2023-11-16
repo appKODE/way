@@ -49,7 +49,7 @@ private fun resolveTransitionInRegion(
 ): ResolvedTransition {
   return when (transition) {
     is EnqueueEvent -> ResolvedTransition(
-      targetPaths = mapOf(regionId to path),
+      targetPaths = mapOf(regionId to activePath),
       finishHandlers = null,
       payloads = emptyMap(),
       enqueuedEvents = listOf(transition.event),

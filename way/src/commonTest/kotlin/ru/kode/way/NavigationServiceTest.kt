@@ -91,6 +91,43 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
+  should("correctly post and process EnqueueEvent transitions") {
+    val sut = NavigationService(
+      NavService05Schema(),
+      TestNodeBuilder(
+        mapOf(
+          "app" to TestFlowNode(
+            initialTarget = Target.app05.intro,
+            transitions = listOf(
+              tr("A", EnqueueEvent(TestEvent("B"))),
+              tr(on = "B", target = Target.app05.main),
+            )
+          ),
+          "app.intro" to TestScreenNode(),
+          "app.main" to TestScreenNode(),
+          "app.test" to TestScreenNode(),
+        )
+      ),
+      onFinishRequest = { _: Unit -> Stay },
+    )
+
+    var enqueuedEvent: Event? = null
+
+    sut.setEnqueuedEventsScheduler {
+      enqueuedEvent = it
+    }
+
+    sut.collectTransitions()
+      .test {
+        awaitItem().active shouldBe "app.intro"
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.intro"
+        enqueuedEvent?.also { sut.sendEvent(it); enqueuedEvent = null }
+        awaitItem().active shouldBe "app.main"
+        enqueuedEvent?.also { sut.sendEvent(it); enqueuedEvent = null }
+      }
+  }
+
   // TODO re-enable and adapt when compound-schema import will be done
   //   currently this is impossible because we can't have onboarding as a child **flow**-node of login,
   //   because they are described in a single dot file (enforced by NOTE_GROUPING_NODES_BY_FLOW_RULE)

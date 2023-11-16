@@ -7,10 +7,12 @@ class NavigationService<R : Any>(
 ) {
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
-    _nodeExtensionPoints = mutableListOf()
+    _nodeExtensionPoints = mutableListOf(),
+    _enqueuedEvents = ArrayDeque(initialCapacity = 3)
   )
   private val listeners = ArrayList<(NavigationState) -> Unit>()
   private val serviceExtensionPoints = mutableListOf<ServiceExtensionPoint<R>>()
+  private var enqueuedEventScheduler: (Event) -> Unit = { sendEvent(it) }
 
   fun start(rootFlowPayload: Any? = null) {
     sendEvent(InitEvent(rootFlowPayload))
@@ -84,6 +86,7 @@ class NavigationService<R : Any>(
       // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(schema, navigationState)
       serviceExtensionPoints.forEach { it.onPostTransition(this, event, state.copy()) }
+      navigationState._enqueuedEvents.addAll(resolvedTransition.enqueuedEvents.orEmpty())
     }
   }
 
@@ -154,6 +157,26 @@ class NavigationService<R : Any>(
       error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
     }
     listeners.forEach { it(state) }
+
+    // drain event queue if not empty: one event at a time, even if the transition produced multiple events.
+    // I.e. having transition which produced events A, B, C, it would be incorrect to immediately send all of them,
+    // because each subsequent transition could also add events to the queue.
+    // Instead each transition adds events to the tail of the queue and then pops ONE from the head of the queue and
+    // sends it
+    state._enqueuedEvents.removeFirstOrNull()?.also {
+      enqueuedEventScheduler(it)
+    }
+  }
+
+  /**
+   * Sets a custom method of scheduling enqueued events.
+   * The default scheduler works by recursively calling "sendEvent" after executing the transition.
+   * This might not work if you want event scheduling be tied to some kind of the event loop.
+   * In this case you can set a custom scheduler which will receive an event to schedule, remember it and pass it to
+   * the "sendEvent" at appropriate time
+   */
+  fun setEnqueuedEventsScheduler(scheduler: (Event) -> Unit) {
+    enqueuedEventScheduler = scheduler
   }
 }
 

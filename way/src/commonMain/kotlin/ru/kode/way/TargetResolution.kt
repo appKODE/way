@@ -135,7 +135,7 @@ private fun resolveAbsoluteTargetPath(
 ): Path {
   val (activeSchema, activeSchemaPath) = findParentSchema(schema, activePath, inclusive = true)
   val regionId = activeSchema.regions.first() // TODO @Parallel select correct region if there are multiple!
-  val relativeResolvedPath = activeSchema.target(regionId, targetPath.lastSegment().id)
+  val relativeResolvedPath = activeSchema.target(regionId, targetPath.lastSegment())
     ?: error("failed to resolve path=\"$targetPath\" relative to schema \"${activeSchema.rootSegment.name}\"")
   return activeSchemaPath.append(relativeResolvedPath.drop(1))
 }
@@ -163,7 +163,7 @@ private fun findParentSchema(
 ): SchemaWithPath {
   check(root.rootSegment == path.firstSegment()) {
     "path first segment must match schema rootSegment, " +
-      "but \"${path.firstSegment().id.value}\" != \"${root.rootSegment.id.value}\""
+      "but \"${path.firstSegment().id}\" != \"${root.rootSegment.id}\""
   }
   // Search works like this:
   // Given the path "appFlow.intro.loginFlow.credentials.mainFlow.profile
@@ -184,7 +184,7 @@ private fun findParentSchema(
       if (enableDebugLog) {
         println("searching schema: \"${activeSchema.rootSegment.name}\" for child schema by segmentId=${segment.id}")
       }
-      val child = activeSchema.childSchemas.entries.find { (segmentId, _) -> segmentId == segment.id }?.value
+      val child = activeSchema.childSchemas.entries.find { (s, _) -> s == segment }?.value
       if (child != null) {
         if (enableDebugLog) {
           println("  found ${child.rootSegment.name}!")
@@ -311,7 +311,6 @@ private fun maybeResolveInitial(
   schema: Schema,
   payloads: MutableMap<Path, Any>,
 ): Map<RegionId, Path> {
-  @Suppress("MoveVariableDeclarationIntoWhen")
   val targetNode = nodes.getOrElse(targetPathAbs) {
     nodeBuilder.build(targetPathAbs, payloads = payloads, rootSegmentAlias = null)
   }

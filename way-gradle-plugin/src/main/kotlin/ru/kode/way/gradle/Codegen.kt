@@ -68,7 +68,7 @@ internal fun buildPathConstructorCall(
 ): CodeBlock {
   return CodeBlock.builder()
     .add(
-      "%T(%L)",
+      "%T(listOf(%L))",
       libraryClassName("Path"),
       buildSegmentArgumentList(nodes, buildSegmentId)
     )
@@ -85,14 +85,12 @@ internal fun buildSegmentArgumentList(
         for (index in (0..nodes.lastIndex)) {
           if (index > 0)
             append(", ")
-          append("%T(%S, %T(%S))") // Segment("app", SegmentId("app..."))
+          append("%T(%S)")
         }
       },
       *buildList {
         nodes.forEach { node ->
           add(libraryClassName("Segment"))
-          add(node.id)
-          add(libraryClassName("SegmentId"))
           add(buildSegmentId(node))
         }
       }.toTypedArray()

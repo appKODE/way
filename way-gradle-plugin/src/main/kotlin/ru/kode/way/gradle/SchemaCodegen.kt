@@ -96,10 +96,8 @@ private fun buildRootSegmentProperty(
     .initializer(
       CodeBlock.builder()
         .add(
-          "%T(%S, %T(%S))",
+          "%T(%S)",
           libraryClassName("Segment"),
-          rootNode.id,
-          libraryClassName("SegmentId"),
           buildSegmentId(rootNode)
         )
         .build()
@@ -126,7 +124,7 @@ private fun buildChildSchemasProperty(
       .builder(
         "childSchemas",
         MAP.parameterizedBy(
-          libraryClassName("SegmentId"),
+          libraryClassName("Segment"),
           libraryClassName("Schema")
         ),
         KModifier.OVERRIDE
@@ -138,7 +136,7 @@ private fun buildChildSchemasProperty(
       .builder(
         "childSchemas",
         MAP.parameterizedBy(
-          libraryClassName("SegmentId"),
+          libraryClassName("Segment"),
           libraryClassName("Schema")
         ),
         KModifier.OVERRIDE
@@ -150,7 +148,7 @@ private fun buildChildSchemasProperty(
             importedFlowNodes.forEachIndexed { index, node ->
               add(
                 "%T(%S)·to·%L",
-                libraryClassName("SegmentId"),
+                libraryClassName("Segment"),
                 buildSegmentId(node),
                 schemaConstructorPropertyName(node)
               )
@@ -199,7 +197,7 @@ private fun buildSchemaTargetsSpec(
   return FunSpec.builder("target")
     .addModifiers(KModifier.OVERRIDE)
     .addParameter("regionId", libraryClassName("RegionId"))
-    .addParameter("segmentId", libraryClassName("SegmentId"))
+    .addParameter("segment", libraryClassName("Segment"))
     .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
     .returns(libraryClassName("Path").copy(nullable = true))
     .addCode(
@@ -209,13 +207,11 @@ private fun buildSchemaTargetsSpec(
           buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
             beginControlFlow("regions[$regionRootIndex] -> {")
             addStatement(
-              "val rootSegment = rootSegmentAlias ?: %T(%S, %T(%S))",
+              "val rootSegment = rootSegmentAlias ?: %T(%S)",
               libraryClassName("Segment"),
-              regionRoot.id,
-              libraryClassName("SegmentId"),
               buildSegmentId(regionRoot)
             )
-            beginControlFlow("when(segmentId.value) {")
+            beginControlFlow("when(segment.id) {")
             // TODO @AdjacencyMatrix
             //  not very efficient: running DFS and then for each node inspecting all adjacency list to find parent
             //  adjacency matrix would allow to find parent nodes more easily.
@@ -223,12 +219,12 @@ private fun buildSchemaTargetsSpec(
             dfs(adjacencyList, regionRoot) { node ->
               if (node.id == regionRoot.id) {
                 addStatement(
-                  "rootSegment.id.value -> %T(rootSegment)",
+                  "rootSegment.id -> %T(rootSegment)",
                   libraryClassName("Path"),
                 )
               } else {
                 addStatement(
-                  "%S -> %T(rootSegment, %L)",
+                  "%S -> %T(listOf(rootSegment, %L))",
                   buildSegmentId(node),
                   libraryClassName("Path"),
                   buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId)
@@ -263,10 +259,8 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
           buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
             beginControlFlow("regions[$regionRootIndex] -> {")
             addStatement(
-              "val rootSegment = rootSegmentAlias ?: %T(%S, %T(%S))",
+              "val rootSegment = rootSegmentAlias ?: %T(%S)",
               libraryClassName("Segment"),
-              regionRoot.id,
-              libraryClassName("SegmentId"),
               buildSegmentId(regionRoot)
             )
             beginControlFlow("when {")
@@ -281,7 +275,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
                     )
                   } else {
                     addStatement(
-                      "path == %T(rootSegment, %L) -> %T.NodeType.Flow",
+                      "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Flow",
                       libraryClassName("Path"),
                       buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
                       libraryClassName("Schema")
@@ -291,7 +285,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
 
                 is Node.Flow.LocalParallel -> {
                   addStatement(
-                    "path == %T(rootSegment, %L) -> %T.NodeType.Parallel",
+                    "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Parallel",
                     libraryClassName("Path"),
                     buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
                     libraryClassName("Schema")
@@ -300,7 +294,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
 
                 is Node.Screen -> {
                   addStatement(
-                    "path == %T(rootSegment, %L) -> %T.NodeType.Screen",
+                    "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Screen",
                     libraryClassName("Path"),
                     buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
                     libraryClassName("Schema")

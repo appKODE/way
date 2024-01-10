@@ -110,7 +110,7 @@ internal fun buildNodeBuilderTypeSpec(
       schemaClassName
     )
     .build()
-  val schemaProperty = PropertySpec.builder(schemaParameter.name, schemaParameter.type, KModifier.PRIVATE)
+  val schemaProperty = PropertySpec.builder(schemaParameter.name, schemaParameter.type, KModifier.OVERRIDE)
     .initializer(schemaParameter.name)
     .build()
   constructorBuilder.addParameter(schemaParameter)

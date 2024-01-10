@@ -1,7 +1,6 @@
 package ru.kode.way
 
 internal fun resolveTransition(
-  schema: Schema,
   regions: Map<RegionId, Region>,
   nodeBuilder: NodeBuilder,
   event: Event,
@@ -11,7 +10,6 @@ internal fun resolveTransition(
     val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
     val transition = buildTransition(event, node, region.active, extensionPoints)
     val resolved = resolveTransitionInRegion(
-      schema = schema,
       regionId = regionId,
       transition,
       path = region.active,
@@ -36,7 +34,6 @@ internal fun resolveTransition(
  * @param activePath A path which was last active in navigation state
  */
 private fun resolveTransitionInRegion(
-  schema: Schema,
   regionId: RegionId,
   transition: Transition,
   path: Path,
@@ -55,6 +52,7 @@ private fun resolveTransitionInRegion(
       enqueuedEvents = listOf(transition.event),
     )
     is NavigateTo -> {
+      val schema = nodeBuilder.schema
       var transitionFinishHandlers: HashMap<RegionId, ResolvedTransition.FinishHandler>? = null
       val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
       val payloads = mutableMapOf<Path, Any>()
@@ -84,12 +82,13 @@ private fun resolveTransitionInRegion(
       )
     }
     is Finish<*> -> {
+      val schema = nodeBuilder.schema
       val flowPath = findParentFlowPathInclusive(schema, path)
       val parentFlowPath = if (flowPath.isRootInRegion(regionId)) flowPath else flowPath.dropLast(1)
       val handler = finishHandlers[flowPath] ?: error("no finish handler for \"$flowPath\"")
       val finishTransition = handler(transition.result)
       resolveTransitionInRegion(
-        schema, regionId, finishTransition, parentFlowPath, activePath, nodes, nodeBuilder, finishHandlers,
+        regionId, finishTransition, parentFlowPath, activePath, nodes, nodeBuilder, finishHandlers,
         DoneEvent,
         extensionPoints,
       )
@@ -105,7 +104,7 @@ private fun resolveTransitionInRegion(
     is Ignore -> {
       if (path.isRootInRegion(regionId)) {
         val resolved = maybeResolveBackEvent(
-          schema, regionId, activePath, nodes, nodeBuilder, finishHandlers, event, extensionPoints
+          regionId, activePath, nodes, nodeBuilder, finishHandlers, event, extensionPoints
         )
         if (resolved == null) {
           println("no transition for event \"${event}\", ignoring")
@@ -120,7 +119,7 @@ private fun resolveTransitionInRegion(
         val parentPath = path.dropLast(1)
         val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
         resolveTransitionInRegion(
-          schema, regionId, buildTransition(event, node, parentPath, extensionPoints),
+          regionId, buildTransition(event, node, parentPath, extensionPoints),
           parentPath, activePath, nodes, nodeBuilder, finishHandlers, event, extensionPoints
         )
       }
@@ -208,7 +207,6 @@ private fun findParentSchema(
 }
 
 private fun maybeResolveBackEvent(
-  schema: Schema,
   regionId: RegionId,
   activePath: Path,
   nodes: Map<Path, Node>,
@@ -221,7 +219,7 @@ private fun maybeResolveBackEvent(
     return null
   }
   val newPath = activePath.dropLast(1)
-  val transition = when (findNodeType(schema, newPath)) {
+  val transition = when (findNodeType(nodeBuilder.schema, newPath)) {
     Schema.NodeType.Flow -> {
       val result = (nodes[newPath] as FlowNode<*>?)?.dismissResult
         ?: error("no flow node at path $newPath")
@@ -237,7 +235,6 @@ private fun maybeResolveBackEvent(
   }
 
   return resolveTransitionInRegion(
-    schema,
     regionId,
     transition,
     activePath,

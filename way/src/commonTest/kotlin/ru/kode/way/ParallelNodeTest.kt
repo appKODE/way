@@ -80,7 +80,6 @@ class ParallelNodeTest : ShouldSpec() {
         schema = appSchema
       )
       val sut = NavigationService<Unit>(
-        schema = appSchema,
         nodeBuilder = appNodeBuilder,
         onFinishRequest = { Ignore }
       )

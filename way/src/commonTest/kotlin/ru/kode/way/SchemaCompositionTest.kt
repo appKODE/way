@@ -24,7 +24,6 @@ class SchemaCompositionTest : ShouldSpec() {
       )
       var navServiceFinished = false
       val sut = NavigationService<Unit>(
-        schema = schema,
         nodeBuilder = AppFlowNodeBuilder(
           nodeFactory = AppFlowNodeFactory(
             initialTarget = Target.appFlow.loginFlow(section = 42, onFinishRequest = {

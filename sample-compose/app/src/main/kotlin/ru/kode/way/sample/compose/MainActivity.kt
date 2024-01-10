@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
       .eventSink(eventSink)
       .build()
     val appFlowComponent = component.appFlowComponent()
-    val service = NavigationService(AppFlow.schema, AppFlow.nodeBuilder(appFlowComponent)) { _: Unit ->
+    val service = NavigationService(AppFlow.nodeBuilder(appFlowComponent)) { _: Unit ->
       finish()
       Stay
     }

@@ -19,8 +19,8 @@ class ServiceExtensionsTest : ShouldSpec({
       postTransition = { _, event, state -> postTransition.add(event to state) },
     )
     val sut = NavigationService(
-      NavService04Schema(),
       TestNodeBuilder(
+        NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app04.permissions { Finish(Unit) },

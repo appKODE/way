@@ -1,7 +1,6 @@
 package ru.kode.way
 
 class NavigationService<R : Any>(
-  private val schema: Schema,
   private val nodeBuilder: NodeBuilder,
   private val onFinishRequest: (R) -> FlowTransition<Unit>,
 ) {
@@ -57,7 +56,7 @@ class NavigationService<R : Any>(
       it.onPreTransition(this, event, state.copy())
     }
     if (event is InitEvent) {
-      schema.regions.forEach { regionId ->
+      nodeBuilder.schema.regions.forEach { regionId ->
         val regionRootPath = regionId.path
         val regionRoot = nodeBuilder.build(
           regionRootPath,
@@ -78,13 +77,13 @@ class NavigationService<R : Any>(
         )
       }
     }
-    val resolvedTransition = resolveTransition(schema, state.regions, nodeBuilder, event, state._nodeExtensionPoints)
+    val resolvedTransition = resolveTransition(state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     return calculateAliveNodes(state, resolvedTransition.targetPaths).also { navigationState ->
       storeFinishHandlers(navigationState, resolvedTransition)
       synchronizeNodes(navigationState, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
-      checkSchemaValidity(schema, navigationState)
+      checkSchemaValidity(nodeBuilder.schema, navigationState)
       serviceExtensionPoints.forEach { it.onPostTransition(this, event, state.copy()) }
       navigationState._enqueuedEvents.addAll(resolvedTransition.enqueuedEvents.orEmpty())
     }

@@ -54,12 +54,12 @@ import ru.kode.way.nav12.login as login12
 class NavigationServiceTest : ShouldSpec({
   should("switch to direct initial state") {
     val sut = NavigationService(
-      NavService01Schema(),
       TestNodeBuilder(
+        NavService01Schema(),
         mapOf(
           "app" to TestFlowNode(initialTarget = Target.app01.intro),
           "app.intro" to TestScreenNode(),
-        )
+        ),
       ),
       onFinishRequest = { _: Int -> Stay },
     )
@@ -71,8 +71,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("switch to initial state requiring sub-flow transition") {
     val sut = NavigationService(
-      NavService02Schema(),
       TestNodeBuilder(
+        NavService02Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app02.permissions { Finish(Unit) }
@@ -81,7 +81,7 @@ class NavigationServiceTest : ShouldSpec({
             initialTarget = Target.permissions02.intro
           ),
           "app.permissions.intro" to TestScreenNode()
-        )
+        ),
       ),
       onFinishRequest = { _: Unit -> Stay },
     )
@@ -93,8 +93,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("correctly post and process EnqueueEvent transitions") {
     val sut = NavigationService(
-      NavService05Schema(),
       TestNodeBuilder(
+        NavService05Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app05.intro,
@@ -106,7 +106,7 @@ class NavigationServiceTest : ShouldSpec({
           "app.intro" to TestScreenNode(),
           "app.main" to TestScreenNode(),
           "app.test" to TestScreenNode(),
-        )
+        ),
       ),
       onFinishRequest = { _: Unit -> Stay },
     )
@@ -159,8 +159,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("ignore event completely if no node defines an actionable transition") {
     val sut = NavigationService(
-      NavService02Schema(),
       TestNodeBuilder(
+        NavService02Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app02.permissions { Finish(Unit) }
@@ -189,8 +189,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("process events in a bottom-up order") {
     val sut = NavigationService(
-      NavService04Schema(),
       TestNodeBuilder(
+        NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app04.permissions { Finish(Unit) },
@@ -235,8 +235,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("replace nodes when transitioning between sibling nodes") {
     val sut = NavigationService(
-      NavService05Schema(),
       TestNodeBuilder(
+        NavService05Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app05.intro,
@@ -281,8 +281,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("append to live nodes when transitioning to child screen node sequentially") {
     val sut = NavigationService(
-      NavService06Schema(),
       TestNodeBuilder(
+        NavService06Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app06.intro,
@@ -321,8 +321,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("append to live nodes when transitioning to grand child screen node") {
     val sut = NavigationService(
-      NavService06Schema(),
       TestNodeBuilder(
+        NavService06Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app06.intro,
@@ -354,8 +354,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("call onFinishRequest to inform parent flow of result") {
     val sut = NavigationService(
-      NavService07Schema(),
       TestNodeBuilder(
+        NavService07Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app07.onboarding { r: Int ->
@@ -394,8 +394,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("call onFinishRequest to inform parent flow of result from non-initial node in the sub-flow") {
     val sut = NavigationService(
-      NavService08Schema(),
       TestNodeBuilder(
+        NavService08Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app08.onboarding { r: Int ->
@@ -438,8 +438,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("correctly call onFinishRequest if parent flow finishes as a result of a child flow finish") {
     val sut = NavigationService(
-      NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
       TestNodeBuilder(
+        NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app10.page1,
@@ -484,8 +484,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("stay on current child node when Stay transition is returned") {
     val sut = NavigationService(
-      NavService06Schema(),
       TestNodeBuilder(
+        NavService06Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app06.intro,
@@ -517,8 +517,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("consume event if Stay transition is returned") {
     val sut = NavigationService(
-      NavService06Schema(),
       TestNodeBuilder(
+        NavService06Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app06.intro,
@@ -552,8 +552,8 @@ class NavigationServiceTest : ShouldSpec({
 
   should("correctly navigate when using imported schemas") {
     val sut = NavigationService(
-      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
       TestNodeBuilder(
+        NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app09.page1,
@@ -591,8 +591,8 @@ class NavigationServiceTest : ShouldSpec({
   should("correctly handle back navigation") {
     var isFinished = false
     val sut = NavigationService(
-      NavService11Schema(),
       TestNodeBuilder(
+        NavService11Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app11.login(onFinishRequest = { NavigateTo(Target.app11.main) }),
@@ -641,8 +641,8 @@ class NavigationServiceTest : ShouldSpec({
   should("use service.onFinishRequest when receiving finish event") {
     var isFinished = false
     val sut = NavigationService(
-      NavService01Schema(),
       TestNodeBuilder(
+        NavService01Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app01.intro,
@@ -671,7 +671,6 @@ class NavigationServiceTest : ShouldSpec({
   }
 
   should("pass target arguments to flow, screen and sub-flow nodes") {
-    val schema = NavService12Schema(NavService12LoginSchema())
     val nodeBuilder = AppNodeBuilder(
       object : AppNodeBuilder.Factory {
         override fun createRootNode(timeout: Int) = TestFlowNode(
@@ -703,11 +702,10 @@ class NavigationServiceTest : ShouldSpec({
           )
         }
       },
-      schema
+      NavService12Schema(NavService12LoginSchema())
     )
 
     val sut = NavigationService(
-      schema,
       nodeBuilder,
       onFinishRequest = { _: Int -> Ignore },
     )
@@ -742,8 +740,8 @@ class NavigationServiceTest : ShouldSpec({
     val entryCounts = mutableMapOf<String, Int>()
     val exitCounts = mutableMapOf<String, Int>()
     val sut = NavigationService(
-      NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
       TestNodeBuilder(
+        NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app10.page1,
@@ -929,7 +927,6 @@ class NavigationServiceTest : ShouldSpec({
   should("call child flow builder twice ") {
     var createChildNodeCallCount = 0
     val sut = NavigationService<Unit>(
-      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
       ru.kode.way.nav09.AppNodeBuilder(
         object : ru.kode.way.nav09.AppNodeBuilder.Factory {
           override fun createRootNode(): FlowNode<*> {
@@ -968,7 +965,6 @@ class NavigationServiceTest : ShouldSpec({
 
   should("cleanup nodes after flow finish") {
     val sut = NavigationService<Unit>(
-      NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
       ru.kode.way.nav09.AppNodeBuilder(
         object : ru.kode.way.nav09.AppNodeBuilder.Factory {
           override fun createRootNode(): FlowNode<*> {

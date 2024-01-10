@@ -25,7 +25,6 @@ import ru.kode.way.NavigationState
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
 import ru.kode.way.Path
-import ru.kode.way.Schema
 import ru.kode.way.startsWith
 
 @ExperimentalAnimationApi
@@ -61,8 +60,8 @@ fun NodeHost(
 
 @ExperimentalAnimationApi
 @Composable
-fun <R : Any> NodeHost(schema: Schema, nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTransition<Unit>) {
-  val service = remember(schema) { NavigationService(schema, nodeBuilder, onFinishRequest) }
+fun <R : Any> NodeHost(nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTransition<Unit>) {
+  val service = remember(nodeBuilder) { NavigationService(nodeBuilder, onFinishRequest) }
   NodeHost(service)
 }
 

@@ -29,4 +29,6 @@ interface NodeBuilder {
    */
   fun build(path: Path, payloads: Map<Path, Any>, rootSegmentAlias: Segment?): Node
   fun invalidateCache(path: Path)
+
+  val schema: Schema
 }

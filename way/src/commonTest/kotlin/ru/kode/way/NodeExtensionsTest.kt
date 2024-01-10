@@ -22,8 +22,8 @@ class NodeExtensionsTest : ShouldSpec({
       postExit = { node, path -> postExit += node to path.toString() },
     )
     val sut = NavigationService(
-      NavService04Schema(),
       TestNodeBuilder(
+        NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app04.permissions { Finish(Unit) },
@@ -86,8 +86,8 @@ class NodeExtensionsTest : ShouldSpec({
       postTransition = { _, path, event, _ -> postTransition += path.toString() to event },
     )
     val sut = NavigationService(
-      NavService04Schema(),
       TestNodeBuilder(
+        NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
             initialTarget = Target.app04.permissions { Finish(Unit) },

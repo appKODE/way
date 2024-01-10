@@ -8,7 +8,6 @@ fun main() {
   val component = AppFlowComponentImpl()
 
   val service = NavigationService<Unit>(
-    SampleAppSchema(),
     component.nodeBuilder(),
     onFinishRequest = {
       Stay

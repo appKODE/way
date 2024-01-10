@@ -1,7 +1,8 @@
 package ru.kode.way
 
 class TestNodeBuilder(
-  private val mapping: Map<String, Node>
+  override val schema: Schema,
+  private val mapping: Map<String, Node>,
 ) : NodeBuilder {
   override fun build(path: Path, payloads: Map<Path, Any>, rootSegmentAlias: Segment?): Node {
     println("[TestNodeBuilder] building path $path")

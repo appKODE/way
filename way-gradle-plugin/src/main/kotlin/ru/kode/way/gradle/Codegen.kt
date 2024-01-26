@@ -5,6 +5,8 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.MemberName
 import org.gradle.configurationcache.extensions.capitalized
+import ru.kode.way.gradle.constant.PATH
+import ru.kode.way.gradle.constant.SEGMENT
 import java.io.File
 import java.nio.file.Path
 
@@ -69,7 +71,7 @@ internal fun buildPathConstructorCall(
   return CodeBlock.builder()
     .add(
       "%T(listOf(%L))",
-      libraryClassName("Path"),
+      PATH,
       buildSegmentArgumentList(nodes, buildSegmentId)
     )
     .build()
@@ -90,7 +92,7 @@ internal fun buildSegmentArgumentList(
       },
       *buildList {
         nodes.forEach { node ->
-          add(libraryClassName("Segment"))
+          add(SEGMENT)
           add(buildSegmentId(node))
         }
       }.toTypedArray()

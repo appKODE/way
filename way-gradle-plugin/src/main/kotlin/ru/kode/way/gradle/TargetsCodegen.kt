@@ -9,6 +9,11 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import ru.kode.way.gradle.constant.FLOW_TARGET
+import ru.kode.way.gradle.constant.FLOW_TRANSITION
+import ru.kode.way.gradle.constant.PATH
+import ru.kode.way.gradle.constant.SCREEN_TARGET
+import ru.kode.way.gradle.constant.TARGET
 
 internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val targetsFileName = parseResult.graphId?.let { "${it}Targets" } ?: DEFAULT_TARGETS_FILE_NAME
@@ -46,7 +51,7 @@ internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGe
 private fun buildTargetExtensionSpec(node: Node.Flow, packageName: String): PropertySpec {
   val type = ClassName(packageName, targetsClassName(node))
   return PropertySpec.builder(node.id, type)
-    .receiver(libraryClassName("Target").nestedClass("Companion"))
+    .receiver(TARGET.nestedClass("Companion"))
     .getter(
       FunSpec.getterBuilder()
         .addCode("return %T()", type)
@@ -65,14 +70,14 @@ private fun buildFlowTargets(
     .primaryConstructor(
       FunSpec.constructorBuilder()
         .addParameter(
-          ParameterSpec.builder("prefix", libraryClassName("Path").copy(nullable = true))
+          ParameterSpec.builder("prefix", PATH.copy(nullable = true))
             .defaultValue("null")
             .build()
         )
         .build()
     )
     .addProperty(
-      PropertySpec.builder("prefix", libraryClassName("Path").copy(nullable = true), KModifier.PRIVATE)
+      PropertySpec.builder("prefix", PATH.copy(nullable = true), KModifier.PRIVATE)
         .initializer("prefix")
         .build()
     )
@@ -105,9 +110,9 @@ private fun buildFlowTargets(
     .addFunction(
       FunSpec.builder("flowPath")
         .addModifiers(KModifier.PRIVATE)
-        .addParameter("path", libraryClassName("Path"))
+        .addParameter("path", PATH)
         .addCode("return prefix?.%M(path) ?: path", libraryMemberName("append"))
-        .returns(libraryClassName("Path"))
+        .returns(PATH)
         .build()
     )
     .build()
@@ -134,15 +139,15 @@ private fun buildFlowTargetSpec(
         LambdaTypeName.get(
           receiver = null,
           ParameterSpec.builder("result", targetResultTypeName).build(),
-          returnType = libraryClassName("FlowTransition").parameterizedBy(resultTypeName)
+          returnType = FLOW_TRANSITION.parameterizedBy(resultTypeName)
         )
       )
         .build()
     )
-    .returns(libraryClassName("FlowTarget").parameterizedBy(targetResultTypeName, resultTypeName))
+    .returns(FLOW_TARGET.parameterizedBy(targetResultTypeName, resultTypeName))
     .addCode(
       "return %T(flowPath(%L), payload = %L, onFinishRequest)",
-      libraryClassName("FlowTarget"),
+      FLOW_TARGET,
       buildPathConstructorCall(
         nodes = adjacencyList
           .findAllParents(targetNode, includeThis = true)
@@ -161,10 +166,10 @@ private fun buildScreenTargetPropertySpec(
   adjacencyList: AdjacencyList,
   buildSegmentId: (Node) -> String
 ): PropertySpec {
-  return PropertySpec.builder(targetNode.id, libraryClassName("ScreenTarget"))
+  return PropertySpec.builder(targetNode.id, SCREEN_TARGET)
     .initializer(
       "%T(flowPath(%L))",
-      libraryClassName("ScreenTarget"),
+      SCREEN_TARGET,
       buildPathConstructorCall(
         nodes = adjacencyList
           .findAllParents(targetNode, includeThis = true)
@@ -185,10 +190,10 @@ private fun buildScreenTargetFunSpec(
 ): FunSpec {
   return FunSpec.builder(targetNode.id)
     .addParameter(parameter.name, ClassName.bestGuess(parameter.type))
-    .returns(libraryClassName("ScreenTarget"))
+    .returns(SCREEN_TARGET)
     .addCode(
       "return %T(flowPath(%L), payload = %L)",
-      libraryClassName("ScreenTarget"),
+      SCREEN_TARGET,
       buildPathConstructorCall(
         nodes = adjacencyList
           .findAllParents(targetNode, includeThis = true)

@@ -10,6 +10,10 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import ru.kode.way.gradle.constant.PATH
+import ru.kode.way.gradle.constant.REGION_ID
+import ru.kode.way.gradle.constant.SCHEMA
+import ru.kode.way.gradle.constant.SEGMENT
 
 internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val schemaClassName = schemaClassName(parseResult, config)
@@ -36,7 +40,7 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
         addProperties(constructorProperties)
       }
     }
-    .addSuperinterface(libraryClassName("Schema"))
+    .addSuperinterface(SCHEMA)
     .addProperty(
       buildRootSegmentProperty(parseResult.adjacencyList, ::buildSegmentId)
     )
@@ -62,7 +66,7 @@ private fun buildRegionsPropertySpec(
 ): PropertySpec {
   return PropertySpec.Companion.builder(
     "regions",
-    LIST.parameterizedBy(libraryClassName("RegionId")),
+    LIST.parameterizedBy(REGION_ID),
     KModifier.OVERRIDE
   )
     .initializer(
@@ -72,7 +76,7 @@ private fun buildRegionsPropertySpec(
           regionRoots.forEachIndexed { index, r ->
             add(
               "%T(%L)",
-              libraryClassName("RegionId"),
+              REGION_ID,
               buildPathConstructorCall(reversedParents(r, adjacencyList), buildSegmentId)
             )
             if (index != regionRoots.lastIndex) {
@@ -92,12 +96,12 @@ private fun buildRootSegmentProperty(
 ): PropertySpec {
   val rootNode = adjacencyList.findRootNode()
   return PropertySpec
-    .builder("rootSegment", libraryClassName("Segment"), KModifier.OVERRIDE)
+    .builder("rootSegment", SEGMENT, KModifier.OVERRIDE)
     .initializer(
       CodeBlock.builder()
         .add(
           "%T(%S)",
-          libraryClassName("Segment"),
+          SEGMENT,
           buildSegmentId(rootNode)
         )
         .build()
@@ -124,8 +128,8 @@ private fun buildChildSchemasProperty(
       .builder(
         "childSchemas",
         MAP.parameterizedBy(
-          libraryClassName("Segment"),
-          libraryClassName("Schema")
+          SEGMENT,
+          SCHEMA
         ),
         KModifier.OVERRIDE
       )
@@ -136,8 +140,8 @@ private fun buildChildSchemasProperty(
       .builder(
         "childSchemas",
         MAP.parameterizedBy(
-          libraryClassName("Segment"),
-          libraryClassName("Schema")
+          SEGMENT,
+          SCHEMA
         ),
         KModifier.OVERRIDE
       )
@@ -148,7 +152,7 @@ private fun buildChildSchemasProperty(
             importedFlowNodes.forEachIndexed { index, node ->
               add(
                 "%T(%S)·to·%L",
-                libraryClassName("Segment"),
+                SEGMENT,
                 buildSegmentId(node),
                 schemaConstructorPropertyName(node)
               )
@@ -182,7 +186,7 @@ private fun buildConstructorParameters(adjacencyList: AdjacencyList): List<Param
   adjacencyList.forEach { (node, _) ->
     if (node is Node.Flow.Imported) {
       parameters.add(
-        ParameterSpec.builder(schemaConstructorPropertyName(node), libraryClassName("Schema"))
+        ParameterSpec.builder(schemaConstructorPropertyName(node), SCHEMA)
           .build()
       )
     }
@@ -196,10 +200,10 @@ private fun buildSchemaTargetsSpec(
 ): FunSpec {
   return FunSpec.builder("target")
     .addModifiers(KModifier.OVERRIDE)
-    .addParameter("regionId", libraryClassName("RegionId"))
-    .addParameter("segment", libraryClassName("Segment"))
-    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
-    .returns(libraryClassName("Path").copy(nullable = true))
+    .addParameter("regionId", REGION_ID)
+    .addParameter("segment", SEGMENT)
+    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+    .returns(PATH.copy(nullable = true))
     .addCode(
       CodeBlock.builder()
         .beginControlFlow("return·when·(regionId)·{")
@@ -208,7 +212,7 @@ private fun buildSchemaTargetsSpec(
             beginControlFlow("regions[$regionRootIndex] -> {")
             addStatement(
               "val rootSegment = rootSegmentAlias ?: %T(%S)",
-              libraryClassName("Segment"),
+              SEGMENT,
               buildSegmentId(regionRoot)
             )
             beginControlFlow("when(segment.id) {")
@@ -220,13 +224,13 @@ private fun buildSchemaTargetsSpec(
               if (node.id == regionRoot.id) {
                 addStatement(
                   "rootSegment.id -> %T(rootSegment)",
-                  libraryClassName("Path"),
+                  PATH,
                 )
               } else {
                 addStatement(
                   "%S -> %T(listOf(rootSegment, %L))",
                   buildSegmentId(node),
-                  libraryClassName("Path"),
+                  PATH,
                   buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId)
                 )
               }
@@ -248,10 +252,10 @@ private fun buildSchemaTargetsSpec(
 private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId: (Node) -> String): FunSpec {
   return FunSpec.builder("nodeType")
     .addModifiers(KModifier.OVERRIDE)
-    .addParameter("regionId", libraryClassName("RegionId"))
-    .addParameter("path", libraryClassName("Path"))
-    .addParameter("rootSegmentAlias", libraryClassName("Segment").copy(nullable = true))
-    .returns(libraryClassName("Schema").nestedClass("NodeType"))
+    .addParameter("regionId", REGION_ID)
+    .addParameter("path", PATH)
+    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+    .returns(SCHEMA.nestedClass("NodeType"))
     .addCode(
       CodeBlock.builder()
         .beginControlFlow("return when (regionId) {")
@@ -260,7 +264,7 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
             beginControlFlow("regions[$regionRootIndex] -> {")
             addStatement(
               "val rootSegment = rootSegmentAlias ?: %T(%S)",
-              libraryClassName("Segment"),
+              SEGMENT,
               buildSegmentId(regionRoot)
             )
             beginControlFlow("when {")
@@ -270,15 +274,15 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
                   if (node.id == regionRoot.id) {
                     addStatement(
                       "path == %T(rootSegment) -> %T.NodeType.Flow",
-                      libraryClassName("Path"),
-                      libraryClassName("Schema")
+                      PATH,
+                      SCHEMA
                     )
                   } else {
                     addStatement(
                       "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Flow",
-                      libraryClassName("Path"),
+                      PATH,
                       buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
-                      libraryClassName("Schema")
+                      SCHEMA
                     )
                   }
                 }
@@ -286,18 +290,18 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
                 is Node.Flow.LocalParallel -> {
                   addStatement(
                     "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Parallel",
-                    libraryClassName("Path"),
+                    PATH,
                     buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
-                    libraryClassName("Schema")
+                    SCHEMA
                   )
                 }
 
                 is Node.Screen -> {
                   addStatement(
                     "path == %T(listOf(rootSegment, %L)) -> %T.NodeType.Screen",
-                    libraryClassName("Path"),
+                    PATH,
                     buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
-                    libraryClassName("Schema")
+                    SCHEMA
                   )
                 }
               }

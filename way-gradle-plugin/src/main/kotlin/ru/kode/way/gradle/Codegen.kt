@@ -44,10 +44,6 @@ internal class SchemaOutputSpecs(
   val nodeBuilderSpecs: List<FileSpec>,
 )
 
-internal fun libraryClassName(name: String): ClassName {
-  return ClassName(LIBRARY_PACKAGE, name)
-}
-
 internal fun libraryMemberName(name: String): MemberName {
   return MemberName(LIBRARY_PACKAGE, name)
 }

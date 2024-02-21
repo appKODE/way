@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.8.11 - TBD
+## 0.8.11 - 2024-02-21
 
 * Remove explicit Schema parameter from NavigationService. It is now a public property of `NodeBuilder`
+* Fix issues with EnqueueEvent which was not always working
 
 ## 0.8.10 - 2023-11-01
 

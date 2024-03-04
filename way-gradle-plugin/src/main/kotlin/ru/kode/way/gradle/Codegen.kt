@@ -1,12 +1,9 @@
 package ru.kode.way.gradle
 
-import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.MemberName
 import org.gradle.configurationcache.extensions.capitalized
-import ru.kode.way.gradle.constant.PATH
-import ru.kode.way.gradle.constant.SEGMENT
 import java.io.File
 import java.nio.file.Path
 

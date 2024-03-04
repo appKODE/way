@@ -1,7 +1,6 @@
-package ru.kode.way.gradle.constant
+package ru.kode.way.gradle
 
 import com.squareup.kotlinpoet.ClassName
-import ru.kode.way.gradle.LIBRARY_PACKAGE
 
 val FLOW_NODE = ClassName(LIBRARY_PACKAGE, "FlowNode")
 val FLOW_TARGET = ClassName(LIBRARY_PACKAGE, "FlowTarget")

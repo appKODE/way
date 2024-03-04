@@ -9,11 +9,6 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
-import ru.kode.way.gradle.constant.FLOW_TARGET
-import ru.kode.way.gradle.constant.FLOW_TRANSITION
-import ru.kode.way.gradle.constant.PATH
-import ru.kode.way.gradle.constant.SCREEN_TARGET
-import ru.kode.way.gradle.constant.TARGET
 
 internal fun buildTargetsFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val targetsFileName = parseResult.graphId?.let { "${it}Targets" } ?: DEFAULT_TARGETS_FILE_NAME

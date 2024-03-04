@@ -10,10 +10,6 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
-import ru.kode.way.gradle.constant.PATH
-import ru.kode.way.gradle.constant.REGION_ID
-import ru.kode.way.gradle.constant.SCHEMA
-import ru.kode.way.gradle.constant.SEGMENT
 
 internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val schemaClassName = schemaClassName(parseResult, config)

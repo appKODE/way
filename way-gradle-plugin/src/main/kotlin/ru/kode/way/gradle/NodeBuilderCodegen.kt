@@ -16,13 +16,6 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
-import ru.kode.way.gradle.constant.FLOW_NODE
-import ru.kode.way.gradle.constant.NODE
-import ru.kode.way.gradle.constant.NODE_BUILDER
-import ru.kode.way.gradle.constant.PARALLEL_NODE
-import ru.kode.way.gradle.constant.PATH
-import ru.kode.way.gradle.constant.SCREEN_NODE
-import ru.kode.way.gradle.constant.SEGMENT
 import java.nio.file.Path
 
 internal fun buildNodeBuilderFileSpecs(

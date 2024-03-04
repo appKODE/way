@@ -26,33 +26,24 @@ internal fun buildNodeBuilderFileSpecs(
   val rootNode = parseResult.adjacencyList.findRootNode()
   val schemaClassName = ClassName(packageName, schemaClassName(parseResult, config))
   return parseResult.adjacencyList.mapFlow { flow, _ ->
-    buildNodeBuilderFileSpec(
-      flow,
-      packageName,
-      parseResult.adjacencyList,
-      schemaClassName,
-      isRootNode = rootNode == flow,
-      schemaFilePath = parseResult.filePath
-    )
+    val className = ClassName(packageName, flow.id.toPascalCase() + "NodeBuilder")
+    FileSpec
+      .builder(
+        packageName,
+        className.simpleName
+      )
+      .addType(
+        buildNodeBuilderTypeSpec(
+          flow = flow,
+          className = className,
+          schemaClassName = schemaClassName,
+          adjacencyList = parseResult.adjacencyList,
+          isRootNode = rootNode == flow,
+          schemaFilePath = parseResult.filePath
+        )
+      )
+      .build()
   }
-}
-
-private fun buildNodeBuilderFileSpec(
-  flow: Node.Flow,
-  packageName: String,
-  adjacencyList: AdjacencyList,
-  schemaClassName: ClassName,
-  isRootNode: Boolean,
-  schemaFilePath: Path,
-): FileSpec {
-  val className = ClassName(packageName, flow.id.toPascalCase() + "NodeBuilder")
-  return FileSpec
-    .builder(
-      packageName,
-      className.simpleName
-    )
-    .addType(buildNodeBuilderTypeSpec(flow, className, schemaClassName, adjacencyList, isRootNode, schemaFilePath))
-    .build()
 }
 
 internal fun buildNodeBuilderTypeSpec(

@@ -71,16 +71,13 @@ class NavigationService<R : Any>(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
           _active = regionRootPath,
           _alive = mutableListOf(regionRootPath),
-          _finishHandlers = mutableMapOf(
-            regionRootPath to (onFinishRequest as (Any) -> FlowTransition<Any>)
-          ),
+          _rootFinishTransitionBuilder = onFinishRequest as (Any) -> Transition
         )
       }
     }
     val resolvedTransition = resolveTransition(state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     return calculateAliveNodes(state, resolvedTransition.targetPaths).also { navigationState ->
-      storeFinishHandlers(navigationState, resolvedTransition)
       synchronizeNodes(navigationState, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(nodeBuilder.schema, navigationState)
@@ -114,15 +111,6 @@ class NavigationService<R : Any>(
     }
   }
 
-  private fun storeFinishHandlers(state: NavigationState, resolvedTransition: ResolvedTransition) {
-    if (resolvedTransition.finishHandlers == null) return
-    resolvedTransition.finishHandlers.forEach { (regionId, handler) ->
-      val region = state._regions[regionId] ?: error("no region with id \"$regionId\"")
-      // the path to the flow finish handler of which we are storing
-      region._finishHandlers[handler.flowPath] = handler.callback
-    }
-  }
-
   private fun synchronizeNodes(
     state: NavigationState,
     payloads: Map<Path, Any>,
@@ -144,7 +132,6 @@ class NavigationService<R : Any>(
             }
         }
       }
-      region._finishHandlers.keys.retainAll(region.alive.toSet())
       nodeBuilder.invalidateCache(region.active)
     }
   }

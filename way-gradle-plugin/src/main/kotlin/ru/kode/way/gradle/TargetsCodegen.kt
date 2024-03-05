@@ -4,9 +4,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
-import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterSpec
-import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 
@@ -85,7 +83,7 @@ private fun buildFlowTargets(
         when (targetNode) {
           is Node.Flow -> {
             if (isRootNode) {
-              addFunction(buildFlowTargetSpec(node, targetNode, adjacencyList, buildSegmentId))
+              addFlowTarget(node, targetNode, adjacencyList, buildSegmentId)
             }
           }
           is Node.Screen -> {
@@ -113,46 +111,49 @@ private fun buildFlowTargets(
     .build()
 }
 
-private fun buildFlowTargetSpec(
+private fun TypeSpec.Builder.addFlowTarget(
   node: Node.Flow,
   targetNode: Node.Flow,
   adjacencyList: AdjacencyList,
   buildSegmentId: (Node) -> String
-): FunSpec {
-  val resultTypeName = ClassName.bestGuess(node.resultType)
-  val targetResultTypeName = ClassName.bestGuess(targetNode.resultType)
+): TypeSpec.Builder {
   val parameter = targetNode.parameter
-  return FunSpec.builder(targetNode.id)
-    .apply {
-      if (parameter != null) {
-        addParameter(parameter.name, ClassName.bestGuess(parameter.type))
-      }
-    }
-    .addParameter(
-      ParameterSpec.builder(
-        "onFinishRequest",
-        LambdaTypeName.get(
-          receiver = null,
-          ParameterSpec.builder("result", targetResultTypeName).build(),
-          returnType = FLOW_TRANSITION.parameterizedBy(resultTypeName)
+  return if (parameter != null) {
+    addFunction(
+      FunSpec.builder(targetNode.id)
+        .addParameter(parameter.name, ClassName.bestGuess(parameter.type))
+        .returns(FLOW_TARGET)
+        .addCode(
+          "return %T(flowPath(%L), payload = %L)",
+          FLOW_TARGET,
+          buildPathConstructorCall(
+            nodes = adjacencyList
+              .findAllParents(targetNode, includeThis = true)
+              .takeWhile { it != node }
+              .reversed(),
+            buildSegmentId = buildSegmentId
+          ),
+          parameter.name
         )
-      )
         .build()
     )
-    .returns(FLOW_TARGET.parameterizedBy(targetResultTypeName, resultTypeName))
-    .addCode(
-      "return %T(flowPath(%L), payload = %L, onFinishRequest)",
-      FLOW_TARGET,
-      buildPathConstructorCall(
-        nodes = adjacencyList
-          .findAllParents(targetNode, includeThis = true)
-          .takeWhile { it != node }
-          .reversed(),
-        buildSegmentId = buildSegmentId
-      ),
-      parameter?.name ?: "null"
+  } else {
+    addProperty(
+      PropertySpec.builder(targetNode.id, FLOW_TARGET)
+        .initializer(
+          "%T(flowPath(%L))",
+          FLOW_TARGET,
+          buildPathConstructorCall(
+            nodes = adjacencyList
+              .findAllParents(targetNode, includeThis = true)
+              .takeWhile { it != node }
+              .reversed(),
+            buildSegmentId = buildSegmentId
+          )
+        )
+        .build()
     )
-    .build()
+  }
 }
 
 private fun buildScreenTargetPropertySpec(

@@ -28,26 +28,35 @@ import ru.kode.way.nav12.NavService12LoginSchema
 import ru.kode.way.nav12.NavService12Schema
 import java.nio.charset.Charset
 import ru.kode.way.nav01.app as app01
+import ru.kode.way.nav02.AppChildFinishRequest as Nav02AppChildFinishRequest
 import ru.kode.way.nav02.app as app02
 import ru.kode.way.nav02.permissions as permissions02
+import ru.kode.way.nav04.AppChildFinishRequest as Nav04AppChildFinishRequest
 import ru.kode.way.nav04.app as app04
 import ru.kode.way.nav04.permissions as permissions04
 import ru.kode.way.nav04.profile as profile04
 import ru.kode.way.nav05.app as app05
 import ru.kode.way.nav06.app as app06
+import ru.kode.way.nav07.AppChildFinishRequest as Nav07AppChildFinishRequest
 import ru.kode.way.nav07.app as app07
 import ru.kode.way.nav07.login as login07
 import ru.kode.way.nav07.onboarding as onboarding07
+import ru.kode.way.nav08.AppChildFinishRequest as Nav08AppChildFinishRequest
 import ru.kode.way.nav08.app as app08
 import ru.kode.way.nav08.login as login08
 import ru.kode.way.nav08.onboarding as onboarding08
+import ru.kode.way.nav09.AppChildFinishRequest as Nav09AppChildFinishRequest
 import ru.kode.way.nav09.app as app09
 import ru.kode.way.nav09.child.permissions as permissions09
+import ru.kode.way.nav10.AppChildFinishRequest as Nav10AppChildFinishRequest
+import ru.kode.way.nav10.LoginChildFinishRequest as Nav10LoginChildFinishRequest
 import ru.kode.way.nav10.app as app10
 import ru.kode.way.nav10.login as login10
 import ru.kode.way.nav10.permissions as permissions10
+import ru.kode.way.nav11.AppChildFinishRequest as Nav11AppChildFinishRequest
 import ru.kode.way.nav11.app as app11
 import ru.kode.way.nav11.login as login11
+import ru.kode.way.nav12.AppChildFinishRequest as Nav12AppChildFinishRequest
 import ru.kode.way.nav12.app as app12
 import ru.kode.way.nav12.login as login12
 
@@ -75,7 +84,10 @@ class NavigationServiceTest : ShouldSpec({
         NavService02Schema(),
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app02.permissions { Finish(Unit) }
+            initialTarget = Target.app02.permissions,
+            transitions = listOf(
+              tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit))
+            )
           ),
           "app.permissions" to TestFlowNode(
             initialTarget = Target.permissions02.intro
@@ -163,7 +175,10 @@ class NavigationServiceTest : ShouldSpec({
         NavService02Schema(),
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app02.permissions { Finish(Unit) }
+            initialTarget = Target.app02.permissions,
+            transitions = listOf(
+              tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit))
+            )
           ),
           "app.permissions" to TestFlowNode(
             initialTarget = Target.permissions02.intro,
@@ -193,9 +208,11 @@ class NavigationServiceTest : ShouldSpec({
         NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app04.permissions { Finish(Unit) },
+            initialTarget = Target.app04.permissions,
             transitions = listOf(
-              tr(on = "C", target = Target.app04.profile { Ignore })
+              tr(on = "C", target = Target.app04.profile),
+              tr<Nav04AppChildFinishRequest.Permissions>(Finish(Unit)),
+              tr<Nav04AppChildFinishRequest.Profile>(Ignore),
             )
           ),
           "app.permissions" to TestFlowNode(
@@ -352,20 +369,28 @@ class NavigationServiceTest : ShouldSpec({
     }
   }
 
-  should("call onFinishRequest to inform parent flow of result") {
+  should("correctly handles parent/child finish requests") {
     val sut = NavigationService(
       TestNodeBuilder(
         NavService07Schema(),
         mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app07.onboarding { r: Int ->
-              if (r == 42) {
-                NavigateTo(Target.app07.login { Finish(33.0) })
-              } else {
-                Finish(30.0)
+          "app" to object : FlowNode<Double> {
+            override val initial = Target.app07.onboarding
+            override val dismissResult = 0.0
+            override fun transition(event: Event): FlowTransition<Double> {
+              return when (event) {
+                is Nav07AppChildFinishRequest.Onboarding -> {
+                  if (event.result == 42) {
+                    NavigateTo(Target.app07.login)
+                  } else {
+                    Finish(30.0)
+                  }
+                }
+                is Nav07AppChildFinishRequest.Login -> Finish(33.0)
+                else -> Ignore
               }
             }
-          ),
+          },
           "app.onboarding" to TestFlowNodeWithResult(
             initialTarget = Target.onboarding07.intro,
             dismissResult = 33,
@@ -388,24 +413,33 @@ class NavigationServiceTest : ShouldSpec({
 
       sut.sendEvent(TestEvent("A"))
 
-      awaitItem().active shouldBe "app.login.credentials"
+      awaitItem().active shouldBe "app.onboarding.intro" // after A, "finish" is sent
+      awaitItem().active shouldBe "app.login.credentials" // after "finish"
     }
   }
 
-  should("call onFinishRequest to inform parent flow of result from non-initial node in the sub-flow") {
+  should("correctly handles parent/child finish requests from non-initial node") {
     val sut = NavigationService(
       TestNodeBuilder(
         NavService08Schema(),
         mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app08.onboarding { r: Int ->
-              if (r == 42) {
-                NavigateTo(Target.app08.login { Finish(Unit) })
-              } else {
-                Finish(Unit)
+          "app" to object : FlowNode<Unit> {
+            override val initial = Target.app08.onboarding
+            override val dismissResult = Unit
+            override fun transition(event: Event): FlowTransition<Unit> {
+              return when (event) {
+                is Nav08AppChildFinishRequest.Onboarding -> {
+                  if (event.result == 42) {
+                    NavigateTo(Target.app08.login)
+                  } else {
+                    Finish(Unit)
+                  }
+                }
+                is Nav08AppChildFinishRequest.Login -> Finish(Unit)
+                else -> Ignore
               }
             }
-          ),
+          },
           "app.onboarding" to TestFlowNodeWithResult(
             initialTarget = Target.onboarding08.intro,
             dismissResult = 33,
@@ -432,11 +466,12 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().active shouldBe "app.onboarding.page1"
 
       sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.login.credentials"
+      awaitItem().active shouldBe "app.onboarding.page1" // received B, sends "finish"
+      awaitItem().active shouldBe "app.login.credentials" // after "finish"
     }
   }
 
-  should("correctly call onFinishRequest if parent flow finishes as a result of a child flow finish") {
+  should("correctly handle finish if parent flow finishes as a result of a child flow finish") {
     val sut = NavigationService(
       TestNodeBuilder(
         NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
@@ -444,7 +479,8 @@ class NavigationServiceTest : ShouldSpec({
           "app" to TestFlowNode(
             initialTarget = Target.app10.page1,
             transitions = listOf(
-              tr("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
+              tr("A", Target.app10.login),
+              tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
             )
           ),
           "app.page1" to TestScreenNode(),
@@ -452,7 +488,8 @@ class NavigationServiceTest : ShouldSpec({
             initialTarget = Target.login10.credentials,
             dismissResult = 33,
             transitions = listOf(
-              tr(on = "A", target = Target.login10.permissions { result: String -> Finish(result.toInt()) }),
+              tr(on = "A", target = Target.login10.permissions),
+              tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44))
             )
           ),
           "app.page1.login.credentials" to TestScreenNode(),
@@ -478,7 +515,11 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
 
       sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.page1"
+      awaitItem().active shouldBe
+        "app.page1.login.credentials.permissions.intro" // permissions flow receives B, sends "permissions finish"
+      awaitItem().active shouldBe
+        "app.page1.login.credentials.permissions.intro" // login flow receives "permissions finish" sends "login finish"
+      awaitItem().active shouldBe "app.page1" // after "login finish"
     }
   }
 
@@ -558,7 +599,8 @@ class NavigationServiceTest : ShouldSpec({
           "app" to TestFlowNode(
             initialTarget = Target.app09.page1,
             transitions = listOf(
-              tr(on = "A", Target.app09.permissions { Ignore }),
+              tr(on = "A", Target.app09.permissions),
+              tr<Nav09AppChildFinishRequest.Permissions>(Ignore)
             )
           ),
           "app.page1" to TestScreenNode(),
@@ -595,7 +637,10 @@ class NavigationServiceTest : ShouldSpec({
         NavService11Schema(),
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app11.login(onFinishRequest = { NavigateTo(Target.app11.main) }),
+            initialTarget = Target.app11.login,
+            transitions = listOf(
+              tr<Nav11AppChildFinishRequest.Login>(NavigateTo(Target.app11.main))
+            )
           ),
           "app.intro" to TestScreenNode(),
           "app.intro.main" to TestScreenNode(),
@@ -611,30 +656,23 @@ class NavigationServiceTest : ShouldSpec({
     )
 
     sut.collectTransitions().test {
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test.login.credentials.otp"
-      }
+      awaitItem().active shouldBe "app.intro.main.test.login.credentials.otp"
 
       sut.sendEvent(Event.Back)
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test.login.credentials"
-      }
+      awaitItem().active shouldBe "app.intro.main.test.login.credentials"
 
       sut.sendEvent(Event.Back)
-      awaitItem().apply {
-        active shouldBe "app.intro.main"
-      }
+      awaitItem().active shouldBe "app.intro.main.test.login.credentials" // back sends "finish"
+      awaitItem().active shouldBe "app.intro.main" // after "finish"
 
       sut.sendEvent(Event.Back)
-      awaitItem().apply {
-        active shouldBe "app.intro"
-      }
+      awaitItem().active shouldBe "app.intro"
 
+      isFinished shouldBe false
       sut.sendEvent(Event.Back)
-      awaitItem().apply {
-        isFinished shouldBe true
-        active shouldBe "app.intro"
-      }
+      awaitItem().active shouldBe "app.intro" // back sends "finish"
+      awaitItem().active shouldBe "app.intro" // after "finish"
+      isFinished shouldBe true
     }
   }
 
@@ -665,7 +703,8 @@ class NavigationServiceTest : ShouldSpec({
       awaitItem().active shouldBe "app.intro"
 
       sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.intro"
+      awaitItem().active shouldBe "app.intro" // back sends "finish"
+      awaitItem().active shouldBe "app.intro" // after "finish"
       isFinished shouldBe true
     }
   }
@@ -677,7 +716,8 @@ class NavigationServiceTest : ShouldSpec({
           initialTarget = Target.app12.page1(Charsets.UTF_32),
           payload = timeout,
           transitions = listOf(
-            tr("A", Target.app12.login(defaultUserName = "Dima", onFinishRequest = { Stay }))
+            tr("A", Target.app12.login(defaultUserName = "Dima")),
+            tr<Nav12AppChildFinishRequest.Login>(Stay)
           )
         )
 
@@ -748,7 +788,8 @@ class NavigationServiceTest : ShouldSpec({
             onEntryImpl = { entryCounts["app"] = entryCounts["app"]?.let { it + 1 } ?: 1 },
             onExitImpl = { exitCounts["app"] = exitCounts["app"]?.let { it + 1 } ?: 1 },
             transitions = listOf(
-              tr("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
+              tr("A", Target.app10.login),
+              tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
             )
           ),
           "app.page1" to TestScreenNode(
@@ -762,7 +803,8 @@ class NavigationServiceTest : ShouldSpec({
             onEntryImpl = { entryCounts["app.page2"] = entryCounts["app.page2"]?.let { it + 1 } ?: 1 },
             onExitImpl = { exitCounts["app.page2"] = exitCounts["app.page2"]?.let { it + 1 } ?: 1 },
             transitions = listOf(
-              trs("A", Target.app10.login { _: Int -> NavigateTo(Target.app10.page1) })
+              trs("A", Target.app10.login),
+              trs<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
             )
           ),
           "app.page1.login" to TestFlowNodeWithResult(
@@ -771,7 +813,8 @@ class NavigationServiceTest : ShouldSpec({
             onEntryImpl = { entryCounts["app.page1.login"] = entryCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
             onExitImpl = { exitCounts["app.page1.login"] = exitCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
             transitions = listOf(
-              tr(on = "A", target = Target.login10.permissions { result: String -> Finish(result.toInt()) }),
+              tr(on = "A", target = Target.login10.permissions),
+              tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44))
             )
           ),
           "app.page1.login.credentials" to TestScreenNode(
@@ -850,7 +893,10 @@ class NavigationServiceTest : ShouldSpec({
       exitCounts.shouldBeEmpty()
 
       sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.page1"
+      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro" // sends "permissions finish"
+      awaitItem().active shouldBe
+        "app.page1.login.credentials.permissions.intro" // after "permissions finish" -> sends "login finish"
+      awaitItem().active shouldBe "app.page1" // after "login finish" -> sends "finish"
       entryCounts.shouldContainExactly(
         mapOf(
           "app" to 1,
@@ -930,7 +976,7 @@ class NavigationServiceTest : ShouldSpec({
       ru.kode.way.nav09.AppNodeBuilder(
         object : ru.kode.way.nav09.AppNodeBuilder.Factory {
           override fun createRootNode(): FlowNode<*> {
-            return TestFlowNode(initialTarget = Target.app09.permissions { Ignore })
+            return TestFlowNode(initialTarget = Target.app09.permissions)
           }
 
           override fun createPage1Node() = TestScreenNode()
@@ -969,10 +1015,10 @@ class NavigationServiceTest : ShouldSpec({
         object : ru.kode.way.nav09.AppNodeBuilder.Factory {
           override fun createRootNode(): FlowNode<*> {
             return TestFlowNode(
-              initialTarget = Target.app09.permissions { Ignore },
+              initialTarget = Target.app09.permissions,
               transitions = listOf(
                 tr(on = "A", NavigateTo(Target.app09.page1)),
-                tr(on = "B", NavigateTo(Target.app09.permissions { Ignore })),
+                tr(on = "B", NavigateTo(Target.app09.permissions)),
               )
             )
           }

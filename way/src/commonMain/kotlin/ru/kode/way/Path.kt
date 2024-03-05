@@ -95,6 +95,15 @@ fun Path.prepend(path: Path): Path {
   return Path(path.segments + segments)
 }
 
+fun Path.prepend(segment: Segment): Path {
+  return Path(
+    buildList(segments.size + 1) {
+      add(segment)
+      addAll(segments)
+    }
+  )
+}
+
 fun Path.append(path: Path): Path {
   return Path(this.segments + path.segments)
 }

@@ -37,7 +37,7 @@ internal fun buildChildFinishEventFileSpecs(
     return null
   }
 
-  val className = ClassName(packageName, rootNode.id.toPascalCase() + "ChildFinishRequest")
+  val className = ClassName(packageName, childFinishRequestInterfaceName(rootNode.id))
   return FileSpec
     .builder(
       packageName,
@@ -81,3 +81,10 @@ internal fun buildChildFinishEventFileSpecs(
     )
     .build()
 }
+
+internal fun childFinishRequestInterfaceName(nodeId: String) = nodeId.toPascalCase() + "ChildFinishRequest"
+internal fun childFinishRequestEventClassName(
+  packageName: String,
+  flowNodeId: String,
+  childFlowNodeId: String
+) = ClassName(packageName, childFinishRequestInterfaceName(flowNodeId) + '.' + childFlowNodeId.toPascalCase())

@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import ru.kode.way.nav04.NavService04Schema
+import ru.kode.way.nav04.AppChildFinishRequest as Nav04AppChildFinishRequest
 import ru.kode.way.nav04.app as app04
 import ru.kode.way.nav04.permissions as permissions04
 import ru.kode.way.nav04.profile as profile04
@@ -23,9 +24,10 @@ class ServiceExtensionsTest : ShouldSpec({
         NavService04Schema(),
         mapOf(
           "app" to TestFlowNode(
-            initialTarget = Target.app04.permissions { Finish(Unit) },
+            initialTarget = Target.app04.permissions,
             transitions = listOf(
-              tr(on = "C", target = Target.app04.profile { Ignore })
+              tr(on = "C", target = Target.app04.profile),
+              tr<Nav04AppChildFinishRequest.Permissions>(Finish(Unit))
             )
           ),
           "app.permissions" to TestFlowNode(
@@ -36,7 +38,8 @@ class ServiceExtensionsTest : ShouldSpec({
           "app.profile" to TestFlowNode(
             initialTarget = Target.profile04.main,
             transitions = listOf(
-              tr(on = "C", target = Target.app04.permissions { Finish(Unit) })
+              tr(on = "C", target = Target.app04.permissions),
+              tr<Nav04AppChildFinishRequest.Permissions>(Finish(Unit))
             )
           ),
           "app.profile.main" to TestScreenNode()

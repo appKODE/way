@@ -8,10 +8,7 @@ sealed interface Target {
 }
 
 data class ScreenTarget(override val path: Path, override val payload: Any? = null) : Target
-data class FlowTarget<R1 : Any, R2 : Any>(
+data class FlowTarget(
   override val path: Path,
   override val payload: Any? = null,
-  val onFinishRequest: FinishRequestHandler<R1, R2>
 ) : Target
-
-typealias FinishRequestHandler<R1, R2> = (R1) -> FlowTransition<R2>

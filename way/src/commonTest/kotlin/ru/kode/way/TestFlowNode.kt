@@ -27,10 +27,8 @@ open class GenericTestFlowNode<R : Any>(
   override val initial: Target = initialTarget
 
   override fun transition(event: Event): FlowTransition<R> {
-    return event.whenFlowEvent { e: TestEvent ->
-      if (transitions.isEmpty()) Ignore else {
-        transitions.find { it.event == e.name }?.transition as FlowTransition<R>? ?: Ignore
-      }
+    return if (transitions.isEmpty()) Ignore else {
+      transitions.find { it.eventMatcher(event) }?.transition as FlowTransition<R>? ?: Ignore
     }
   }
 
@@ -52,10 +50,8 @@ class TestScreenNode(
   private val onExitImpl: () -> Unit = {},
 ) : ScreenNode {
   override fun transition(event: Event): ScreenTransition {
-    return event.whenScreenEvent { e: TestEvent ->
-      if (transitions.isEmpty()) Ignore else {
-        transitions.find { it.event == e.name }?.transition ?: Ignore
-      }
+    return if (transitions.isEmpty()) Ignore else {
+      transitions.find { it.eventMatcher(event) }?.transition ?: Ignore
     }
   }
 
@@ -82,7 +78,7 @@ class TestParallelNode(
   override fun transition(event: Event): FlowTransition<Unit> {
     return event.whenFlowEvent { e: TestEvent ->
       if (transitions.isEmpty()) Ignore else {
-        transitions.find { it.event == e.name }?.transition as FlowTransition<Unit>? ?: Ignore
+        transitions.find { it.eventMatcher(e) }?.transition as FlowTransition<Unit>? ?: Ignore
       }
     }
   }

@@ -69,7 +69,7 @@ class ParallelNodeTest : ShouldSpec() {
         nodeFactory = object : Par01AppNodeBuilder.Factory {
           override fun createRootNode(): FlowNode<*> {
             return TestFlowNode(
-              initialTarget = Target.par01App.par01Main { Finish(Unit) }
+              initialTarget = Target.par01App.par01Main
             )
           }
 

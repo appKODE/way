@@ -1,5 +1,7 @@
 package ru.kode.way.gradle
 
+import com.squareup.kotlinpoet.ANY
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
@@ -10,11 +12,13 @@ import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.UNIT
 
 internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec {
   val schemaClassName = schemaClassName(parseResult, config)
+  val packageName = parseResult.customPackage ?: config.outputPackageName
   val schemaFileSpec = FileSpec.builder(
-    parseResult.customPackage ?: config.outputPackageName,
+    packageName,
     parseResult.customSchemaFileName ?: schemaClassName
   )
   val regionRoots = buildRegionRoots(parseResult.adjacencyList)
@@ -51,6 +55,9 @@ internal fun buildSchemaFileSpec(parseResult: SchemaParseResult, config: CodeGen
     )
     .addFunction(
       buildSchemaNodeTypeSpec(parseResult.adjacencyList, ::buildSegmentId)
+    )
+    .addFunction(
+      buildCreateChildFlowFinishEventSpec(packageName, parseResult.adjacencyList, ::buildSegmentId)
     )
   return schemaFileSpec.addType(schemaTypeSpec.build()).build()
 }
@@ -304,6 +311,74 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
             }
             beginControlFlow("else -> {")
             addStatement("error(%P)", "internal error: no nodeType for path=\$path")
+            endControlFlow() // else -> {
+            endControlFlow() // when {
+            endControlFlow() // regions[i] -> {
+          }
+          beginControlFlow("else -> {")
+          addStatement("error(%P)", "unknown regionId=\$regionId")
+          endControlFlow()
+        }
+        .endControlFlow() // return when (regionId) {
+        .build()
+    )
+    .build()
+}
+
+private fun buildCreateChildFlowFinishEventSpec(
+  packageName: String,
+  adjacencyList: AdjacencyList,
+  buildSegmentId: (Node) -> String
+): FunSpec {
+  return FunSpec.builder("createChildFlowFinishRequestEvent")
+    .addModifiers(KModifier.OVERRIDE)
+    .addParameter("regionId", REGION_ID)
+    .addParameter("path", PATH)
+    .addParameter("result", ANY)
+    .returns(EVENT)
+    .addCode(
+      CodeBlock.builder()
+        .beginControlFlow("return when (regionId) {")
+        .apply {
+          buildRegionRoots(adjacencyList).forEachIndexed { regionRootIndex, regionRoot ->
+            beginControlFlow("regions[$regionRootIndex] -> {")
+            beginControlFlow("when(path) {")
+            dfs(adjacencyList, regionRoot) { node ->
+              when (node) {
+                is Node.Flow -> {
+                  if (node.id != regionRoot.id) {
+                    if (node.resultType != UNIT.canonicalName) {
+                      val resultType = ClassName.bestGuess(node.resultType)
+                      addStatement(
+                        "%T(listOf(rootSegment, %L)) -> %T(result as %T)",
+                        PATH,
+                        buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
+                        childFinishRequestEventClassName(
+                          packageName = packageName,
+                          flowNodeId = regionRoot.id,
+                          childFlowNodeId = node.id
+                        ),
+                        resultType
+                      )
+                    } else {
+                      addStatement(
+                        "%T(listOf(rootSegment, %L)) -> %T",
+                        PATH,
+                        buildSegmentArgumentList(reversedParents(node, adjacencyList).drop(1), buildSegmentId),
+                        childFinishRequestEventClassName(
+                          packageName = packageName,
+                          flowNodeId = regionRoot.id,
+                          childFlowNodeId = node.id
+                        ),
+                      )
+                    }
+                  }
+                }
+                is Node.Screen -> Unit
+              }
+            }
+            beginControlFlow("else -> {")
+            addStatement("error(%P)", "internal error: failed to build child finish event for path=\$path")
             endControlFlow() // else -> {
             endControlFlow() // when {
             endControlFlow() // regions[i] -> {

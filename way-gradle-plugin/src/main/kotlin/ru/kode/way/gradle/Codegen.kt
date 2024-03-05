@@ -19,6 +19,7 @@ internal fun generate(
     nodeBuilderSpecs.forEach {
       it.writeTo(outputDirectory)
     }
+    finishEventsFileSpec?.writeTo(outputDirectory)
   }
 }
 
@@ -31,7 +32,8 @@ internal fun buildSpecs(
   return SchemaOutputSpecs(
     schemaFileSpec = buildSchemaFileSpec(parseResult, config),
     targetsFileSpec = buildTargetsFileSpec(parseResult, config),
-    nodeBuilderSpecs = buildNodeBuilderFileSpecs(parseResult, config)
+    nodeBuilderSpecs = buildNodeBuilderFileSpecs(parseResult, config),
+    finishEventsFileSpec = buildChildFinishEventFileSpecs(parseResult, config)
   )
 }
 
@@ -39,6 +41,7 @@ internal class SchemaOutputSpecs(
   val schemaFileSpec: FileSpec,
   val targetsFileSpec: FileSpec,
   val nodeBuilderSpecs: List<FileSpec>,
+  val finishEventsFileSpec: FileSpec?
 )
 
 internal fun libraryMemberName(name: String): MemberName {

@@ -1,5 +1,6 @@
 package ru.kode.way.gradle
 
+import com.squareup.kotlinpoet.UNIT
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import ru.kode.way.gradle.DotParser.GraphContext
@@ -37,13 +38,13 @@ private class Visitor : DotBaseVisitor<Unit>() {
     fun String.toNode(): Node {
       return when {
         flowNodes.contains(this) -> {
-          Node.Flow.Local(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+          Node.Flow.Local(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
         }
         schemaNodes.contains(this) -> {
-          Node.Flow.Imported(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+          Node.Flow.Imported(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
         }
         parallelNodes.contains(this) -> {
-          Node.Flow.LocalParallel(this, flowNodeResultTypes[this] ?: "kotlin.Unit", nodeParameters[this])
+          Node.Flow.LocalParallel(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
         }
         else -> Node.Screen(this, nodeParameters[this])
       }

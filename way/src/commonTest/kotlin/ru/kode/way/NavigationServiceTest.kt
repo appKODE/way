@@ -1012,30 +1012,31 @@ class NavigationServiceTest : ShouldSpec({
     )
 
     sut.collectTransitions().test {
-      awaitItem().apply {
-        active shouldBe "app.page1.permissions.intro.request"
-        val permissionNodes = aliveNodes.filter { it.key.contains("permissions") }.values
+      var state = awaitItem()
+      state.active shouldBe "app.page1.permissions.intro.request"
+      val permissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
 
-        sut.sendEvent(TestEvent("A"))
-        active shouldBe "app.page1"
+      sut.sendEvent(TestEvent("A"))
+      awaitItem().active shouldBe "app.page1"
 
-        // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
-        // be reconstructed again
+      // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
+      // be reconstructed again
 
-        sut.sendEvent(TestEvent("B"))
-        active shouldBe "app.page1.permissions.intro.request"
-        val newPermissionNodes = aliveNodes.filter { it.key.contains("permissions") }.values
-        newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
-        val requestNode = aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+      sut.sendEvent(TestEvent("B"))
+      state = awaitItem()
+      state.active shouldBe "app.page1.permissions.intro.request"
+      val newPermissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
+      newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
+      val requestNode = state.aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
-        sut.sendEvent(TestEvent("C"))
-        sut.sendEvent(TestEvent("D"))
-        val newRequestNode = aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+      sut.sendEvent(TestEvent("C"))
+      awaitItem()
+      sut.sendEvent(TestEvent("D"))
+      val newRequestNode = awaitItem().aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
-        requestNode shouldNotBe newRequestNode
+      requestNode shouldNotBe newRequestNode
 
-        cancelAndIgnoreRemainingEvents()
-      }
+      cancelAndIgnoreRemainingEvents()
     }
   }
 })

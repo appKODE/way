@@ -155,7 +155,7 @@ class NavigationService<R : Any>(
     if (validityErrors.isNotEmpty()) {
       error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
     }
-    listeners.forEach { it(state) }
+    listeners.forEach { it(state.copy()) }
 
     // drain event queue if not empty: one event at a time, even if the transition produced multiple events.
     // I.e. having transition which produced events A, B, C, it would be incorrect to immediately send all of them,

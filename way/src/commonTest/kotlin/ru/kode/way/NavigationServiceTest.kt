@@ -1085,4 +1085,79 @@ class NavigationServiceTest : ShouldSpec({
       cancelAndIgnoreRemainingEvents()
     }
   }
+
+  should("correctly transition when given an absolute target") {
+    val loginFlowTarget = Target.app12.login(defaultUserName = "Gregoriy")
+    val loginCredentialsTarget = Target.login12.credentials(defaultPhone = "800")
+    val loginOtpTarget = Target.login12.otp(useAnimation = true)
+    val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
+    // TODO Use generated AbsoluteTargets instead of manual building!
+    val absoluteTarget = AbsoluteTarget(
+      Path(
+        buildList {
+          add(rootSegment)
+          addAll(loginFlowTarget.path.segments)
+          addAll(loginOtpTarget.path.segments)
+        }
+      ),
+      payloads = buildMap {
+        put(Path(rootSegment).append(loginFlowTarget.path), loginFlowTarget.payload!!)
+        put(
+          Path(rootSegment).append(loginFlowTarget.path)
+            .append(loginCredentialsTarget.path),
+          loginCredentialsTarget.payload!!
+        )
+        put(Path(rootSegment).append(loginFlowTarget.path).append(loginOtpTarget.path), loginOtpTarget.payload!!)
+      }
+    )
+
+    val nodeBuilder = AppNodeBuilder(
+      object : AppNodeBuilder.Factory {
+        override fun createRootNode(timeout: Int) = TestFlowNode(
+          initialTarget = Target.app12.page1(Charsets.UTF_32),
+          payload = timeout,
+          transitions = listOf(
+            tr("A", absoluteTarget),
+          )
+        )
+
+        override fun createPage2Node() = TestScreenNode()
+        override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+        override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder {
+          return LoginNodeBuilder(
+            object : LoginNodeBuilder.Factory {
+              override fun createRootNode(defaultUserName: String) = TestFlowNode(
+                initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
+                payload = defaultUserName,
+              )
+
+              override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
+              override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
+            },
+            NavService12LoginSchema()
+          )
+        }
+      },
+      NavService12Schema(NavService12LoginSchema())
+    )
+
+    val sut = NavigationService(
+      nodeBuilder,
+      onFinishRequest = { _: Int -> Ignore },
+    )
+
+    sut.collectTransitions(rootNodePayload = 42).test {
+      awaitItem()
+
+      sut.sendEvent(TestEvent("A"))
+
+      awaitItem().apply {
+        active shouldBe "app.page1.login.credentials.otp"
+        (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Gregoriy"
+        (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "800"
+        (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
+      }
+    }
+  }
 })

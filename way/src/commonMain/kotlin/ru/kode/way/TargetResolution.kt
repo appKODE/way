@@ -56,9 +56,19 @@ private fun resolveTransitionInRegion(
       val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
       val payloads = mutableMapOf<Path, Any>()
       transition.targets.forEach { target ->
-        val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
-        target.payload?.also { payloads[targetPathAbs] = it }
-        targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
+        when (target) {
+          is AbsoluteTarget -> {
+            System.err.println("putting payloads: ${target.payloads}")
+            payloads.putAll(target.payloads)
+            targetPaths[regionId] = target.path
+          }
+          is FlowTarget,
+          is ScreenTarget -> {
+            val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
+            target.payload?.also { payloads[targetPathAbs] = it }
+            targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
+          }
+        }
       }
       ResolvedTransition(
         targetPaths = targetPaths,
@@ -289,6 +299,9 @@ private fun maybeResolveInitial(
     }
     is FlowTarget -> {
       maybeResolveInitial(targetPathAbs, nodeBuilder, nodes, schema, payloads)
+    }
+    is AbsoluteTarget -> {
+      error("initial absolute targets are not supported yet")
     }
   }
 }

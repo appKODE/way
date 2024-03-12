@@ -54,15 +54,13 @@ fun Path.lastSegment(): Segment {
 }
 
 fun Path.drop(count: Int): Path {
+  if (count == 0) return this
   return Path(segments.drop(count))
 }
 
 fun Path.dropLast(count: Int): Path {
+  if (count == 0) return this
   return Path(segments.dropLast(count))
-}
-
-fun Path.dropLastWhile(predicate: (Segment) -> Boolean): Path {
-  return this
 }
 
 fun Path.take(count: Int): Path {

@@ -6,14 +6,11 @@ plugins {
 }
 
 kotlin {
+  jvmToolchain(11)
+
   targets {
     jvm {
       withJava()
-      compilations.configureEach {
-        kotlinOptions {
-          jvmTarget = "1.8"
-        }
-      }
     }
   }
   sourceSets {
@@ -33,5 +30,5 @@ kotlin {
 }
 
 application {
-  mainClassName = "ru.kode.way.sample.MainKt"
+  getMainClass().set("ru.kode.way.sample.MainKt")
 }

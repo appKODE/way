@@ -9,21 +9,19 @@ plugins {
 }
 
 gradlePlugin {
+  website = "https://github.com/appKODE/way"
+  vcsUrl = "https://github.com/appKODE/way"
+
   plugins {
     create("way") {
       id = "ru.kode.way"
       group = "ru.kode"
       implementationClass = "ru.kode.way.gradle.WayPlugin"
       displayName = "Code generation gradle plugin for Way navigation library"
+      description = "Code generation gradle plugin for Way navigation library"
+      tags = listOf("navigation", "codegen", "android", "kmm", "compose", "compose-desktop")
     }
   }
-}
-
-pluginBundle {
-  website = "https://github.com/appKODE/way"
-  vcsUrl = "https://github.com/appKODE/way"
-  description = "Code generation gradle plugin for Way navigation library"
-  tags = listOf("navigation", "codegen", "android", "kmm", "compose", "compose-desktop")
 }
 
 dependencies {
@@ -62,4 +60,12 @@ tasks.withType<Test> {
 
   // Disable line diffing, it's more useful to see diff in IDE
   systemProperty("kotest.assertions.multi-line-diff-size", Int.MAX_VALUE)
+}
+
+// There is a bug in the ANTLR plugin,
+// where ANTLR adds the folder to java source set without marking itself as the producer.
+// https://github.com/gradle/gradle/issues/19555
+sourceSets.configureEach {
+  val generateGrammarSource = tasks.named(getTaskName("generate", "GrammarSource"))
+  java.srcDir(generateGrammarSource.map { files() })
 }

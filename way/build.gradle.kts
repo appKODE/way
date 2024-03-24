@@ -7,12 +7,13 @@ plugins {
 }
 
 kotlin {
+  jvmToolchain(11)
+
   targets {
     jvm {
       withJava()
       compilations.all {
         kotlinOptions {
-          jvmTarget = "1.8"
           moduleName = "way-library"
         }
       }

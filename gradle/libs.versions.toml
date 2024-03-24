@@ -1,20 +1,20 @@
 [versions]
 koTest = "5.5.4"
-ktlint = "0.43.2"
+ktlint = "0.44.0"
 coroutines = "1.7.3"
-kotlin = "1.9.10"
+kotlin = "1.9.20" # Should be equal Gradle embebed Kotlin version
 spotless = "6.0.5"
 dokka = "1.9.0"
 turbine = "1.0.0"
-compose = "1.5.1"
-composeCompiler = "1.5.3"
-androidExtensions = "1.7.2"
+compose = "1.6.3"
+composeCompiler = "1.5.5"
+androidExtensions = "1.8.2"
 agp = "8.3.0"
 kotlinPoet = "1.14.2"
 antlr = "4.13.1"
 okio = "3.3.0"
 wayPlugin = "0.9.0"
-dagger = "2.46.1"
+dagger = "2.50"
 gradlePublishPlugin = "1.1.0"
 
 [libraries]

@@ -37,11 +37,11 @@ class LoginFlowNode @Inject constructor(
     }
   }
 
-  override fun onEntry() {
+  override fun onEntry(event: Event) {
     service.start()
   }
 
-  override fun onExit() {
+  override fun onExit(event: Event) {
     service.stop()
   }
 }

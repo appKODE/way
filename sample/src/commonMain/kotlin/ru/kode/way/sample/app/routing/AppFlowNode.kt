@@ -31,7 +31,7 @@ class AppFlowNode : FlowNode<AppFlowResult> {
     }
   }
 
-  override fun onEntry() = Unit
+  override fun onEntry(event: Event) = Unit
 
-  override fun onExit() = Unit
+  override fun onExit(event: Event) = Unit
 }

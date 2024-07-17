@@ -66,7 +66,7 @@ class NavigationService<R : Any>(
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
         }
-        callOnEntry(regionRoot, regionRootPath, state._nodeExtensionPoints)
+        callOnEntry(regionRoot, regionRootPath, event, state._nodeExtensionPoints)
         state._regions[regionId] = Region(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
           _active = regionRootPath,
@@ -78,7 +78,7 @@ class NavigationService<R : Any>(
     val resolvedTransition = resolveTransition(state.regions, nodeBuilder, event, state._nodeExtensionPoints)
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     return calculateAliveNodes(state, resolvedTransition.targetPaths).also { navigationState ->
-      synchronizeNodes(navigationState, resolvedTransition.payloads, previousAlive)
+      synchronizeNodes(navigationState, event, resolvedTransition.payloads, previousAlive)
       // TODO remove after codegen impl, or run only in debug / during tests?
       checkSchemaValidity(nodeBuilder.schema, navigationState)
       serviceExtensionPoints.forEach { it.onPostTransition(this, event, state.copy()) }
@@ -113,6 +113,7 @@ class NavigationService<R : Any>(
 
   private fun synchronizeNodes(
     state: NavigationState,
+    event: Event,
     payloads: Map<Path, Any>,
     previousAlive: Map<RegionId, List<Path>>
   ) {
@@ -120,7 +121,7 @@ class NavigationService<R : Any>(
       previousAlive[regionId].orEmpty().reversed().forEach { path ->
         if (!region.alive.contains(path)) {
           val node = region._nodes[path] ?: error("state doesn't contain node at \"$path\"")
-          callOnExit(node, path, state._nodeExtensionPoints)
+          callOnExit(node, path, event, state._nodeExtensionPoints)
         }
       }
       region.alive.forEach { path ->
@@ -128,7 +129,7 @@ class NavigationService<R : Any>(
         if (!region._nodes.containsKey(path)) {
           region._nodes[path] = nodeBuilder.build(path, payloads, rootSegmentAlias = null)
             .also {
-              callOnEntry(it, path, state._nodeExtensionPoints)
+              callOnEntry(it, path, event, state._nodeExtensionPoints)
             }
         }
       }
@@ -182,14 +183,14 @@ private fun NavigationState.isInitialized(): Boolean {
 // TODO be more sensible, actually calculate!
 private fun Schema.regionCount() = 1
 
-private fun callOnEntry(node: Node, path: Path, extensionPoints: List<NodeExtensionPoint>) {
+private fun callOnEntry(node: Node, path: Path, event: Event, extensionPoints: List<NodeExtensionPoint>) {
   extensionPoints.forEach { it.onPreEntry(node, path) }
-  node.onEntry()
+  node.onEntry(event)
   extensionPoints.forEach { it.onPostEntry(node, path) }
 }
 
-private fun callOnExit(node: Node, path: Path, extensionPoints: List<NodeExtensionPoint>) {
+private fun callOnExit(node: Node, path: Path, event: Event, extensionPoints: List<NodeExtensionPoint>) {
   extensionPoints.forEach { it.onPreExit(node, path) }
-  node.onExit()
+  node.onExit(event)
   extensionPoints.forEach { it.onPostExit(node, path) }
 }

@@ -29,9 +29,9 @@ class PermissionsFlowNode : FlowNode<FlowResult> {
 
   override val dismissResult: FlowResult = FlowResult.Dismissed
 
-  override fun onEntry() {
+  override fun onEntry(event: Event) {
   }
 
-  override fun onExit() {
+  override fun onExit(event: Event) {
   }
 }

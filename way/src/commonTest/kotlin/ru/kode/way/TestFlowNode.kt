@@ -2,8 +2,8 @@ package ru.kode.way
 
 class TestFlowNode(
   initialTarget: Target,
-  private val onEntryImpl: () -> Unit = {},
-  private val onExitImpl: () -> Unit = {},
+  onEntryImpl: () -> Unit = {},
+  onExitImpl: () -> Unit = {},
   transitions: List<TestFlowTransitionSpec> = emptyList(),
   val payload: Any? = null,
 ) : GenericTestFlowNode<Unit>(initialTarget, Unit, onEntryImpl, onExitImpl, transitions)
@@ -11,8 +11,8 @@ class TestFlowNode(
 class TestFlowNodeWithResult<R : Any>(
   initialTarget: Target,
   override val dismissResult: R,
-  private val onEntryImpl: () -> Unit = {},
-  private val onExitImpl: () -> Unit = {},
+  onEntryImpl: () -> Unit = {},
+  onExitImpl: () -> Unit = {},
   transitions: List<TestFlowTransitionSpec> = emptyList()
 ) : GenericTestFlowNode<R>(initialTarget, dismissResult, onEntryImpl, onExitImpl, transitions)
 
@@ -32,13 +32,13 @@ open class GenericTestFlowNode<R : Any>(
     }
   }
 
-  override fun onEntry() {
-    super.onEntry()
+  override fun onEntry(event: Event) {
+    super.onEntry(event)
     onEntryImpl()
   }
 
-  override fun onExit() {
-    super.onExit()
+  override fun onExit(event: Event) {
+    super.onExit(event)
     onExitImpl()
   }
 }
@@ -55,13 +55,13 @@ class TestScreenNode(
     }
   }
 
-  override fun onEntry() {
-    super.onEntry()
+  override fun onEntry(event: Event) {
+    super.onEntry(event)
     onEntryImpl()
   }
 
-  override fun onExit() {
-    super.onExit()
+  override fun onExit(event: Event) {
+    super.onExit(event)
     onExitImpl()
   }
 }

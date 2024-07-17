@@ -1,8 +1,8 @@
 package ru.kode.way
 
 sealed interface Node {
-  fun onEntry() = Unit
-  fun onExit() = Unit
+  fun onEntry(event: Event) = Unit
+  fun onExit(event: Event) = Unit
 }
 
 interface FlowNode<R : Any> : Node {

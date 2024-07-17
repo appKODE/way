@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2 - 2024-07-17
+
+* Hotfix release with properly rebased commits
+
 ## 0.9.1 - 2024-07-17
 
 * Add `event` parameter to `onEntry` and `onExit` callbacks of `Node`

@@ -10,15 +10,17 @@ import java.nio.file.Path
 import kotlin.io.path.relativeTo
 
 internal fun parseSchemaDotFile(
-  file: File,
-  projectDir: File,
+    file: File,
+    projectDir: File,
 ): SchemaParseResult {
-  val stream = CommonTokenStream(DotLexer(CharStreams.fromPath(file.toPath())))
-  val parser = DotParser(stream)
-  val parseTree = parser.graph()
-  val visitor = Visitor()
-  visitor.visitGraph(parseTree)
-  return visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()))
+  return file.inputStream().use { input ->
+    val stream = CommonTokenStream(DotLexer(CharStreams.fromStream(input)))
+    val parser = DotParser(stream)
+    val parseTree = parser.graph()
+    val visitor = Visitor()
+    visitor.visitGraph(parseTree)
+    visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()))
+  }
 }
 
 private class Visitor : DotBaseVisitor<Unit>() {

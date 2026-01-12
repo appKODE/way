@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.3 - 2026-01-12
+
+* Hotfix release with fixed file stream leak
+
 ## 0.9.2 - 2024-07-17
 
 * Hotfix release with properly rebased commits

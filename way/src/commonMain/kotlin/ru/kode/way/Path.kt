@@ -9,8 +9,13 @@ value class Path(val segments: List<Segment>) {
   constructor(segment: Segment) : this(listOf(segment))
   constructor(
     segmentId: String,
-    vararg segmentIds: String
-  ) : this(buildList { add(Segment(segmentId)); segmentIds.forEach { add(Segment(it)) } })
+    vararg segmentIds: String,
+  ) : this(
+    buildList {
+      add(Segment(segmentId))
+      segmentIds.forEach { add(Segment(it)) }
+    },
+  )
 
   companion object;
 
@@ -21,9 +26,7 @@ value class Path(val segments: List<Segment>) {
     }
   }
 
-  override fun toString(): String {
-    return segments.joinToString(".") { it.name }
-  }
+  override fun toString(): String = segments.joinToString(".") { it.name }
 
   val length get() = segments.size
 }
@@ -37,21 +40,13 @@ val Segment.name: String get() {
   return id.takeWhile { it != '@' }
 }
 
-fun Path.tail(): Path {
-  return Path(segments.drop(1))
-}
+fun Path.tail(): Path = Path(segments.drop(1))
 
-fun Path.head(): Segment {
-  return segments.first()
-}
+fun Path.head(): Segment = segments.first()
 
-fun Path.firstSegment(): Segment {
-  return segments.first()
-}
+fun Path.firstSegment(): Segment = segments.first()
 
-fun Path.lastSegment(): Segment {
-  return segments.last()
-}
+fun Path.lastSegment(): Segment = segments.last()
 
 fun Path.drop(count: Int): Path {
   if (count == 0) return this
@@ -63,9 +58,7 @@ fun Path.dropLast(count: Int): Path {
   return Path(segments.dropLast(count))
 }
 
-fun Path.take(count: Int): Path {
-  return Path(segments.take(count))
-}
+fun Path.take(count: Int): Path = Path(segments.take(count))
 
 fun Path.startsWith(other: Path): Boolean {
   if (this.length < other.length) {
@@ -91,26 +84,18 @@ fun Path.endsWith(other: Path): Boolean {
   return true
 }
 
-fun Path.prepend(path: Path): Path {
-  return Path(path.segments + segments)
-}
+fun Path.prepend(path: Path): Path = Path(path.segments + segments)
 
-fun Path.prepend(segment: Segment): Path {
-  return Path(
-    buildList(segments.size + 1) {
-      add(segment)
-      addAll(segments)
-    }
-  )
-}
+fun Path.prepend(segment: Segment): Path = Path(
+  buildList(segments.size + 1) {
+    add(segment)
+    addAll(segments)
+  },
+)
 
-fun Path.append(path: Path): Path {
-  return Path(this.segments + path.segments)
-}
+fun Path.append(path: Path): Path = Path(this.segments + path.segments)
 
-fun Path.removePrefix(path: Path): Path {
-  return if (this.startsWith(path)) this.drop(path.segments.size) else this
-}
+fun Path.removePrefix(path: Path): Path = if (this.startsWith(path)) this.drop(path.segments.size) else this
 
 /**
  * Generate a path sequence leading up to this path:
@@ -118,9 +103,7 @@ fun Path.removePrefix(path: Path): Path {
  * app.permissions.intro → [app, app.permissions, app.permissions.intro]
  * ```
  */
-fun Path.toSteps(): Sequence<Path> {
-  return segments.indices.asSequence().map { i -> this.take(i + 1) }
-}
+fun Path.toSteps(): Sequence<Path> = segments.indices.asSequence().map { i -> this.take(i + 1) }
 
 /**
  * Generate a path sequence leading from this path up to its root
@@ -128,6 +111,4 @@ fun Path.toSteps(): Sequence<Path> {
  * app.permissions.intro → [ app.permissions.intro, app.permissions, app ]
  * ```
  */
-fun Path.toStepsReversed(): Sequence<Path> {
-  return segments.indices.reversed().asSequence().map { i -> this.take(i + 1) }
-}
+fun Path.toStepsReversed(): Sequence<Path> = segments.indices.reversed().asSequence().map { i -> this.take(i + 1) }

@@ -60,91 +60,98 @@ import ru.kode.way.nav12.AppChildFinishRequest as Nav12AppChildFinishRequest
 import ru.kode.way.nav12.app as app12
 import ru.kode.way.nav12.login as login12
 
-class NavigationServiceTest : ShouldSpec({
-  should("switch to direct initial state") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService01Schema(),
-        mapOf(
-          "app" to TestFlowNode(initialTarget = Target.app01.intro),
-          "app.intro" to TestScreenNode(),
-        ),
-      ),
-      onFinishRequest = { _: Int -> Stay },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.intro"
-    }
-  }
-
-  should("switch to initial state requiring sub-flow transition") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService02Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app02.permissions,
-            transitions = listOf(
-              tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit))
-            )
+class NavigationServiceTest :
+  ShouldSpec({
+    should("switch to direct initial state") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService01Schema(),
+          mapOf(
+            "app" to TestFlowNode(initialTarget = Target.app01.intro),
+            "app.intro" to TestScreenNode(),
           ),
-          "app.permissions" to TestFlowNode(
-            initialTarget = Target.permissions02.intro
-          ),
-          "app.permissions.intro" to TestScreenNode()
         ),
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        onFinishRequest = { _: Int -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.permissions.intro"
-    }
-  }
-
-  should("correctly post and process EnqueueEvent transitions") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService05Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app05.intro,
-            transitions = listOf(
-              tr("A", EnqueueEvent(TestEvent("B"))),
-              tr(on = "B", target = Target.app05.main),
-            )
-          ),
-          "app.intro" to TestScreenNode(),
-          "app.main" to TestScreenNode(),
-          "app.test" to TestScreenNode(),
-        ),
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    var enqueuedEvent: Event? = null
-
-    sut.setEnqueuedEventsScheduler {
-      enqueuedEvent = it
-    }
-
-    sut.collectTransitions()
-      .test {
+      sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        sut.sendEvent(TestEvent("A"))
-        awaitItem().active shouldBe "app.intro"
-        enqueuedEvent?.also { sut.sendEvent(it); enqueuedEvent = null }
-        awaitItem().active shouldBe "app.main"
-        enqueuedEvent?.also { sut.sendEvent(it); enqueuedEvent = null }
       }
-  }
+    }
 
-  // TODO re-enable and adapt when compound-schema import will be done
-  //   currently this is impossible because we can't have onboarding as a child **flow**-node of login,
-  //   because they are described in a single dot file (enforced by NOTE_GROUPING_NODES_BY_FLOW_RULE)
-  //   Once schema composition will be available login + onboarding can be extracted into a different file
-  //   and then this test can be performed
+    should("switch to initial state requiring sub-flow transition") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService02Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app02.permissions,
+              transitions = listOf(
+                tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit)),
+              ),
+            ),
+            "app.permissions" to TestFlowNode(
+              initialTarget = Target.permissions02.intro,
+            ),
+            "app.permissions.intro" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().active shouldBe "app.permissions.intro"
+      }
+    }
+
+    should("correctly post and process EnqueueEvent transitions") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService05Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app05.intro,
+              transitions = listOf(
+                tr("A", EnqueueEvent(TestEvent("B"))),
+                tr(on = "B", target = Target.app05.main),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.main" to TestScreenNode(),
+            "app.test" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      var enqueuedEvent: Event? = null
+
+      sut.setEnqueuedEventsScheduler {
+        enqueuedEvent = it
+      }
+
+      sut.collectTransitions()
+        .test {
+          awaitItem().active shouldBe "app.intro"
+          sut.sendEvent(TestEvent("A"))
+          awaitItem().active shouldBe "app.intro"
+          enqueuedEvent?.also {
+            sut.sendEvent(it)
+            enqueuedEvent = null
+          }
+          awaitItem().active shouldBe "app.main"
+          enqueuedEvent?.also {
+            sut.sendEvent(it)
+            enqueuedEvent = null
+          }
+        }
+    }
+
+    // TODO re-enable and adapt when compound-schema import will be done
+    //   currently this is impossible because we can't have onboarding as a child **flow**-node of login,
+    //   because they are described in a single dot file (enforced by NOTE_GROUPING_NODES_BY_FLOW_RULE)
+    //   Once schema composition will be available login + onboarding can be extracted into a different file
+    //   and then this test can be performed
 //  should("switch to initial state creating all nested child screen nodes") {
 //    val sut = NavigationService(
 //      NavService03Schema(),
@@ -169,216 +176,215 @@ class NavigationServiceTest : ShouldSpec({
 //    }
 //  }
 
-  should("ignore event completely if no node defines an actionable transition") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService02Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app02.permissions,
-            transitions = listOf(
-              tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit))
-            )
+    should("ignore event completely if no node defines an actionable transition") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService02Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app02.permissions,
+              transitions = listOf(
+                tr<Nav02AppChildFinishRequest.Permissions>(Finish(Unit)),
+              ),
+            ),
+            "app.permissions" to TestFlowNode(
+              initialTarget = Target.permissions02.intro,
+              transitions = listOf(
+                tr(on = "A", target = Target.permissions02.intro),
+              ),
+            ),
+            "app.permissions.intro" to TestScreenNode(),
           ),
-          "app.permissions" to TestFlowNode(
-            initialTarget = Target.permissions02.intro,
-            transitions = listOf(
-              tr(on = "A", target = Target.permissions02.intro)
-            )
-          ),
-          "app.permissions.intro" to TestScreenNode()
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem()
+      sut.collectTransitions().test {
+        awaitItem()
 
-      sut.sendEvent(TestEvent("B"))
+        sut.sendEvent(TestEvent("B"))
 
-      // nothing should happen
-      awaitItem().active shouldBe "app.permissions.intro"
-    }
-  }
-
-  should("process events in a bottom-up order") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService04Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app04.permissions,
-            transitions = listOf(
-              tr(on = "C", target = Target.app04.profile),
-              tr<Nav04AppChildFinishRequest.Permissions>(Finish(Unit)),
-              tr<Nav04AppChildFinishRequest.Profile>(Ignore),
-            )
-          ),
-          "app.permissions" to TestFlowNode(
-            initialTarget = Target.permissions04.intro,
-            transitions = listOf(
-              tr(on = "B", target = Target.permissions04.intro)
-            )
-          ),
-          "app.permissions.intro" to TestScreenNode(
-            transitions = listOf(
-              trs(on = "A", target = Target.permissions04.request)
-            )
-          ),
-          "app.permissions.request" to TestScreenNode(),
-          "app.profile" to TestFlowNode(
-            initialTarget = Target.profile04.main,
-          ),
-          "app.profile.main" to TestScreenNode()
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem()
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.permissions.request"
-
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.permissions.intro"
-
-      sut.sendEvent(TestEvent("C"))
-      awaitItem().active shouldBe "app.profile.main"
-    }
-  }
-
-  should("replace nodes when transitioning between sibling nodes") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService05Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app05.intro,
-            transitions = listOf(
-              tr(on = "A", target = Target.app05.main),
-              tr(on = "B", target = Target.app05.test),
-              tr(on = "C", target = Target.app05.main),
-            )
-          ),
-          "app.intro" to TestScreenNode(),
-          "app.main" to TestScreenNode(),
-          "app.test" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro")
-        active shouldBe "app.intro"
-      }
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.main")
-        active shouldBe "app.main"
-      }
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.test")
-        active shouldBe "app.test"
-      }
-
-      sut.sendEvent(TestEvent("C"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.main")
-        active shouldBe "app.main"
+        // nothing should happen
+        awaitItem().active shouldBe "app.permissions.intro"
       }
     }
-  }
 
-  should("append to live nodes when transitioning to child screen node sequentially") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService06Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app06.intro,
-            transitions = listOf(
-              tr(on = "A", target = Target.app06.main),
-              tr(on = "B", target = Target.app06.test),
-            )
+    should("process events in a bottom-up order") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService04Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app04.permissions,
+              transitions = listOf(
+                tr(on = "C", target = Target.app04.profile),
+                tr<Nav04AppChildFinishRequest.Permissions>(Finish(Unit)),
+                tr<Nav04AppChildFinishRequest.Profile>(Ignore),
+              ),
+            ),
+            "app.permissions" to TestFlowNode(
+              initialTarget = Target.permissions04.intro,
+              transitions = listOf(
+                tr(on = "B", target = Target.permissions04.intro),
+              ),
+            ),
+            "app.permissions.intro" to TestScreenNode(
+              transitions = listOf(
+                trs(on = "A", target = Target.permissions04.request),
+              ),
+            ),
+            "app.permissions.request" to TestScreenNode(),
+            "app.profile" to TestFlowNode(
+              initialTarget = Target.profile04.main,
+            ),
+            "app.profile.main" to TestScreenNode(),
           ),
-          "app.intro" to TestScreenNode(),
-          "app.intro.main" to TestScreenNode(),
-          "app.intro.main.test" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro")
-        active shouldBe "app.intro"
-      }
+      sut.collectTransitions().test {
+        awaitItem()
 
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro", "app.intro.main")
-        active shouldBe "app.intro.main"
-      }
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.permissions.request"
 
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
-        active shouldBe "app.intro.main.test"
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().active shouldBe "app.permissions.intro"
+
+        sut.sendEvent(TestEvent("C"))
+        awaitItem().active shouldBe "app.profile.main"
       }
     }
-  }
 
-  should("append to live nodes when transitioning to grand child screen node") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService06Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app06.intro,
-            transitions = listOf(
-              tr(on = "A", target = Target.app06.test),
-            )
+    should("replace nodes when transitioning between sibling nodes") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService05Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app05.intro,
+              transitions = listOf(
+                tr(on = "A", target = Target.app05.main),
+                tr(on = "B", target = Target.app05.test),
+                tr(on = "C", target = Target.app05.main),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.main" to TestScreenNode(),
+            "app.test" to TestScreenNode(),
           ),
-          "app.intro" to TestScreenNode(),
-          "app.intro.main" to TestScreenNode(),
-          "app.intro.main.test" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro")
-        active shouldBe "app.intro"
-      }
+      sut.collectTransitions().test {
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro")
+          active shouldBe "app.intro"
+        }
 
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
-        active shouldBe "app.intro.main.test"
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.main")
+          active shouldBe "app.main"
+        }
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.test")
+          active shouldBe "app.test"
+        }
+
+        sut.sendEvent(TestEvent("C"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.main")
+          active shouldBe "app.main"
+        }
       }
     }
-  }
 
-  should("correctly handles parent/child finish requests") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService07Schema(),
-        mapOf(
-          "app" to object : FlowNode<Double> {
-            override val initial = Target.app07.onboarding
-            override val dismissResult = 0.0
-            override fun transition(event: Event): FlowTransition<Double> {
-              return when (event) {
+    should("append to live nodes when transitioning to child screen node sequentially") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService06Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app06.intro,
+              transitions = listOf(
+                tr(on = "A", target = Target.app06.main),
+                tr(on = "B", target = Target.app06.test),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.intro.main" to TestScreenNode(),
+            "app.intro.main.test" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro")
+          active shouldBe "app.intro"
+        }
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro", "app.intro.main")
+          active shouldBe "app.intro.main"
+        }
+
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
+          active shouldBe "app.intro.main.test"
+        }
+      }
+    }
+
+    should("append to live nodes when transitioning to grand child screen node") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService06Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app06.intro,
+              transitions = listOf(
+                tr(on = "A", target = Target.app06.test),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.intro.main" to TestScreenNode(),
+            "app.intro.main.test" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro")
+          active shouldBe "app.intro"
+        }
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
+          active shouldBe "app.intro.main.test"
+        }
+      }
+    }
+
+    should("correctly handles parent/child finish requests") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService07Schema(),
+          mapOf(
+            "app" to object : FlowNode<Double> {
+              override val initial = Target.app07.onboarding
+              override val dismissResult = 0.0
+              override fun transition(event: Event): FlowTransition<Double> = when (event) {
                 is Nav07AppChildFinishRequest.Onboarding -> {
                   if (event.result == 42) {
                     NavigateTo(Target.app07.login)
@@ -386,48 +392,48 @@ class NavigationServiceTest : ShouldSpec({
                     Finish(30.0)
                   }
                 }
+
                 is Nav07AppChildFinishRequest.Login -> Finish(33.0)
+
                 else -> Ignore
               }
-            }
-          },
-          "app.onboarding" to TestFlowNodeWithResult(
-            initialTarget = Target.onboarding07.intro,
-            dismissResult = 33,
-            transitions = listOf(
-              tr(on = "A", Finish(42))
-            )
+            },
+            "app.onboarding" to TestFlowNodeWithResult(
+              initialTarget = Target.onboarding07.intro,
+              dismissResult = 33,
+              transitions = listOf(
+                tr(on = "A", Finish(42)),
+              ),
+            ),
+            "app.onboarding.intro" to TestScreenNode(),
+            "app.login" to TestFlowNode(
+              initialTarget = Target.login07.credentials,
+            ),
+            "app.login.credentials" to TestScreenNode(),
           ),
-          "app.onboarding.intro" to TestScreenNode(),
-          "app.login" to TestFlowNode(
-            initialTarget = Target.login07.credentials,
-          ),
-          "app.login.credentials" to TestScreenNode()
-        )
-      ),
-      onFinishRequest = { _: Double -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Double -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem()
+      sut.collectTransitions().test {
+        awaitItem()
 
-      sut.sendEvent(TestEvent("A"))
+        sut.sendEvent(TestEvent("A"))
 
-      awaitItem().active shouldBe "app.onboarding.intro" // after A, "finish" is sent
-      awaitItem().active shouldBe "app.login.credentials" // after "finish"
+        awaitItem().active shouldBe "app.onboarding.intro" // after A, "finish" is sent
+        awaitItem().active shouldBe "app.login.credentials" // after "finish"
+      }
     }
-  }
 
-  should("correctly handles parent/child finish requests from non-initial node") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService08Schema(),
-        mapOf(
-          "app" to object : FlowNode<Unit> {
-            override val initial = Target.app08.onboarding
-            override val dismissResult = Unit
-            override fun transition(event: Event): FlowTransition<Unit> {
-              return when (event) {
+    should("correctly handles parent/child finish requests from non-initial node") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService08Schema(),
+          mapOf(
+            "app" to object : FlowNode<Unit> {
+              override val initial = Target.app08.onboarding
+              override val dismissResult = Unit
+              override fun transition(event: Event): FlowTransition<Unit> = when (event) {
                 is Nav08AppChildFinishRequest.Onboarding -> {
                   if (event.result == 42) {
                     NavigateTo(Target.app08.login)
@@ -435,598 +441,595 @@ class NavigationServiceTest : ShouldSpec({
                     Finish(Unit)
                   }
                 }
+
                 is Nav08AppChildFinishRequest.Login -> Finish(Unit)
+
                 else -> Ignore
               }
-            }
-          },
-          "app.onboarding" to TestFlowNodeWithResult(
-            initialTarget = Target.onboarding08.intro,
-            dismissResult = 33,
-            transitions = listOf(
-              tr(on = "A", target = Target.onboarding08.page1),
-              tr(on = "B", Finish(42))
-            )
+            },
+            "app.onboarding" to TestFlowNodeWithResult(
+              initialTarget = Target.onboarding08.intro,
+              dismissResult = 33,
+              transitions = listOf(
+                tr(on = "A", target = Target.onboarding08.page1),
+                tr(on = "B", Finish(42)),
+              ),
+            ),
+            "app.onboarding.intro" to TestScreenNode(),
+            "app.onboarding.page1" to TestScreenNode(),
+            "app.login" to TestFlowNode(
+              initialTarget = Target.login08.credentials,
+            ),
+            "app.login.credentials" to TestScreenNode(),
           ),
-          "app.onboarding.intro" to TestScreenNode(),
-          "app.onboarding.page1" to TestScreenNode(),
-          "app.login" to TestFlowNode(
-            initialTarget = Target.login08.credentials,
-          ),
-          "app.login.credentials" to TestScreenNode()
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem()
+      sut.collectTransitions().test {
+        awaitItem()
 
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.onboarding.page1"
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.onboarding.page1"
 
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.onboarding.page1" // received B, sends "finish"
-      awaitItem().active shouldBe "app.login.credentials" // after "finish"
-    }
-  }
-
-  should("correctly handle finish if parent flow finishes as a result of a child flow finish") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app10.page1,
-            transitions = listOf(
-              tr("A", Target.app10.login),
-              tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
-            )
-          ),
-          "app.page1" to TestScreenNode(),
-          "app.page1.login" to TestFlowNodeWithResult(
-            initialTarget = Target.login10.credentials,
-            dismissResult = 33,
-            transitions = listOf(
-              tr(on = "A", target = Target.login10.permissions),
-              tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44))
-            )
-          ),
-          "app.page1.login.credentials" to TestScreenNode(),
-          "app.page1.login.credentials.permissions" to TestFlowNode(
-            initialTarget = Target.permissions10.intro,
-            transitions = listOf(
-              tr(on = "B", Finish("42")),
-            )
-          ),
-          "app.page1.login.credentials.permissions.intro" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem()
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1.login.credentials"
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
-
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe
-        "app.page1.login.credentials.permissions.intro" // permissions flow receives B, sends "permissions finish"
-      awaitItem().active shouldBe
-        "app.page1.login.credentials.permissions.intro" // login flow receives "permissions finish" sends "login finish"
-      awaitItem().active shouldBe "app.page1" // after "login finish"
-    }
-  }
-
-  should("stay on current child node when Stay transition is returned") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService06Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app06.intro,
-            transitions = listOf(
-              tr(on = "A", Target.app06.test),
-              tr(on = "B", Stay),
-            )
-          ),
-          "app.intro" to TestScreenNode(),
-          "app.intro.main" to TestScreenNode(),
-          "app.intro.main.test" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem()
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test"
-      }
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test"
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().active shouldBe "app.onboarding.page1" // received B, sends "finish"
+        awaitItem().active shouldBe "app.login.credentials" // after "finish"
       }
     }
-  }
 
-  should("consume event if Stay transition is returned") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService06Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app06.intro,
-            transitions = listOf(
-              tr(on = "A", Target.app06.test),
-              tr(on = "B", Target.app06.intro),
-            )
+    should("correctly handle finish if parent flow finishes as a result of a child flow finish") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app10.page1,
+              transitions = listOf(
+                tr("A", Target.app10.login),
+                tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1)),
+              ),
+            ),
+            "app.page1" to TestScreenNode(),
+            "app.page1.login" to TestFlowNodeWithResult(
+              initialTarget = Target.login10.credentials,
+              dismissResult = 33,
+              transitions = listOf(
+                tr(on = "A", target = Target.login10.permissions),
+                tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44)),
+              ),
+            ),
+            "app.page1.login.credentials" to TestScreenNode(),
+            "app.page1.login.credentials.permissions" to TestFlowNode(
+              initialTarget = Target.permissions10.intro,
+              transitions = listOf(
+                tr(on = "B", Finish("42")),
+              ),
+            ),
+            "app.page1.login.credentials.permissions.intro" to TestScreenNode(),
           ),
-          "app.intro" to TestScreenNode(),
-          "app.intro.main" to TestScreenNode(
-            tr(on = "B", Stay),
-          ),
-          "app.intro.main.test" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem()
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test"
-      }
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().apply {
-        active shouldBe "app.intro.main.test"
-      }
-    }
-  }
+      sut.collectTransitions().test {
+        awaitItem()
 
-  should("correctly navigate when using imported schemas") {
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app09.page1,
-            transitions = listOf(
-              tr(on = "A", Target.app09.permissions),
-              tr<Nav09AppChildFinishRequest.Permissions>(Ignore)
-            )
-          ),
-          "app.page1" to TestScreenNode(),
-          "app.page1.permissions" to TestFlowNode(
-            initialTarget = Target.permissions09.intro,
-            transitions = listOf(
-              tr(on = "A", Target.permissions09.request),
-            )
-          ),
-          "app.page1.permissions.intro" to TestScreenNode(),
-          "app.page1.permissions.intro.request" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1.login.credentials"
 
-    sut.collectTransitions().test {
-      awaitItem()
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        active shouldBe "app.page1.permissions.intro"
-      }
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().apply {
-        active shouldBe "app.page1.permissions.intro.request"
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
+
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().active shouldBe
+          "app.page1.login.credentials.permissions.intro" // permissions flow receives B, sends "permissions finish"
+        // login flow receives "permissions finish" sends "login finish"
+        awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
+        awaitItem().active shouldBe "app.page1" // after "login finish"
       }
     }
-  }
 
-  should("correctly handle back navigation") {
-    var isFinished = false
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService11Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app11.login,
-            transitions = listOf(
-              tr<Nav11AppChildFinishRequest.Login>(NavigateTo(Target.app11.main))
-            )
+    should("stay on current child node when Stay transition is returned") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService06Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app06.intro,
+              transitions = listOf(
+                tr(on = "A", Target.app06.test),
+                tr(on = "B", Stay),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.intro.main" to TestScreenNode(),
+            "app.intro.main.test" to TestScreenNode(),
           ),
-          "app.intro" to TestScreenNode(),
-          "app.intro.main" to TestScreenNode(),
-          "app.intro.main.test" to TestScreenNode(),
-          "app.intro.main.test.login" to TestFlowNode(
-            initialTarget = Target.login11.otp,
-          ),
-          "app.intro.main.test.login.credentials" to TestScreenNode(),
-          "app.intro.main.test.login.credentials.otp" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { _: Unit -> isFinished = true; Ignore },
-    )
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
 
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.intro.main.test.login.credentials.otp"
-
-      sut.sendEvent(Event.Back)
-      awaitItem().active shouldBe "app.intro.main.test.login.credentials"
-
-      sut.sendEvent(Event.Back)
-      awaitItem().active shouldBe "app.intro.main.test.login.credentials" // back sends "finish"
-      awaitItem().active shouldBe "app.intro.main" // after "finish"
-
-      sut.sendEvent(Event.Back)
-      awaitItem().active shouldBe "app.intro"
-
-      isFinished shouldBe false
-      sut.sendEvent(Event.Back)
-      awaitItem().active shouldBe "app.intro" // back sends "finish"
-      awaitItem().active shouldBe "app.intro" // after "finish"
-      isFinished shouldBe true
-    }
-  }
-
-  should("use service.onFinishRequest when receiving finish event") {
-    var isFinished = false
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService01Schema(),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app01.intro,
-            transitions = listOf(
-              tr("A", Finish(33))
-            )
-          ),
-          "app.intro" to TestScreenNode(),
-        )
-      ),
-      onFinishRequest = { result: Int ->
-        if (result == 33) {
-          isFinished = true
+      sut.collectTransitions().test {
+        awaitItem()
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          active shouldBe "app.intro.main.test"
         }
-        Ignore
-      },
-    )
-
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.intro"
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.intro" // back sends "finish"
-      awaitItem().active shouldBe "app.intro" // after "finish"
-      isFinished shouldBe true
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().apply {
+          active shouldBe "app.intro.main.test"
+        }
+      }
     }
-  }
 
-  should("pass target arguments to flow, screen and sub-flow nodes") {
-    val nodeBuilder = AppNodeBuilder(
-      object : AppNodeBuilder.Factory {
-        override fun createRootNode(timeout: Int) = TestFlowNode(
-          initialTarget = Target.app12.page1(Charsets.UTF_32),
-          payload = timeout,
-          transitions = listOf(
-            tr("A", Target.app12.login(defaultUserName = "Dima")),
-            tr<Nav12AppChildFinishRequest.Login>(Stay)
+    should("consume event if Stay transition is returned") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService06Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app06.intro,
+              transitions = listOf(
+                tr(on = "A", Target.app06.test),
+                tr(on = "B", Target.app06.intro),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.intro.main" to TestScreenNode(
+              transitions = listOf(trs(on = "B", transition = Stay)),
+            ),
+            "app.intro.main.test" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem()
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          active shouldBe "app.intro.main.test"
+        }
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().apply {
+          active shouldBe "app.intro.main.test"
+        }
+      }
+    }
+
+    should("correctly navigate when using imported schemas") {
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService09ParentSchema(permissionsSchema = NavService09ChildSchema()),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app09.page1,
+              transitions = listOf(
+                tr(on = "A", Target.app09.permissions),
+                tr<Nav09AppChildFinishRequest.Permissions>(Ignore),
+              ),
+            ),
+            "app.page1" to TestScreenNode(),
+            "app.page1.permissions" to TestFlowNode(
+              initialTarget = Target.permissions09.intro,
+              transitions = listOf(
+                tr(on = "A", Target.permissions09.request),
+              ),
+            ),
+            "app.page1.permissions.intro" to TestScreenNode(),
+            "app.page1.permissions.intro.request" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem()
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          active shouldBe "app.page1.permissions.intro"
+        }
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().apply {
+          active shouldBe "app.page1.permissions.intro.request"
+        }
+      }
+    }
+
+    should("correctly handle back navigation") {
+      var isFinished = false
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService11Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app11.login,
+              transitions = listOf(
+                tr<Nav11AppChildFinishRequest.Login>(NavigateTo(Target.app11.main)),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+            "app.intro.main" to TestScreenNode(),
+            "app.intro.main.test" to TestScreenNode(),
+            "app.intro.main.test.login" to TestFlowNode(
+              initialTarget = Target.login11.otp,
+            ),
+            "app.intro.main.test.login.credentials" to TestScreenNode(),
+            "app.intro.main.test.login.credentials.otp" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { _: Unit ->
+          isFinished = true
+          Ignore
+        },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().active shouldBe "app.intro.main.test.login.credentials.otp"
+
+        sut.sendEvent(Event.Back)
+        awaitItem().active shouldBe "app.intro.main.test.login.credentials"
+
+        sut.sendEvent(Event.Back)
+        awaitItem().active shouldBe "app.intro.main.test.login.credentials" // back sends "finish"
+        awaitItem().active shouldBe "app.intro.main" // after "finish"
+
+        sut.sendEvent(Event.Back)
+        awaitItem().active shouldBe "app.intro"
+
+        isFinished shouldBe false
+        sut.sendEvent(Event.Back)
+        awaitItem().active shouldBe "app.intro" // back sends "finish"
+        awaitItem().active shouldBe "app.intro" // after "finish"
+        isFinished shouldBe true
+      }
+    }
+
+    should("use service.onFinishRequest when receiving finish event") {
+      var isFinished = false
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService01Schema(),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app01.intro,
+              transitions = listOf(
+                tr("A", Finish(33)),
+              ),
+            ),
+            "app.intro" to TestScreenNode(),
+          ),
+        ),
+        onFinishRequest = { result: Int ->
+          if (result == 33) {
+            isFinished = true
+          }
+          Ignore
+        },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().active shouldBe "app.intro"
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.intro" // back sends "finish"
+        awaitItem().active shouldBe "app.intro" // after "finish"
+        isFinished shouldBe true
+      }
+    }
+
+    should("pass target arguments to flow, screen and sub-flow nodes") {
+      val nodeBuilder = AppNodeBuilder(
+        object : AppNodeBuilder.Factory {
+          override fun createRootNode(timeout: Int) = TestFlowNode(
+            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            payload = timeout,
+            transitions = listOf(
+              tr("A", Target.app12.login(defaultUserName = "Dima")),
+              tr<Nav12AppChildFinishRequest.Login>(Stay),
+            ),
           )
-        )
 
-        override fun createPage2Node() = TestScreenNode()
-        override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+          override fun createPage2Node() = TestScreenNode()
+          override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
 
-        override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder {
-          return LoginNodeBuilder(
+          override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder = LoginNodeBuilder(
             object : LoginNodeBuilder.Factory {
               override fun createRootNode(defaultUserName: String) = TestFlowNode(
                 initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
                 payload = defaultUserName,
                 transitions = listOf(
-                  tr("B", Target.login12.otp(useAnimation = true))
-                )
+                  tr("B", Target.login12.otp(useAnimation = true)),
+                ),
               )
 
               override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
               override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
             },
-            NavService12LoginSchema()
+            NavService12LoginSchema(),
           )
-        }
-      },
-      NavService12Schema(NavService12LoginSchema())
-    )
-
-    val sut = NavigationService(
-      nodeBuilder,
-      onFinishRequest = { _: Int -> Ignore },
-    )
-
-    sut.collectTransitions(rootNodePayload = 42).test {
-      awaitItem().apply {
-        // root flow node should receive an argument
-        (aliveNodes["app"] as TestFlowNode?)?.payload shouldBe 42
-        // initial node of root flow should receive an argument
-        (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
-      }
-
-      sut.sendEvent(TestEvent("A"))
-
-      awaitItem().apply {
-        // sub flow node should receive an argument
-        (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Dima"
-        // initial node of sub flow should receive an argument
-        (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "+7981123456"
-      }
-
-      sut.sendEvent(TestEvent("B"))
-
-      awaitItem().apply {
-        // screen node should receive an argument
-        (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
-      }
-    }
-  }
-
-  should("correctly call onEntry/onExit in basic cases") {
-    val entryCounts = mutableMapOf<String, Int>()
-    val exitCounts = mutableMapOf<String, Int>()
-    val sut = NavigationService(
-      TestNodeBuilder(
-        NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
-        mapOf(
-          "app" to TestFlowNode(
-            initialTarget = Target.app10.page1,
-            onEntryImpl = { entryCounts["app"] = entryCounts["app"]?.let { it + 1 } ?: 1 },
-            onExitImpl = { exitCounts["app"] = exitCounts["app"]?.let { it + 1 } ?: 1 },
-            transitions = listOf(
-              tr("A", Target.app10.login),
-              tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
-            )
-          ),
-          "app.page1" to TestScreenNode(
-            onEntryImpl = { entryCounts["app.page1"] = entryCounts["app.page1"]?.let { it + 1 } ?: 1 },
-            onExitImpl = { exitCounts["app.page1"] = exitCounts["app.page1"]?.let { it + 1 } ?: 1 },
-            transitions = listOf(
-              trs("B", Target.app10.page2)
-            )
-          ),
-          "app.page2" to TestScreenNode(
-            onEntryImpl = { entryCounts["app.page2"] = entryCounts["app.page2"]?.let { it + 1 } ?: 1 },
-            onExitImpl = { exitCounts["app.page2"] = exitCounts["app.page2"]?.let { it + 1 } ?: 1 },
-            transitions = listOf(
-              trs("A", Target.app10.login),
-              trs<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1))
-            )
-          ),
-          "app.page1.login" to TestFlowNodeWithResult(
-            initialTarget = Target.login10.credentials,
-            dismissResult = 33,
-            onEntryImpl = { entryCounts["app.page1.login"] = entryCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
-            onExitImpl = { exitCounts["app.page1.login"] = exitCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
-            transitions = listOf(
-              tr(on = "A", target = Target.login10.permissions),
-              tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44))
-            )
-          ),
-          "app.page1.login.credentials" to TestScreenNode(
-            onEntryImpl = {
-              entryCounts["app.page1.login.credentials"] =
-                entryCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
-            },
-            onExitImpl = {
-              exitCounts["app.page1.login.credentials"] =
-                exitCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
-            },
-          ),
-          "app.page1.login.credentials.permissions" to TestFlowNode(
-            initialTarget = Target.permissions10.intro,
-            onEntryImpl = {
-              entryCounts["app.page1.login.credentials.permissions"] =
-                entryCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
-            },
-            onExitImpl = {
-              exitCounts["app.page1.login.credentials.permissions"] =
-                exitCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
-            },
-            transitions = listOf(
-              tr(on = "B", Finish("42")),
-            )
-          ),
-          "app.page1.login.credentials.permissions.intro" to TestScreenNode(
-            onEntryImpl = {
-              entryCounts["app.page1.login.credentials.permissions.intro"] =
-                entryCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
-            },
-            onExitImpl = {
-              exitCounts["app.page1.login.credentials.permissions.intro"] =
-                exitCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
-            },
-          ),
-        )
-      ),
-      onFinishRequest = { _: Unit -> Stay },
-    )
-
-    entryCounts.shouldBeEmpty()
-    exitCounts.shouldBeEmpty()
-
-    sut.collectTransitions().test {
-      awaitItem().active shouldBe "app.page1"
-      entryCounts.shouldContainExactly(
-        mapOf("app" to 1, "app.page1" to 1)
-      )
-      exitCounts.shouldBeEmpty()
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1.login.credentials"
-      entryCounts.shouldContainExactly(
-        mapOf(
-          "app" to 1,
-          "app.page1" to 1,
-          "app.page1.login" to 1,
-          "app.page1.login.credentials" to 1,
-        )
-      )
-      exitCounts.shouldBeEmpty()
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
-      entryCounts.shouldContainExactly(
-        mapOf(
-          "app" to 1,
-          "app.page1" to 1,
-          "app.page1.login" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials.permissions.intro" to 1,
-        )
-      )
-      exitCounts.shouldBeEmpty()
-
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro" // sends "permissions finish"
-      awaitItem().active shouldBe
-        "app.page1.login.credentials.permissions.intro" // after "permissions finish" -> sends "login finish"
-      awaitItem().active shouldBe "app.page1" // after "login finish" -> sends "finish"
-      entryCounts.shouldContainExactly(
-        mapOf(
-          "app" to 1,
-          "app.page1" to 1,
-          "app.page1.login" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials.permissions.intro" to 1,
-        )
-      )
-      exitCounts.shouldContainExactly(
-        mapOf(
-          "app.page1.login.credentials.permissions.intro" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login" to 1,
-        )
-      )
-
-      sut.sendEvent(TestEvent("B"))
-      awaitItem().active shouldBe "app.page2"
-      entryCounts.shouldContainExactly(
-        mapOf(
-          "app" to 1,
-          "app.page1" to 1,
-          "app.page1.login" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials.permissions.intro" to 1,
-          "app.page2" to 1,
-        )
-      )
-      exitCounts.shouldContainExactly(
-        mapOf(
-          "app.page1.login.credentials.permissions.intro" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login" to 1,
-          "app.page1" to 1,
-        )
-      )
-
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1.login.credentials"
-      entryCounts.shouldContainExactly(
-        mapOf(
-          "app" to 1,
-          "app.page1" to 2,
-          "app.page1.login" to 2,
-          "app.page1.login.credentials" to 2,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials.permissions.intro" to 1,
-          "app.page2" to 1,
-        )
-      )
-      exitCounts.shouldContainExactly(
-        mapOf(
-          "app.page1.login.credentials.permissions.intro" to 1,
-          "app.page1.login.credentials.permissions" to 1,
-          "app.page1.login.credentials" to 1,
-          "app.page1.login" to 1,
-          "app.page1" to 1,
-          "app.page2" to 1,
-        )
-      )
-    }
-  }
-
-  // NOTE: For now this is an expected behavior: flow nodes can be built several times prior to being used
-  // in transitions (for example during initial node resolution). Users are expected to use onEntry/onExit instead of
-  // node constructors to initialize node-tree dependent data.
-  // NOTE: In case the above restriction will be lifted and node construction will be guaranteed to happen once,
-  // this test should be adjusted to test for exactly this case and this comment should be removed.
-  should("call child flow builder twice ") {
-    var createChildNodeCallCount = 0
-    val sut = NavigationService<Unit>(
-      ru.kode.way.nav09.AppNodeBuilder(
-        object : ru.kode.way.nav09.AppNodeBuilder.Factory {
-          override fun createRootNode(): FlowNode<*> {
-            return TestFlowNode(initialTarget = Target.app09.permissions)
-          }
-
-          override fun createPage1Node() = TestScreenNode()
-
-          override fun createPermissionsNodeBuilder(): NodeBuilder {
-            return PermissionsNodeBuilder(
-              object : PermissionsNodeBuilder.Factory {
-                override fun createRootNode(): FlowNode<*> {
-                  createChildNodeCallCount += 1
-                  return TestFlowNode(initialTarget = Target.permissions09.intro)
-                }
-                override fun createIntroNode() = TestScreenNode()
-                override fun createRequestNode() = TestScreenNode()
-              },
-              NavService09ChildSchema()
-            )
-          }
         },
-        NavService09ParentSchema(NavService09ChildSchema())
-      ),
-      onFinishRequest = { Ignore }
-    )
+        NavService12Schema(NavService12LoginSchema()),
+      )
 
-    sut.collectTransitions().test {
-      awaitItem().apply {
-        active shouldBe "app.page1.permissions.intro"
+      val sut = NavigationService(
+        nodeBuilder,
+        onFinishRequest = { _: Int -> Ignore },
+      )
+
+      sut.collectTransitions(rootNodePayload = 42).test {
+        awaitItem().apply {
+          // root flow node should receive an argument
+          (aliveNodes["app"] as TestFlowNode?)?.payload shouldBe 42
+          // initial node of root flow should receive an argument
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
+        }
+
+        sut.sendEvent(TestEvent("A"))
+
+        awaitItem().apply {
+          // sub flow node should receive an argument
+          (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Dima"
+          // initial node of sub flow should receive an argument
+          (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "+7981123456"
+        }
+
+        sut.sendEvent(TestEvent("B"))
+
+        awaitItem().apply {
+          // screen node should receive an argument
+          (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
+        }
       }
-      // See NOTEs above
-      createChildNodeCallCount shouldBe 2
     }
-  }
 
-  should("cleanup nodes after flow finish") {
-    val sut = NavigationService<Unit>(
-      ru.kode.way.nav09.AppNodeBuilder(
-        object : ru.kode.way.nav09.AppNodeBuilder.Factory {
-          override fun createRootNode(): FlowNode<*> {
-            return TestFlowNode(
+    should("correctly call onEntry/onExit in basic cases") {
+      val entryCounts = mutableMapOf<String, Int>()
+      val exitCounts = mutableMapOf<String, Int>()
+      val sut = NavigationService(
+        TestNodeBuilder(
+          NavService10Schema(NavService10LoginSchema(NavService10PermissionsSchema())),
+          mapOf(
+            "app" to TestFlowNode(
+              initialTarget = Target.app10.page1,
+              onEntryImpl = { entryCounts["app"] = entryCounts["app"]?.let { it + 1 } ?: 1 },
+              onExitImpl = { exitCounts["app"] = exitCounts["app"]?.let { it + 1 } ?: 1 },
+              transitions = listOf(
+                tr("A", Target.app10.login),
+                tr<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1)),
+              ),
+            ),
+            "app.page1" to TestScreenNode(
+              onEntryImpl = { entryCounts["app.page1"] = entryCounts["app.page1"]?.let { it + 1 } ?: 1 },
+              onExitImpl = { exitCounts["app.page1"] = exitCounts["app.page1"]?.let { it + 1 } ?: 1 },
+              transitions = listOf(
+                trs("B", Target.app10.page2),
+              ),
+            ),
+            "app.page2" to TestScreenNode(
+              onEntryImpl = { entryCounts["app.page2"] = entryCounts["app.page2"]?.let { it + 1 } ?: 1 },
+              onExitImpl = { exitCounts["app.page2"] = exitCounts["app.page2"]?.let { it + 1 } ?: 1 },
+              transitions = listOf(
+                trs("A", Target.app10.login),
+                trs<Nav10AppChildFinishRequest.Login>(NavigateTo(Target.app10.page1)),
+              ),
+            ),
+            "app.page1.login" to TestFlowNodeWithResult(
+              initialTarget = Target.login10.credentials,
+              dismissResult = 33,
+              onEntryImpl = { entryCounts["app.page1.login"] = entryCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
+              onExitImpl = { exitCounts["app.page1.login"] = exitCounts["app.page1.login"]?.let { it + 1 } ?: 1 },
+              transitions = listOf(
+                tr(on = "A", target = Target.login10.permissions),
+                tr<Nav10LoginChildFinishRequest.Permissions>(Finish(44)),
+              ),
+            ),
+            "app.page1.login.credentials" to TestScreenNode(
+              onEntryImpl = {
+                entryCounts["app.page1.login.credentials"] =
+                  entryCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
+              },
+              onExitImpl = {
+                exitCounts["app.page1.login.credentials"] =
+                  exitCounts["app.page1.login.credentials"]?.let { it + 1 } ?: 1
+              },
+            ),
+            "app.page1.login.credentials.permissions" to TestFlowNode(
+              initialTarget = Target.permissions10.intro,
+              onEntryImpl = {
+                entryCounts["app.page1.login.credentials.permissions"] =
+                  entryCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
+              },
+              onExitImpl = {
+                exitCounts["app.page1.login.credentials.permissions"] =
+                  exitCounts["app.page1.login.credentials.permissions"]?.let { it + 1 } ?: 1
+              },
+              transitions = listOf(
+                tr(on = "B", Finish("42")),
+              ),
+            ),
+            "app.page1.login.credentials.permissions.intro" to TestScreenNode(
+              onEntryImpl = {
+                entryCounts["app.page1.login.credentials.permissions.intro"] =
+                  entryCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
+              },
+              onExitImpl = {
+                exitCounts["app.page1.login.credentials.permissions.intro"] =
+                  exitCounts["app.page1.login.credentials.permissions.intro"]?.let { it + 1 } ?: 1
+              },
+            ),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      entryCounts.shouldBeEmpty()
+      exitCounts.shouldBeEmpty()
+
+      sut.collectTransitions().test {
+        awaitItem().active shouldBe "app.page1"
+        entryCounts.shouldContainExactly(
+          mapOf("app" to 1, "app.page1" to 1),
+        )
+        exitCounts.shouldBeEmpty()
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1.login.credentials"
+        entryCounts.shouldContainExactly(
+          mapOf(
+            "app" to 1,
+            "app.page1" to 1,
+            "app.page1.login" to 1,
+            "app.page1.login.credentials" to 1,
+          ),
+        )
+        exitCounts.shouldBeEmpty()
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
+        entryCounts.shouldContainExactly(
+          mapOf(
+            "app" to 1,
+            "app.page1" to 1,
+            "app.page1.login" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials.permissions.intro" to 1,
+          ),
+        )
+        exitCounts.shouldBeEmpty()
+
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro" // sends "permissions finish"
+        awaitItem().active shouldBe
+          "app.page1.login.credentials.permissions.intro" // after "permissions finish" -> sends "login finish"
+        awaitItem().active shouldBe "app.page1" // after "login finish" -> sends "finish"
+        entryCounts.shouldContainExactly(
+          mapOf(
+            "app" to 1,
+            "app.page1" to 1,
+            "app.page1.login" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials.permissions.intro" to 1,
+          ),
+        )
+        exitCounts.shouldContainExactly(
+          mapOf(
+            "app.page1.login.credentials.permissions.intro" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login" to 1,
+          ),
+        )
+
+        sut.sendEvent(TestEvent("B"))
+        awaitItem().active shouldBe "app.page2"
+        entryCounts.shouldContainExactly(
+          mapOf(
+            "app" to 1,
+            "app.page1" to 1,
+            "app.page1.login" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials.permissions.intro" to 1,
+            "app.page2" to 1,
+          ),
+        )
+        exitCounts.shouldContainExactly(
+          mapOf(
+            "app.page1.login.credentials.permissions.intro" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login" to 1,
+            "app.page1" to 1,
+          ),
+        )
+
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1.login.credentials"
+        entryCounts.shouldContainExactly(
+          mapOf(
+            "app" to 1,
+            "app.page1" to 2,
+            "app.page1.login" to 2,
+            "app.page1.login.credentials" to 2,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials.permissions.intro" to 1,
+            "app.page2" to 1,
+          ),
+        )
+        exitCounts.shouldContainExactly(
+          mapOf(
+            "app.page1.login.credentials.permissions.intro" to 1,
+            "app.page1.login.credentials.permissions" to 1,
+            "app.page1.login.credentials" to 1,
+            "app.page1.login" to 1,
+            "app.page1" to 1,
+            "app.page2" to 1,
+          ),
+        )
+      }
+    }
+
+    // NOTE: For now this is an expected behavior: flow nodes can be built several times prior to being used
+    // in transitions (for example during initial node resolution). Users are expected to use onEntry/onExit instead of
+    // node constructors to initialize node-tree dependent data.
+    // NOTE: In case the above restriction will be lifted and node construction will be guaranteed to happen once,
+    // this test should be adjusted to test for exactly this case and this comment should be removed.
+    should("call child flow builder twice ") {
+      var createChildNodeCallCount = 0
+      val sut = NavigationService<Unit>(
+        ru.kode.way.nav09.AppNodeBuilder(
+          object : ru.kode.way.nav09.AppNodeBuilder.Factory {
+            override fun createRootNode(): FlowNode<*> = TestFlowNode(initialTarget = Target.app09.permissions)
+
+            override fun createPage1Node() = TestScreenNode()
+
+            override fun createPermissionsNodeBuilder(): NodeBuilder {
+              return PermissionsNodeBuilder(
+                object : PermissionsNodeBuilder.Factory {
+                  override fun createRootNode(): FlowNode<*> {
+                    createChildNodeCallCount += 1
+                    return TestFlowNode(initialTarget = Target.permissions09.intro)
+                  }
+                  override fun createIntroNode() = TestScreenNode()
+                  override fun createRequestNode() = TestScreenNode()
+                },
+                NavService09ChildSchema(),
+              )
+            }
+          },
+          NavService09ParentSchema(NavService09ChildSchema()),
+        ),
+        onFinishRequest = { Ignore },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().apply {
+          active shouldBe "app.page1.permissions.intro"
+        }
+        // See NOTEs above
+        createChildNodeCallCount shouldBe 2
+      }
+    }
+
+    should("cleanup nodes after flow finish") {
+      val sut = NavigationService<Unit>(
+        ru.kode.way.nav09.AppNodeBuilder(
+          object : ru.kode.way.nav09.AppNodeBuilder.Factory {
+            override fun createRootNode(): FlowNode<*> = TestFlowNode(
               initialTarget = Target.app09.permissions,
               transitions = listOf(
                 tr(on = "A", NavigateTo(Target.app09.page1)),
                 tr(on = "B", NavigateTo(Target.app09.permissions)),
-              )
+              ),
             )
-          }
 
-          override fun createPage1Node() = TestScreenNode()
+            override fun createPage1Node() = TestScreenNode()
 
-          override fun createPermissionsNodeBuilder(): NodeBuilder {
-            return PermissionsNodeBuilder(
+            override fun createPermissionsNodeBuilder(): NodeBuilder = PermissionsNodeBuilder(
               object : PermissionsNodeBuilder.Factory {
                 // This emulates flow node being cached by DI.
                 // Generated node builders should cache their child node builders only while path is active, i.e.
@@ -1039,93 +1042,89 @@ class NavigationServiceTest : ShouldSpec({
                     transitions = listOf(
                       tr(on = "C", NavigateTo(Target.permissions09.intro)),
                       tr(on = "D", NavigateTo(Target.permissions09.request)),
-                    )
+                    ),
                   )
                 }
-                override fun createRootNode(): FlowNode<*> {
-                  return flowNode
-                }
+                override fun createRootNode(): FlowNode<*> = flowNode
                 override fun createIntroNode() = TestScreenNode()
                 override fun createRequestNode() = TestScreenNode()
               },
-              NavService09ChildSchema()
+              NavService09ChildSchema(),
             )
-          }
-        },
-        NavService09ParentSchema(NavService09ChildSchema())
-      ),
-      onFinishRequest = { Ignore }
-    )
+          },
+          NavService09ParentSchema(NavService09ChildSchema()),
+        ),
+        onFinishRequest = { Ignore },
+      )
 
-    sut.collectTransitions().test {
-      var state = awaitItem()
-      state.active shouldBe "app.page1.permissions.intro.request"
-      val permissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
+      sut.collectTransitions().test {
+        var state = awaitItem()
+        state.active shouldBe "app.page1.permissions.intro.request"
+        val permissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
 
-      sut.sendEvent(TestEvent("A"))
-      awaitItem().active shouldBe "app.page1"
+        sut.sendEvent(TestEvent("A"))
+        awaitItem().active shouldBe "app.page1"
 
-      // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
-      // be reconstructed again
+        // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
+        // be reconstructed again
 
-      sut.sendEvent(TestEvent("B"))
-      state = awaitItem()
-      state.active shouldBe "app.page1.permissions.intro.request"
-      val newPermissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
-      newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
-      val requestNode = state.aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+        sut.sendEvent(TestEvent("B"))
+        state = awaitItem()
+        state.active shouldBe "app.page1.permissions.intro.request"
+        val newPermissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
+        newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
+        val requestNode = state.aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
-      sut.sendEvent(TestEvent("C"))
-      awaitItem()
-      sut.sendEvent(TestEvent("D"))
-      val newRequestNode = awaitItem().aliveNodes.entries.find { it.key.endsWith("request") }!!.value
+        sut.sendEvent(TestEvent("C"))
+        awaitItem()
+        sut.sendEvent(TestEvent("D"))
+        val newRequestNode = awaitItem().aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
-      requestNode shouldNotBe newRequestNode
+        requestNode shouldNotBe newRequestNode
 
-      cancelAndIgnoreRemainingEvents()
-    }
-  }
-
-  should("correctly transition when given an absolute target") {
-    val loginFlowTarget = Target.app12.login(defaultUserName = "Gregoriy")
-    val loginCredentialsTarget = Target.login12.credentials(defaultPhone = "800")
-    val loginOtpTarget = Target.login12.otp(useAnimation = true)
-    val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
-    // TODO Use generated AbsoluteTargets instead of manual building!
-    val absoluteTarget = AbsoluteTarget(
-      Path(
-        buildList {
-          add(rootSegment)
-          addAll(loginFlowTarget.path.segments)
-          addAll(loginOtpTarget.path.segments)
-        }
-      ),
-      payloads = buildMap {
-        put(Path(rootSegment).append(loginFlowTarget.path), loginFlowTarget.payload!!)
-        put(
-          Path(rootSegment).append(loginFlowTarget.path)
-            .append(loginCredentialsTarget.path),
-          loginCredentialsTarget.payload!!
-        )
-        put(Path(rootSegment).append(loginFlowTarget.path).append(loginOtpTarget.path), loginOtpTarget.payload!!)
+        cancelAndIgnoreRemainingEvents()
       }
-    )
+    }
 
-    val nodeBuilder = AppNodeBuilder(
-      object : AppNodeBuilder.Factory {
-        override fun createRootNode(timeout: Int) = TestFlowNode(
-          initialTarget = Target.app12.page1(Charsets.UTF_32),
-          payload = timeout,
-          transitions = listOf(
-            tr("A", absoluteTarget),
+    should("correctly transition when given an absolute target") {
+      val loginFlowTarget = Target.app12.login(defaultUserName = "Gregoriy")
+      val loginCredentialsTarget = Target.login12.credentials(defaultPhone = "800")
+      val loginOtpTarget = Target.login12.otp(useAnimation = true)
+      val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
+      // TODO Use generated AbsoluteTargets instead of manual building!
+      val absoluteTarget = AbsoluteTarget(
+        Path(
+          buildList {
+            add(rootSegment)
+            addAll(loginFlowTarget.path.segments)
+            addAll(loginOtpTarget.path.segments)
+          },
+        ),
+        payloads = buildMap {
+          put(Path(rootSegment).append(loginFlowTarget.path), loginFlowTarget.payload!!)
+          put(
+            Path(rootSegment).append(loginFlowTarget.path)
+              .append(loginCredentialsTarget.path),
+            loginCredentialsTarget.payload!!,
           )
-        )
+          put(Path(rootSegment).append(loginFlowTarget.path).append(loginOtpTarget.path), loginOtpTarget.payload!!)
+        },
+      )
 
-        override fun createPage2Node() = TestScreenNode()
-        override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+      val nodeBuilder = AppNodeBuilder(
+        object : AppNodeBuilder.Factory {
+          override fun createRootNode(timeout: Int) = TestFlowNode(
+            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            payload = timeout,
+            transitions = listOf(
+              tr("A", absoluteTarget),
+            ),
+          )
 
-        override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder {
-          return LoginNodeBuilder(
+          override fun createPage2Node() = TestScreenNode()
+          override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+          override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder = LoginNodeBuilder(
             object : LoginNodeBuilder.Factory {
               override fun createRootNode(defaultUserName: String) = TestFlowNode(
                 initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
@@ -1135,29 +1134,28 @@ class NavigationServiceTest : ShouldSpec({
               override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
               override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
             },
-            NavService12LoginSchema()
+            NavService12LoginSchema(),
           )
+        },
+        NavService12Schema(NavService12LoginSchema()),
+      )
+
+      val sut = NavigationService(
+        nodeBuilder,
+        onFinishRequest = { _: Int -> Ignore },
+      )
+
+      sut.collectTransitions(rootNodePayload = 42).test {
+        awaitItem()
+
+        sut.sendEvent(TestEvent("A"))
+
+        awaitItem().apply {
+          active shouldBe "app.page1.login.credentials.otp"
+          (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Gregoriy"
+          (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "800"
+          (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
         }
-      },
-      NavService12Schema(NavService12LoginSchema())
-    )
-
-    val sut = NavigationService(
-      nodeBuilder,
-      onFinishRequest = { _: Int -> Ignore },
-    )
-
-    sut.collectTransitions(rootNodePayload = 42).test {
-      awaitItem()
-
-      sut.sendEvent(TestEvent("A"))
-
-      awaitItem().apply {
-        active shouldBe "app.page1.login.credentials.otp"
-        (aliveNodes["app.page1.login"] as TestFlowNode?)?.payload shouldBe "Gregoriy"
-        (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "800"
-        (aliveNodes["app.page1.login.credentials.otp"] as TestScreenNode?)?.payload shouldBe true
       }
     }
-  }
-})
+  })

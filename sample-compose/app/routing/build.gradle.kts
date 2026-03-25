@@ -1,23 +1,26 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
-  id(libs.plugins.kotlinAndroid.get().pluginId)
-  id("kotlin-kapt")
+  alias(libs.plugins.ksp)
   alias(libs.plugins.way)
 }
 
 android {
   namespace = "ru.kode.way.sample.compose.app.routing"
 
-  compileSdk = 33
+  compileSdk = libs.versions.compileSdk.get().toInt()
 
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+}
 
-  kotlinOptions {
-    jvmTarget = "11"
+kotlin {
+  compilerOptions {
+    jvmTarget.set(JvmTarget.JVM_11)
   }
 }
 
@@ -28,5 +31,5 @@ dependencies {
   api(project(":sample-compose:main-parallel:routing"))
 
   implementation(libs.dagger)
-  kapt(libs.daggerCompiler)
+  ksp(libs.daggerCompiler)
 }

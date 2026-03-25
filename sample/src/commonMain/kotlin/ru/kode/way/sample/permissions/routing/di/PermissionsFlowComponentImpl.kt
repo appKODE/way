@@ -8,14 +8,12 @@ import ru.kode.way.sample.permissions.ui.IntroScreenNode
 import ru.kode.way.sample.permissions.ui.RequestScreenNode
 
 class PermissionsFlowComponentImpl : PermissionsFlowComponent {
-  override fun nodeBuilder(): NodeBuilder {
-    return PermissionsNodeBuilder(
-      nodeFactory = object : PermissionsNodeBuilder.Factory {
-        override fun createRootNode() = PermissionsFlowNode()
-        override fun createIntroNode() = IntroScreenNode()
-        override fun createRequestNode() = RequestScreenNode()
-      },
-      schema = SampleAppSchema()
-    )
-  }
+  override fun nodeBuilder(): NodeBuilder = PermissionsNodeBuilder(
+    nodeFactory = object : PermissionsNodeBuilder.Factory {
+      override fun createRootNode() = PermissionsFlowNode()
+      override fun createIntroNode() = IntroScreenNode()
+      override fun createRequestNode() = RequestScreenNode()
+    },
+    schema = SampleAppSchema(),
+  )
 }

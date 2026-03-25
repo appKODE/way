@@ -1,4 +1,6 @@
-// ktlint-disable filename
+
+@file:Suppress("ktlint:standard:filename")
+
 package ru.kode.way.sample.compose.main.routing
 
 import androidx.compose.runtime.Composable
@@ -12,12 +14,10 @@ import ru.kode.way.sample.compose.core.routing.FlowEventSink
 import ru.kode.way.sample.compose.main.ui.HomeScreen
 import javax.inject.Inject
 
-class HomeNode @Inject constructor(
-  private val eventSink: FlowEventSink
-) : ScreenNode, ComposableNode {
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+class HomeNode @Inject constructor(private val eventSink: FlowEventSink) :
+  ScreenNode,
+  ComposableNode {
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   @Composable
   override fun Content(modifier: Modifier) {

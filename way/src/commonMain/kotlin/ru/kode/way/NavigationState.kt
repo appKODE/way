@@ -7,9 +7,7 @@ class NavigationState internal constructor(
 ) {
   val regions: Map<RegionId, Region> = _regions
 
-  override fun toString(): String {
-    return "NavigationState(_regions=$_regions)"
-  }
+  override fun toString(): String = "NavigationState(_regions=$_regions)"
 
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
@@ -22,18 +20,14 @@ class NavigationState internal constructor(
     return true
   }
 
-  override fun hashCode(): Int {
-    return _regions.hashCode()
-  }
+  override fun hashCode(): Int = _regions.hashCode()
 
   // TODO @RemoveMutable remove if switch away from mutable collections happens
-  internal fun copy(): NavigationState {
-    return NavigationState(
-      _regions = this.regions.mapValuesTo(mutableMapOf()) { it.value.copy() },
-      _nodeExtensionPoints = this._nodeExtensionPoints.toMutableList(),
-      _enqueuedEvents = ArrayDeque(this._enqueuedEvents)
-    )
-  }
+  internal fun copy(): NavigationState = NavigationState(
+    _regions = this.regions.mapValuesTo(mutableMapOf()) { it.value.copy() },
+    _nodeExtensionPoints = this._nodeExtensionPoints.toMutableList(),
+    _enqueuedEvents = ArrayDeque(this._enqueuedEvents),
+  )
 }
 
 class Region internal constructor(
@@ -52,16 +46,12 @@ class Region internal constructor(
   val alive: List<Path> get() = _alive
 
   // TODO @RemoveMutable remove if switch away from mutable collections happens
-  internal fun copy(): Region {
-    return Region(
-      _nodes = this._nodes.toMutableMap(),
-      _active = this._active,
-      _alive = this._alive.toMutableList(),
-      _rootFinishTransitionBuilder = this._rootFinishTransitionBuilder
-    )
-  }
+  internal fun copy(): Region = Region(
+    _nodes = this._nodes.toMutableMap(),
+    _active = this._active,
+    _alive = this._alive.toMutableList(),
+    _rootFinishTransitionBuilder = this._rootFinishTransitionBuilder,
+  )
 
-  override fun toString(): String {
-    return "Region(_nodes=$_nodes, _active=$_active)"
-  }
+  override fun toString(): String = "Region(_nodes=$_nodes, _active=$_active)"
 }

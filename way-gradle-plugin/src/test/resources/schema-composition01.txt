@@ -1,35 +1,59 @@
 package ru.kode.test.app.schema
 
+import kotlin.Any
 import kotlin.collections.List
-import kotlin.collections.Set
+import kotlin.collections.Map
+import ru.kode.way.Event
 import ru.kode.way.Path
 import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.Segment
-import ru.kode.way.append
-import ru.kode.way.removePrefix
-import ru.kode.way.startsWith
 
 public class TestAppSchema(
   private val appSchema: Schema,
   private val loginSchema: Schema,
   private val mainSchema: Schema,
 ) : Schema {
-  override val regions: List<RegionId> = listOf(RegionId(Path("app")))
+  override val rootSegment: Segment = Segment("app@src/test/resources/schema-composition01.dot")
 
-  override fun children(regionId: RegionId): Set<Segment> = emptySet()
+  override val childSchemas: Map<Segment, Schema> =
+      mapOf(Segment("app@src/test/resources/schema-composition01.dot") to appSchema, Segment("login@src/test/resources/schema-composition01.dot") to loginSchema, Segment("main@src/test/resources/schema-composition01.dot") to mainSchema)
 
-  override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
+  override val regions: List<RegionId> =
+      listOf(RegionId(Path(listOf(Segment("app@src/test/resources/schema-composition01.dot")))))
 
-  override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
+  override fun target(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): Path? = when (regionId) {
     regions[0] -> {
-      when(segment.name) {
-        else ->  {
-          appSchema.target(appSchema.regions.first(), segment)
-          ?: loginSchema.target(loginSchema.regions.first(), segment)
-          ?.let { Path("app").append(it) }
-          ?: mainSchema.target(mainSchema.regions.first(), segment)
-          ?.let { Path("app", "login").append(it) }
+      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/schema-composition01.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "login@src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot")))
+        "main@src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot")))
+        else -> null
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun nodeType(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Schema.NodeType = when (regionId) {
+    regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/schema-composition01.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
         }
       }
     }
@@ -38,17 +62,17 @@ public class TestAppSchema(
     }
   }
 
-  override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
+  override fun createChildFlowFinishRequestEvent(
+    regionId: RegionId,
+    path: Path,
+    result: Any,
+  ): Event = when (regionId) {
     regions[0] -> {
-      when {
-        path.startsWith(Path("app", "login", "main")) ->
-            mainSchema.nodeType(mainSchema.regions.first(), path.removePrefix(Path("app", "login")))
-        path.startsWith(Path("app", "login")) -> loginSchema.nodeType(loginSchema.regions.first(),
-            path.removePrefix(Path("app")))
-        path.startsWith(Path("app")) -> appSchema.nodeType(appSchema.regions.first(),
-            path.removePrefix(Path()))
+      when(path) {
+        Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Login
+        Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Main
         else -> {
-          error("""internal error: no nodeType for path=$path""")
+          error("""internal error: failed to build child finish event for path=$path""")
         }
       }
     }

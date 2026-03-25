@@ -1,68 +1,78 @@
 package ru.kode.test.app.schema
 
 import kotlin.Any
-import kotlin.String
 import kotlin.Suppress
+import kotlin.collections.HashMap
 import kotlin.collections.Map
+import kotlin.collections.MutableMap
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
 import ru.kode.way.ParallelNode
 import ru.kode.way.Path
 import ru.kode.way.Segment
 import ru.kode.way.drop
+import ru.kode.way.firstSegment
+import ru.kode.way.lastSegment
 import ru.kode.way.startsWith
 
 public class Nbp02mainNodeBuilder(
   private val nodeFactory: Factory,
-  private val schema: NodeBuildersParallel02Schema,
+  override val schema: NodeBuildersParallel02Schema,
 ) : NodeBuilder {
-  private var _nbp02sheetNodeBuilder: NodeBuilder? = null
+  private val nodeBuilders: MutableMap<Path, NodeBuilder> = HashMap(2)
 
-  private var _nbp02headNodeBuilder: NodeBuilder? = null
-
-  private fun nbp02sheetNodeBuilder(): NodeBuilder {
-    if (_nbp02sheetNodeBuilder == null) {
-      _nbp02sheetNodeBuilder = nodeFactory.createNbp02sheetNodeBuilder()
-    }
-    return _nbp02sheetNodeBuilder!!
+  private fun nbp02sheetNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nbp02sheet@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)) {
+    nodeFactory.createNbp02sheetNodeBuilder()
   }
 
-  private fun nbp02headNodeBuilder(): NodeBuilder {
-    if (_nbp02headNodeBuilder == null) {
-      _nbp02headNodeBuilder = nodeFactory.createNbp02headNodeBuilder()
-    }
-    return _nbp02headNodeBuilder!!
+  private fun nbp02headNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nbp02head@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)) {
+    nodeFactory.createNbp02headNodeBuilder()
   }
 
-  override fun build(path: Path, payloads: Map<Path, Any>): Node {
-    check(path.segments.firstOrNull()?.name == "nbp02main") {
+  override fun build(
+    path: Path,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): Node {
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nbp02main@src/test/resources/node-builders-parallel02.dot"))
+    check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nbp02main" node: $path"""
     }
     return when {
-      path == targetOrError("nbp02main") -> nodeFactory.createRootNode()
-      path.startsWith(targetOrError("nbp02sheet")) -> {
-        val targetPath = targetOrError("nbp02sheet")
-        val nodeBuilder = nbp02sheetNodeBuilder()
-        nodeBuilder.build(path.drop(targetPath.length - 1),
-            payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
+      path == rootPath -> nodeFactory.createRootNode()
+      path.startsWith(targetOrError(Segment("nbp02sheet@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("nbp02sheet@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)
+        val nodeBuilder = nbp02sheetNodeBuilder(rootSegmentAlias)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
       }
-      path.startsWith(targetOrError("nbp02head")) -> {
-        val targetPath = targetOrError("nbp02head")
-        val nodeBuilder = nbp02headNodeBuilder()
-        nodeBuilder.build(path.drop(targetPath.length - 1),
-            payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) })
+      path.startsWith(targetOrError(Segment("nbp02head@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("nbp02head@src/test/resources/node-builders-parallel02.dot"), rootSegmentAlias)
+        val nodeBuilder = nbp02headNodeBuilder(rootSegmentAlias)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
       }
       else -> error("""illegal path build requested for "nbp02main" node: $path""")
     }
   }
 
-  public fun targetOrError(segmentName: String): Path =
-      schema.target(schema.regions.first(), Segment(segmentName)) ?:
-      error("""internal error: no target generated for segment "$segmentName"""")
+  override fun invalidateCache(path: Path) {
+    nodeBuilders.keys.filter { !path.startsWith(it) }.forEach {
+      println("""${this::class.simpleName}: removing nodeBuilder for $it""")
+    }
+    nodeBuilders.keys.retainAll { path.startsWith(it) }
+    nodeBuilders.forEach { (builderPath, builder) ->
+      builder.invalidateCache(path.drop(builderPath.length - 1))
+    }
+  }
+
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
-  public fun <T> payloadOrError(segmentName: String, payloads: Map<Path, Any>): T {
-    val targetPath = targetOrError(segmentName)
+  public fun <T> payloadOrError(
+    segment: Segment,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): T {
+    val targetPath = targetOrError(segment, rootSegmentAlias)
     val payload = payloads[targetPath] ?: error("""no payload for "$targetPath"""")
     return payload as T
   }

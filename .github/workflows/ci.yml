@@ -1,0 +1,66 @@
+name: Validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Run ktlint (Spotless)
+        run: ./gradlew --no-daemon --stacktrace spotlessCheck
+
+      - name: Run tests and assemble validations
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :way-gradle-plugin:assemble \
+            :way-gradle-plugin:test \
+            :way:jvmTest \
+            :sample-compose:core:ui:assembleDebug \
+            :sample-compose:core:routing:assembleDebug \
+            :sample-compose:main:ui:assembleDebug \
+            :sample-compose:login:ui:assembleDebug \
+            :sample-compose:app:assembleDebug \
+            :sample-compose:app:routing:assembleDebug \
+            :sample-compose:main:routing:assembleDebug \
+            :sample-compose:permissions:domain:assembleDebug \
+            :sample-compose:permissions:ui:assembleDebug \
+            :sample-compose:login:domain:assembleDebug \
+            :sample-compose:main-parallel:routing:assembleDebug \
+            :sample-compose:categories:ui:assembleDebug \
+            :sample-compose:login:routing:assembleDebug \
+            :way-compose:assembleDebug \
+            :sample-compose:main-parallel:ui:assembleDebug \
+            :sample-compose:categories:routing:assembleDebug \
+            :sample-compose:permissions:routing:assembleDebug

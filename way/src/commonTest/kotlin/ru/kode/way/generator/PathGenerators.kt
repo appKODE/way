@@ -9,10 +9,9 @@ import io.kotest.property.arbitrary.string
 import ru.kode.way.Path
 import ru.kode.way.Segment
 
-fun Arb.Companion.path(): Arb<Path> {
-  return Arb.list(Arb.segment(), 1..20).map { Path(it) }
-}
+fun Arb.Companion.path(): Arb<Path> = Arb.list(Arb.segment(), 1..20).map { Path(it) }
 
-fun Arb.Companion.segment(): Arb<Segment> {
-  return Arb.string(minSize = 1, maxSize = 10, codepoints = Codepoint.alphanumeric()).map { Segment(it) }
-}
+fun Arb.Companion.segment(): Arb<Segment> =
+  Arb.string(minSize = 1, maxSize = 10, codepoints = Codepoint.alphanumeric()).map {
+    Segment(it)
+  }

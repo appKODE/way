@@ -5,9 +5,9 @@ sealed interface Transition
 sealed interface FlowTransition<out R : Any> : Transition
 sealed interface ScreenTransition : Transition
 
-data class NavigateTo(
-  val targets: Set<Target>,
-) : FlowTransition<Nothing>, ScreenTransition {
+data class NavigateTo(val targets: Set<Target>) :
+  FlowTransition<Nothing>,
+  ScreenTransition {
 
   constructor(
     target: Target,
@@ -15,7 +15,9 @@ data class NavigateTo(
 }
 
 data class Finish<R : Any>(val result: R) : FlowTransition<R>
-data class EnqueueEvent(val event: Event) : FlowTransition<Nothing>, ScreenTransition
+data class EnqueueEvent(val event: Event) :
+  FlowTransition<Nothing>,
+  ScreenTransition
 
 /**
  * Consumes event and stays on the current node

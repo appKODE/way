@@ -5,7 +5,6 @@ import ru.kode.way.sample.compose.main.parallel.routing.di.MainParallelFlowCompo
 object HeadFlow {
   val schema: HeadFlowSchema = HeadFlowSchema()
 
-  fun nodeBuilder(component: MainParallelFlowComponent): HeadNodeBuilder {
-    return HeadNodeBuilder(component.headNodeFactory(), schema)
-  }
+  fun nodeBuilder(component: MainParallelFlowComponent): HeadNodeBuilder =
+    HeadNodeBuilder(component.headNodeFactory(), schema)
 }

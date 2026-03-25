@@ -1,50 +1,59 @@
 package ru.kode.test.app.schema
 
+import kotlin.Any
 import kotlin.collections.List
-import kotlin.collections.Set
+import kotlin.collections.Map
+import ru.kode.way.Event
 import ru.kode.way.Path
 import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.Segment
 
 public class TestAppSchema : Schema {
-  override val regions: List<RegionId> = listOf(RegionId(Path("main", "one")),
-      RegionId(Path("main", "two")), RegionId(Path("main", "one", "alpha")), RegionId(Path("main",
-      "one", "beta")))
+  override val rootSegment: Segment = Segment("main@src/test/resources/schema-parallel02.dot")
 
-  override fun children(regionId: RegionId): Set<Segment> = emptySet()
+  override val childSchemas: Map<Segment, Schema> = emptyMap()
 
-  override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
+  override val regions: List<RegionId> =
+      listOf(RegionId(Path(listOf(Segment("main@src/test/resources/schema-parallel02.dot"), Segment("one@src/test/resources/schema-parallel02.dot")))), RegionId(Path(listOf(Segment("main@src/test/resources/schema-parallel02.dot"), Segment("two@src/test/resources/schema-parallel02.dot")))), RegionId(Path(listOf(Segment("main@src/test/resources/schema-parallel02.dot"), Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot")))), RegionId(Path(listOf(Segment("main@src/test/resources/schema-parallel02.dot"), Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot")))))
 
-  override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
+  override fun target(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): Path? = when (regionId) {
     regions[0] -> {
-      when(segment.name) {
-        "one" -> Path("main", "one")
-        "beta" -> Path("main", "one", "beta")
-        "introb1" -> Path("main", "one", "beta", "introb1")
-        "alpha" -> Path("main", "one", "alpha")
-        "introa1" -> Path("main", "one", "alpha", "introa1")
+      val rootSegment = rootSegmentAlias ?: Segment("one@src/test/resources/schema-parallel02.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "beta@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot")))
+        "introb1@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"), Segment("introb1@src/test/resources/schema-parallel02.dot")))
+        "alpha@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot")))
+        "introa1@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"), Segment("introa1@src/test/resources/schema-parallel02.dot")))
         else -> null
       }
     }
     regions[1] -> {
-      when(segment.name) {
-        "two" -> Path("main", "two")
-        "intro1" -> Path("main", "two", "intro1")
+      val rootSegment = rootSegmentAlias ?: Segment("two@src/test/resources/schema-parallel02.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "intro1@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("two@src/test/resources/schema-parallel02.dot"), Segment("intro1@src/test/resources/schema-parallel02.dot")))
         else -> null
       }
     }
     regions[2] -> {
-      when(segment.name) {
-        "alpha" -> Path("main", "one", "alpha")
-        "introa1" -> Path("main", "one", "alpha", "introa1")
+      val rootSegment = rootSegmentAlias ?: Segment("alpha@src/test/resources/schema-parallel02.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "introa1@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"), Segment("introa1@src/test/resources/schema-parallel02.dot")))
         else -> null
       }
     }
     regions[3] -> {
-      when(segment.name) {
-        "beta" -> Path("main", "one", "beta")
-        "introb1" -> Path("main", "one", "beta", "introb1")
+      val rootSegment = rootSegmentAlias ?: Segment("beta@src/test/resources/schema-parallel02.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "introb1@src/test/resources/schema-parallel02.dot" -> Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"), Segment("introb1@src/test/resources/schema-parallel02.dot")))
         else -> null
       }
     }
@@ -53,19 +62,91 @@ public class TestAppSchema : Schema {
     }
   }
 
-  override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
+  override fun nodeType(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Schema.NodeType = when (regionId) {
     regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("one@src/test/resources/schema-parallel02.dot")
       when {
-        path == Path("main") -> Schema.NodeType.Parallel
-        path == Path("main", "one") -> Schema.NodeType.Parallel
-        path == Path("main", "two") -> Schema.NodeType.Flow
-        path == Path("main", "one", "alpha") -> Schema.NodeType.Flow
-        path == Path("main", "one", "beta") -> Schema.NodeType.Flow
-        path == Path("main", "one", "alpha", "introa1") -> Schema.NodeType.Screen
-        path == Path("main", "one", "beta", "introb1") -> Schema.NodeType.Screen
-        path == Path("main", "two", "intro1") -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Parallel
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"), Segment("introb1@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"), Segment("introa1@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    regions[1] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("two@src/test/resources/schema-parallel02.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("two@src/test/resources/schema-parallel02.dot"), Segment("intro1@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    regions[2] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("alpha@src/test/resources/schema-parallel02.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"), Segment("introa1@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    regions[3] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("beta@src/test/resources/schema-parallel02.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"), Segment("introb1@src/test/resources/schema-parallel02.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun createChildFlowFinishRequestEvent(
+    regionId: RegionId,
+    path: Path,
+    result: Any,
+  ): Event = when (regionId) {
+    regions[0] -> {
+      when(path) {
+        Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("beta@src/test/resources/schema-parallel02.dot"))) -> OneChildFinishRequest.Beta
+        Path(listOf(rootSegment, Segment("one@src/test/resources/schema-parallel02.dot"), Segment("alpha@src/test/resources/schema-parallel02.dot"))) -> OneChildFinishRequest.Alpha
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    regions[1] -> {
+      when(path) {
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    regions[2] -> {
+      when(path) {
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    regions[3] -> {
+      when(path) {
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
         }
       }
     }

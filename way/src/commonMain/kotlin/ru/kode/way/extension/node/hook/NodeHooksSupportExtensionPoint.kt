@@ -52,6 +52,7 @@ class NodeHooksSupportExtensionPoint : NodeExtensionPoint {
       is HasFlowNodeHooks<*> -> node.hooks.forEach {
         it.onPostTransition(event, transition as FlowTransition<Nothing>)
       }
+
       else -> Unit
     }
   }

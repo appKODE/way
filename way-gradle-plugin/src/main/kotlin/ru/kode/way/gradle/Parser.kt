@@ -9,18 +9,13 @@ import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.relativeTo
 
-internal fun parseSchemaDotFile(
-    file: File,
-    projectDir: File,
-): SchemaParseResult {
-  return file.inputStream().use { input ->
-    val stream = CommonTokenStream(DotLexer(CharStreams.fromStream(input)))
-    val parser = DotParser(stream)
-    val parseTree = parser.graph()
-    val visitor = Visitor()
-    visitor.visitGraph(parseTree)
-    visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()))
-  }
+internal fun parseSchemaDotFile(file: File, projectDir: File): SchemaParseResult = file.inputStream().use { input ->
+  val stream = CommonTokenStream(DotLexer(CharStreams.fromStream(input)))
+  val parser = DotParser(stream)
+  val parseTree = parser.graph()
+  val visitor = Visitor()
+  visitor.visitGraph(parseTree)
+  visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()))
 }
 
 private class Visitor : DotBaseVisitor<Unit>() {
@@ -37,19 +32,20 @@ private class Visitor : DotBaseVisitor<Unit>() {
   private val nodeParameters: MutableMap<String, Parameter> = mutableMapOf()
 
   fun buildResult(filePath: Path): SchemaParseResult {
-    fun String.toNode(): Node {
-      return when {
-        flowNodes.contains(this) -> {
-          Node.Flow.Local(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
-        }
-        schemaNodes.contains(this) -> {
-          Node.Flow.Imported(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
-        }
-        parallelNodes.contains(this) -> {
-          Node.Flow.LocalParallel(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
-        }
-        else -> Node.Screen(this, nodeParameters[this])
+    fun String.toNode(): Node = when {
+      flowNodes.contains(this) -> {
+        Node.Flow.Local(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
       }
+
+      schemaNodes.contains(this) -> {
+        Node.Flow.Imported(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
+      }
+
+      parallelNodes.contains(this) -> {
+        Node.Flow.LocalParallel(this, flowNodeResultTypes[this] ?: UNIT.canonicalName, nodeParameters[this])
+      }
+
+      else -> Node.Screen(this, nodeParameters[this])
     }
     return SchemaParseResult(
       filePath = filePath,
@@ -147,9 +143,7 @@ private class Visitor : DotBaseVisitor<Unit>() {
     super.visitEdgeRHS(ctx)
   }
 
-  private fun Id_Context.asString(): String {
-    return this.ID()?.text ?: this.STRING().text.removeSurrounding("\"")
-  }
+  private fun Id_Context.asString(): String = this.ID()?.text ?: this.STRING().text.removeSurrounding("\"")
 }
 
 internal data class SchemaParseResult(
@@ -171,11 +165,8 @@ internal sealed interface Node {
     val resultType: String
     val parameter: Parameter?
 
-    data class Local(
-      override val id: String,
-      override val resultType: String,
-      override val parameter: Parameter?,
-    ) : Flow
+    data class Local(override val id: String, override val resultType: String, override val parameter: Parameter?) :
+      Flow
 
     data class LocalParallel(
       override val id: String,
@@ -183,19 +174,13 @@ internal sealed interface Node {
       override val parameter: Parameter?,
     ) : Flow
 
-    data class Imported(
-      override val id: String,
-      override val resultType: String,
-      override val parameter: Parameter?,
-    ) : Flow
+    data class Imported(override val id: String, override val resultType: String, override val parameter: Parameter?) :
+      Flow
   }
   data class Screen(override val id: String, val parameter: Parameter?) : Node
 }
 
-internal data class Parameter(
-  val name: String,
-  val type: String,
-)
+internal data class Parameter(val name: String, val type: String)
 
 private const val ATTR_NAME_NODE_TYPE = "type"
 private const val ATTR_VALUE_NODE_TYPE_FLOW = "flow"

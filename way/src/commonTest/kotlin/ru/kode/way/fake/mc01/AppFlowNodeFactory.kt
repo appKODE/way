@@ -16,26 +16,21 @@ class AppFlowNodeFactory(
   private val flowTransitions: List<TestFlowTransitionSpec> = emptyList(),
   private val mainFlowTransitions: List<TestFlowTransitionSpec> = emptyList(),
   private val appLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList(),
-  private val mainLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList()
+  private val mainLoginFlowTransitions: List<TestFlowTransitionSpec> = emptyList(),
 ) : AppFlowNodeBuilder.Factory {
-  override fun createRootNode(): FlowNode<*> {
-    return TestFlowNode(
-      initialTarget,
-      transitions = flowTransitions
-    )
-  }
+  override fun createRootNode(): FlowNode<*> = TestFlowNode(
+    initialTarget,
+    transitions = flowTransitions,
+  )
 
-  override fun createMainFlowNodeBuilder(): NodeBuilder {
-    return MainFlowNodeBuilder(
-      MainFlowNodeFactory(
-        flowTransitions = mainFlowTransitions,
-        loginFlowTransitions = mainLoginFlowTransitions,
-      ),
-      MCMainFlowSchema(MCLoginFlowSchema())
-    )
-  }
+  override fun createMainFlowNodeBuilder(): NodeBuilder = MainFlowNodeBuilder(
+    MainFlowNodeFactory(
+      flowTransitions = mainFlowTransitions,
+      loginFlowTransitions = mainLoginFlowTransitions,
+    ),
+    MCMainFlowSchema(MCLoginFlowSchema()),
+  )
 
-  override fun createLoginFlowNodeBuilder(section: Int): NodeBuilder {
-    return LoginFlowNodeBuilder(LoginFlowNodeFactory(appLoginFlowTransitions), MCLoginFlowSchema())
-  }
+  override fun createLoginFlowNodeBuilder(section: Int): NodeBuilder =
+    LoginFlowNodeBuilder(LoginFlowNodeFactory(appLoginFlowTransitions), MCLoginFlowSchema())
 }

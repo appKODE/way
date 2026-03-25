@@ -9,20 +9,14 @@ import ru.kode.way.TestScreenNode
 import ru.kode.way.mc01.LoginFlowNodeBuilder
 import ru.kode.way.mc01.loginFlow
 
-class LoginFlowNodeFactory(
-  private val flowTransitions: List<TestFlowTransitionSpec> = emptyList()
-) : LoginFlowNodeBuilder.Factory {
-  override fun createRootNode(section: Int): FlowNode<*> {
-    return TestFlowNode(
-      if (section == 42) Target.loginFlow.credentials else Target.loginFlow.otp, transitions = flowTransitions
-    )
-  }
+class LoginFlowNodeFactory(private val flowTransitions: List<TestFlowTransitionSpec> = emptyList()) :
+  LoginFlowNodeBuilder.Factory {
+  override fun createRootNode(section: Int): FlowNode<*> = TestFlowNode(
+    if (section == 42) Target.loginFlow.credentials else Target.loginFlow.otp,
+    transitions = flowTransitions,
+  )
 
-  override fun createCredentialsNode(): ScreenNode {
-    return TestScreenNode()
-  }
+  override fun createCredentialsNode(): ScreenNode = TestScreenNode()
 
-  override fun createOtpNode(): ScreenNode {
-    return TestScreenNode()
-  }
+  override fun createOtpNode(): ScreenNode = TestScreenNode()
 }

@@ -1,29 +1,29 @@
 package ru.kode.test.app.schema
 
-import ru.kode.test.app.FlowResult
-import ru.kode.test.permissions.PermissionFlowResult
 import ru.kode.way.FlowTarget
-import ru.kode.way.FlowTransition
 import ru.kode.way.Path
 import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
 import ru.kode.way.Target
 import ru.kode.way.append
 
 public class AppTargets(
   private val prefix: Path? = null,
 ) {
-  public val screen4: ScreenTarget = ScreenTarget(flowPath(Path("screen4")))
+  public val permissions: FlowTarget =
+      FlowTarget(flowPath(Path(listOf(Segment("permissions@src/test/resources/targets-test01.dot")))))
 
-  public val screen1: ScreenTarget = ScreenTarget(flowPath(Path("screen1")))
+  public val screen4: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screen4@src/test/resources/targets-test01.dot")))))
 
-  public val screen2: ScreenTarget = ScreenTarget(flowPath(Path("screen1","screen2")))
+  public val screen1: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot")))))
 
-  public val screen3: ScreenTarget = ScreenTarget(flowPath(Path("screen1","screen2","screen3")))
+  public val screen2: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot"), Segment("screen2@src/test/resources/targets-test01.dot")))))
 
-  public
-      fun permissions(onFinishRequest: (result: PermissionFlowResult) -> FlowTransition<FlowResult>):
-      FlowTarget<PermissionFlowResult, FlowResult> = FlowTarget(flowPath(Path("permissions")),
-      payload = null, onFinishRequest)
+  public val screen3: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot"), Segment("screen2@src/test/resources/targets-test01.dot"), Segment("screen3@src/test/resources/targets-test01.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }
@@ -31,11 +31,14 @@ public class AppTargets(
 public class PermissionsTargets(
   private val prefix: Path? = null,
 ) {
-  public val finish: ScreenTarget = ScreenTarget(flowPath(Path("finish")))
+  public val finish: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("finish@src/test/resources/targets-test01.dot")))))
 
-  public val intro: ScreenTarget = ScreenTarget(flowPath(Path("intro")))
+  public val intro: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test01.dot")))))
 
-  public val page1: ScreenTarget = ScreenTarget(flowPath(Path("intro","page1")))
+  public val page1: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test01.dot"), Segment("page1@src/test/resources/targets-test01.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

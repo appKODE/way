@@ -1,8 +1,8 @@
 package ru.kode.test.app.schema
 
 import kotlin.Any
-import kotlin.String
 import kotlin.Suppress
+import kotlin.Unit
 import kotlin.collections.Map
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
@@ -10,28 +10,38 @@ import ru.kode.way.NodeBuilder
 import ru.kode.way.Path
 import ru.kode.way.ScreenNode
 import ru.kode.way.Segment
+import ru.kode.way.firstSegment
 
 public class Nb01loginNodeBuilder(
   private val nodeFactory: Factory,
-  private val schema: NodeBuildersTest01Schema,
+  override val schema: NodeBuildersTest01Schema,
 ) : NodeBuilder {
-  override fun build(path: Path, payloads: Map<Path, Any>): Node {
-    check(path.segments.firstOrNull()?.name == "nb01login") {
+  override fun build(
+    path: Path,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): Node {
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb01login@src/test/resources/node-builders-multiple-flows.dot"))
+    check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nb01login" node: $path"""
     }
     return when {
-      path == targetOrError("nb01credentials") -> nodeFactory.createNb01credentialsNode()
+      path == targetOrError(Segment("nb01credentials@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias) -> nodeFactory.createNb01credentialsNode()
       else -> error("""illegal path build requested for "nb01login" node: $path""")
     }
   }
 
-  public fun targetOrError(segmentName: String): Path =
-      schema.target(schema.regions.first(), Segment(segmentName)) ?:
-      error("""internal error: no target generated for segment "$segmentName"""")
+  override fun invalidateCache(path: Path): Unit = Unit
+
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
-  public fun <T> payloadOrError(segmentName: String, payloads: Map<Path, Any>): T {
-    val targetPath = targetOrError(segmentName)
+  public fun <T> payloadOrError(
+    segment: Segment,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): T {
+    val targetPath = targetOrError(segment, rootSegmentAlias)
     val payload = payloads[targetPath] ?: error("""no payload for "$targetPath"""")
     return payload as T
   }

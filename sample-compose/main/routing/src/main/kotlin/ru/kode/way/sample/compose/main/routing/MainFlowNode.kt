@@ -14,11 +14,9 @@ class MainFlowNode @Inject constructor() : FlowNode<MainFlowResult> {
   override val initial = Target.main.home
   override val dismissResult = MainFlowResult.Dismissed
 
-  override fun transition(event: Event): FlowTransition<MainFlowResult> {
-    return event.whenFlowEvent { e: MainFlowEvent ->
-      when (e) {
-        MainFlowEvent.EditProfileRequested -> Stay
-      }
+  override fun transition(event: Event): FlowTransition<MainFlowResult> = event.whenFlowEvent { e: MainFlowEvent ->
+    when (e) {
+      MainFlowEvent.EditProfileRequested -> Stay
     }
   }
 }

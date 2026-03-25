@@ -1,27 +1,20 @@
 package ru.kode.test.app.schema
 
-import ru.kode.test.app.AppFlowResult
-import ru.kode.test.app.LoginFlowResult
-import ru.kode.test.app.OnboardingFlowResult
 import ru.kode.way.FlowTarget
-import ru.kode.way.FlowTransition
 import ru.kode.way.Path
 import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
 import ru.kode.way.Target
 import ru.kode.way.append
 
 public class AppTargets(
   private val prefix: Path? = null,
 ) {
-  public fun login(onFinishRequest: (result: LoginFlowResult) -> FlowTransition<AppFlowResult>):
-      FlowTarget<LoginFlowResult, AppFlowResult> = FlowTarget(flowPath(Path("login")), payload =
-      null, onFinishRequest)
+  public val login: FlowTarget =
+      FlowTarget(flowPath(Path(listOf(Segment("login@src/test/resources/targets-test02.dot")))))
 
-  public
-      fun onboarding(onFinishRequest: (result: OnboardingFlowResult) -> FlowTransition<AppFlowResult>):
-      FlowTarget<OnboardingFlowResult, AppFlowResult> =
-      FlowTarget(flowPath(Path("login","credentials","onboarding")), payload = null,
-      onFinishRequest)
+  public val onboarding: FlowTarget =
+      FlowTarget(flowPath(Path(listOf(Segment("login@src/test/resources/targets-test02.dot"), Segment("credentials@src/test/resources/targets-test02.dot"), Segment("onboarding@src/test/resources/targets-test02.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }
@@ -29,7 +22,8 @@ public class AppTargets(
 public class LoginTargets(
   private val prefix: Path? = null,
 ) {
-  public val credentials: ScreenTarget = ScreenTarget(flowPath(Path("credentials")))
+  public val credentials: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("credentials@src/test/resources/targets-test02.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }
@@ -37,7 +31,8 @@ public class LoginTargets(
 public class OnboardingTargets(
   private val prefix: Path? = null,
 ) {
-  public val intro: ScreenTarget = ScreenTarget(flowPath(Path("intro")))
+  public val intro: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test02.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

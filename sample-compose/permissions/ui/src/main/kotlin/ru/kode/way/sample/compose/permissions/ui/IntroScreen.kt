@@ -10,6 +10,6 @@ fun IntroScreen(sendEvent: (PermissionsFlowEvent) -> Unit) {
     title = "Permissions Intro",
     sendEvent = sendEvent,
     eventsClass = PermissionsFlowEvent::class,
-    eventFilter = { it == PermissionsFlowEvent.IntroDone::class }
+    eventFilter = { it == PermissionsFlowEvent.IntroDone::class },
   )
 }

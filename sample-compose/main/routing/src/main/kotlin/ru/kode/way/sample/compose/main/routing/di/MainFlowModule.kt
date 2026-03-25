@@ -15,13 +15,9 @@ annotation class MainScope
 object MainFlowModule {
   @Provides
   @MainScope
-  fun provideNodeBuilder(
-    flowNode: Provider<MainFlowNode>,
-    homeNode: Provider<HomeNode>,
-  ): MainNodeBuilder.Factory {
-    return object : MainNodeBuilder.Factory {
+  fun provideNodeBuilder(flowNode: Provider<MainFlowNode>, homeNode: Provider<HomeNode>): MainNodeBuilder.Factory =
+    object : MainNodeBuilder.Factory {
       override fun createRootNode() = flowNode.get()
       override fun createHomeNode() = homeNode.get()
     }
-  }
 }

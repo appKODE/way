@@ -12,13 +12,13 @@ import ru.kode.way.NavigationService
  *
  * Requires [NodeHooksSupportExtensionPoint] to be added to [NavigationService] to work.
  */
-abstract class BaseFlowNode<R : Any> : FlowNode<R>, HasFlowNodeHooks<R> {
+abstract class BaseFlowNode<R : Any> :
+  FlowNode<R>,
+  HasFlowNodeHooks<R> {
   private val _hooks = mutableListOf<FlowNodeHook<R>>()
   override val hooks: List<FlowNodeHook<R>> = _hooks
 
-  override fun transition(event: Event): FlowTransition<R> {
-    return Ignore
-  }
+  override fun transition(event: Event): FlowTransition<R> = Ignore
 
   override fun addHook(hook: FlowNodeHook<R>) {
     _hooks.add(hook)

@@ -9,26 +9,18 @@ import ru.kode.way.sample.permissions.routing.di.PermissionsFlowComponent
 import ru.kode.way.sample.permissions.routing.di.PermissionsFlowComponentImpl
 
 class AppFlowComponentImpl : AppFlowComponent {
-  override fun nodeBuilder(): NodeBuilder {
-    return AppNodeBuilder(
-      nodeFactory = object : AppNodeBuilder.Factory {
-        override fun createRootNode(): FlowNode<*> {
-          return AppFlowNode()
-        }
+  override fun nodeBuilder(): NodeBuilder = AppNodeBuilder(
+    nodeFactory = object : AppNodeBuilder.Factory {
+      override fun createRootNode(): FlowNode<*> = AppFlowNode()
 
-        override fun createMainNodeBuilder(): NodeBuilder {
-          TODO("not implemented")
-        }
+      override fun createMainNodeBuilder(): NodeBuilder {
+        TODO("not implemented")
+      }
 
-        override fun createPermissionsNodeBuilder(): NodeBuilder {
-          return permissionsFlowComponent().nodeBuilder()
-        }
-      },
-      schema = SampleAppSchema()
-    )
-  }
+      override fun createPermissionsNodeBuilder(): NodeBuilder = permissionsFlowComponent().nodeBuilder()
+    },
+    schema = SampleAppSchema(),
+  )
 
-  override fun permissionsFlowComponent(): PermissionsFlowComponent {
-    return PermissionsFlowComponentImpl()
-  }
+  override fun permissionsFlowComponent(): PermissionsFlowComponent = PermissionsFlowComponentImpl()
 }

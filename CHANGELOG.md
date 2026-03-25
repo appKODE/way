@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.6 - 2026-03-26
+
+* Rework `way-gradle-plugin` Android source wiring to use typed Gradle/AGP APIs instead of reflection-based source set registration
+* Fix generated Way classes visibility for AGP 8.x/9.x Android modules by registering generated sources in Kotlin `main` source set when variant Kotlin sources are unavailable
+* Ensure routing/debug modules no longer fail with unresolved generated `*Schema`/`*NodeBuilder` classes in consuming projects
+* Add regression tests for source resolution and generated directory registration in plugin test suite
+
+## 0.9.5 - 2026-03-26
+
+* Pin `way-gradle-plugin` compilation/publication to Java 11 (`org.gradle.jvm.version=11`) to keep compatibility with Java 11/17 consuming builds
+* Fix `NavigationServiceTest` setup for `Stay` consumption by wiring screen transitions explicitly
+* Regenerate and update `way-gradle-plugin` golden snapshots to match the current generator contract
+
+## 0.9.4 - 2026-03-26
+
+* Update build stack and dependencies: Gradle 9.4.1, Kotlin 2.3.20, AGP 9.0.1, Compose 1.10.6, Dokka 2.1.0, KSP 2.3.6, and related libs
+* Rework `way-gradle-plugin` code generation wiring for new Gradle/Kotlin APIs and KSP task integration
+* Add configuration cache support for code generation tasks
+* Migrate Dokka integration to V2 mode and exclude ANTLR generated sources from Javadoc
+* Add GitHub Actions workflows for CI validation and tag-based release automation
+* Fix formatting and lint issues after Spotless/ktlint updates
+* Migrate `way` and `way-compose` publication to `com.vanniktech.maven.publish` and remove legacy root publication wiring
+
 ## 0.9.3 - 2026-01-12
 
 * Hotfix release with fixed file stream leak
@@ -74,4 +97,3 @@
 ## 0.8.0 - 2023-02-28
 
 * Initial release
-

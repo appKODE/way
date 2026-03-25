@@ -41,7 +41,7 @@ suspend fun runTest(testCase: TestCase) {
 
 private fun createConfig() = CodeGenConfig(
   outputPackageName = SCHEME_GENERATION_PACKAGE,
-  outputSchemaClassName = "DefaultTestNavSchema"
+  outputSchemaClassName = "DefaultTestNavSchema",
 )
 
 const val SCHEME_GENERATION_PACKAGE = "ru.kode.test.app.schema"

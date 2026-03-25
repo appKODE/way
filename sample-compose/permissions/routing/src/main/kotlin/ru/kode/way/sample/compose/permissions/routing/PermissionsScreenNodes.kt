@@ -12,12 +12,10 @@ import ru.kode.way.sample.compose.permissions.ui.IntroScreen
 import ru.kode.way.sample.compose.permissions.ui.RequestScreen
 import javax.inject.Inject
 
-class IntroNode @Inject constructor(
-  private val eventSink: FlowEventSink
-) : ScreenNode, ComposableNode {
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+class IntroNode @Inject constructor(private val eventSink: FlowEventSink) :
+  ScreenNode,
+  ComposableNode {
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   @Composable
   override fun Content(modifier: Modifier) {
@@ -27,12 +25,10 @@ class IntroNode @Inject constructor(
   }
 }
 
-class RequestNode @Inject constructor(
-  private val eventSink: FlowEventSink
-) : ScreenNode, ComposableNode {
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+class RequestNode @Inject constructor(private val eventSink: FlowEventSink) :
+  ScreenNode,
+  ComposableNode {
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   @Composable
   override fun Content(modifier: Modifier) {

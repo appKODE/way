@@ -14,7 +14,7 @@ internal inline fun <T : Any> AdjacencyList.mapFlow(action: (Node.Flow, List<Nod
   val out = mutableListOf<T>()
   this.forEach { (node, adjacent) ->
     if (node is Node.Flow.Local || node is Node.Flow.LocalParallel) {
-      out.add(action(node as Node.Flow, adjacent))
+      out.add(action(node, adjacent))
     }
   }
   return out

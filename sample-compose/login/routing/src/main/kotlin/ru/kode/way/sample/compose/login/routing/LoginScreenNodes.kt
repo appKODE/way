@@ -12,12 +12,10 @@ import ru.kode.way.sample.compose.login.ui.CredentialsScreen
 import ru.kode.way.sample.compose.login.ui.OtpScreen
 import javax.inject.Inject
 
-class CredentialsNode @Inject constructor(
-  private val eventSink: FlowEventSink
-) : ScreenNode, ComposableNode {
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+class CredentialsNode @Inject constructor(private val eventSink: FlowEventSink) :
+  ScreenNode,
+  ComposableNode {
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   @Composable
   override fun Content(modifier: Modifier) {
@@ -27,15 +25,13 @@ class CredentialsNode @Inject constructor(
   }
 }
 
-class OtpNode @Inject constructor(
-  private val eventSink: FlowEventSink
-) : ScreenNode, ComposableNode {
+class OtpNode @Inject constructor(private val eventSink: FlowEventSink) :
+  ScreenNode,
+  ComposableNode {
 
   var maskInput: Boolean? = null
 
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   @Composable
   override fun Content(modifier: Modifier) {

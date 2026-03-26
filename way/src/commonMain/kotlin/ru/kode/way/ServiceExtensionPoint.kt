@@ -9,6 +9,7 @@ interface ServiceExtensionPoint<R : Any> {
    * @param state current navigation state
    */
   fun onPreTransition(service: NavigationService<R>, event: Event, state: NavigationState)
+
   /**
    * Called after service processed an event, built and executed a transition
    *

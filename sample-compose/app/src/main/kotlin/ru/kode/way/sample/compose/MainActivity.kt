@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
       Stay
     }
     service.addServiceExtensionPoint(
-      LogTransitionsExtensionPoint(logger = { msg -> Log.d("way-sample-compose", msg()) })
+      LogTransitionsExtensionPoint(logger = { msg -> Log.d("way-sample-compose", msg()) }),
     )
     eventSink.target = service
     setContent {

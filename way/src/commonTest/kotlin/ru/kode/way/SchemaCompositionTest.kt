@@ -21,8 +21,8 @@ class SchemaCompositionTest : ShouldSpec() {
       val schema = MCAppFlowSchema(
         loginFlowSchema = MCLoginFlowSchema(),
         mainFlowSchema = MCMainFlowSchema(
-          loginFlowSchema = MCLoginFlowSchema()
-        )
+          loginFlowSchema = MCLoginFlowSchema(),
+        ),
       )
       var navServiceFinished = false
       val sut = NavigationService<Unit>(
@@ -42,12 +42,15 @@ class SchemaCompositionTest : ShouldSpec() {
             ),
             mainLoginFlowTransitions = listOf(
               tr(on = "C", NavigateTo(Target.loginFlow.credentials)),
-              tr(on = "D", Finish(Unit))
+              tr(on = "D", Finish(Unit)),
             ),
           ),
-          schema = schema
+          schema = schema,
         ),
-        onFinishRequest = { navServiceFinished = true; Ignore }
+        onFinishRequest = {
+          navServiceFinished = true
+          Ignore
+        },
       )
 
       sut.collectTransitions().test {

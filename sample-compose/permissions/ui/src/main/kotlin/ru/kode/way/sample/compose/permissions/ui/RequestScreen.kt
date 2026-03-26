@@ -10,6 +10,6 @@ fun RequestScreen(sendEvent: (PermissionsFlowEvent) -> Unit) {
     title = "Permissions request",
     sendEvent = sendEvent,
     eventsClass = PermissionsFlowEvent::class,
-    eventFilter = { it != PermissionsFlowEvent.IntroDone::class }
+    eventFilter = { it != PermissionsFlowEvent.IntroDone::class },
   )
 }

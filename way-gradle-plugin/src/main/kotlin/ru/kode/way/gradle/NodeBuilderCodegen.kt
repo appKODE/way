@@ -18,10 +18,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
 import java.nio.file.Path
 
-internal fun buildNodeBuilderFileSpecs(
-  parseResult: SchemaParseResult,
-  config: CodeGenConfig
-): List<FileSpec> {
+internal fun buildNodeBuilderFileSpecs(parseResult: SchemaParseResult, config: CodeGenConfig): List<FileSpec> {
   val packageName = parseResult.customPackage ?: config.outputPackageName
   val rootNode = parseResult.adjacencyList.findRootNode()
   val schemaClassName = ClassName(packageName, schemaClassName(parseResult, config))
@@ -30,7 +27,7 @@ internal fun buildNodeBuilderFileSpecs(
     FileSpec
       .builder(
         packageName,
-        className.simpleName
+        className.simpleName,
       )
       .addType(
         buildNodeBuilderTypeSpec(
@@ -39,8 +36,8 @@ internal fun buildNodeBuilderFileSpecs(
           schemaClassName = schemaClassName,
           adjacencyList = parseResult.adjacencyList,
           isRootNode = rootNode == flow,
-          schemaFilePath = parseResult.filePath
-        )
+          schemaFilePath = parseResult.filePath,
+        ),
       )
       .build()
   }
@@ -54,9 +51,7 @@ internal fun buildNodeBuilderTypeSpec(
   isRootNode: Boolean,
   schemaFilePath: Path,
 ): TypeSpec {
-  fun buildSegmentId(node: Node): String {
-    return "${node.id}@$schemaFilePath"
-  }
+  fun buildSegmentId(node: Node): String = "${node.id}@$schemaFilePath"
 
   val typeSpecBuilder = TypeSpec.classBuilder(className)
   val constructorBuilder = FunSpec.constructorBuilder()
@@ -73,20 +68,20 @@ internal fun buildNodeBuilderTypeSpec(
             is Node.Flow.Local -> FLOW_NODE.parameterizedBy(STAR)
             is Node.Flow.LocalParallel -> PARALLEL_NODE
             is Node.Flow.Imported -> error("unexpected node type: ${flow::class.simpleName}")
-          }
+          },
         )
         .apply {
           if (flow.parameter != null) {
             addParameter(flow.parameter!!.name, ClassName.bestGuess(flow.parameter!!.type))
           }
         }
-        .build()
+        .build(),
     )
 
   val factoryParameter = ParameterSpec
     .builder(
       NODE_FACTORY_PARAMETER_NAME,
-      factoryBuilderTypeName
+      factoryBuilderTypeName,
     )
     .build()
   val factoryProperty = PropertySpec.builder(factoryParameter.name, factoryParameter.type, KModifier.PRIVATE)
@@ -98,7 +93,7 @@ internal fun buildNodeBuilderTypeSpec(
   val schemaParameter = ParameterSpec
     .builder(
       SCHEMA_PARAMETER_NAME,
-      schemaClassName
+      schemaClassName,
     )
     .build()
   val schemaProperty = PropertySpec.builder(schemaParameter.name, schemaParameter.type, KModifier.OVERRIDE)
@@ -125,7 +120,7 @@ internal fun buildNodeBuilderTypeSpec(
                 addParameter(node.parameter!!.name, ClassName.bestGuess(node.parameter!!.type))
               }
             }
-            .build()
+            .build(),
         )
         val lazyPropertyBuilderFun = FunSpec
           .builder("${node.id.toCamelCase()}NodeBuilder")
@@ -142,7 +137,7 @@ internal fun buildNodeBuilderTypeSpec(
             builderCachePropertyName,
             GET_TARGET_FUN_NAME,
             SEGMENT,
-            buildSegmentId(node)
+            buildSegmentId(node),
           )
           .apply {
             if (node.parameter != null) {
@@ -151,7 +146,7 @@ internal fun buildNodeBuilderTypeSpec(
                 flowFactoryName,
                 GET_PAYLOAD_FUN_NAME,
                 SEGMENT,
-                buildSegmentId(node)
+                buildSegmentId(node),
               )
             } else {
               addStatement(
@@ -188,7 +183,7 @@ internal fun buildNodeBuilderTypeSpec(
           .builder(
             builderCachePropertyName,
             MUTABLE_MAP.parameterizedBy(PATH, NODE_BUILDER),
-            KModifier.PRIVATE
+            KModifier.PRIVATE,
           )
           .initializer("%T(%L)", ClassName("kotlin.collections", "HashMap"), lazyNodeBuilderFactories.size)
           .build()
@@ -214,10 +209,10 @@ internal fun buildNodeBuilderTypeSpec(
             lazyNodeBuilderFactories,
             nodeBuilders,
             isRootNode,
-            schemaFilePath
-          )
+            schemaFilePath,
+          ),
         )
-        .build()
+        .build(),
     )
     .addFunction(
       FunSpec.builder("invalidateCache")
@@ -250,7 +245,7 @@ internal fun buildNodeBuilderTypeSpec(
             addStatement("return Unit")
           }
         }
-        .build()
+        .build(),
     )
     .addFunction(buildGetTargetFunSpec())
     .addFunction(buildGetPayloadBySegmentIdFunSpec())
@@ -265,9 +260,7 @@ private fun createBuildFunctionBody(
   isRootNode: Boolean,
   schemaFilePath: Path,
 ): CodeBlock {
-  fun buildSegmentId(node: Node): String {
-    return "${node.id}@$schemaFilePath"
-  }
+  fun buildSegmentId(node: Node): String = "${node.id}@$schemaFilePath"
 
   return CodeBlock.builder()
     .addStatement(
@@ -275,7 +268,7 @@ private fun createBuildFunctionBody(
       PATH,
       PATH,
       SEGMENT,
-      buildSegmentId(flow)
+      buildSegmentId(flow),
     )
     .beginControlFlow(
       "check(path.%M().id == rootPath.%M().id)",
@@ -299,13 +292,13 @@ private fun createBuildFunctionBody(
                   NODE_FACTORY_PARAMETER_NAME,
                   NODE_FACTORY_FLOW_NODE_BUILDER_NAME,
                   GET_PAYLOAD_FUN_NAME,
-                  libraryMemberName("firstSegment")
+                  libraryMemberName("firstSegment"),
                 )
               } else {
                 addStatement(
                   "path == rootPath -> %L.%L()",
                   NODE_FACTORY_PARAMETER_NAME,
-                  NODE_FACTORY_FLOW_NODE_BUILDER_NAME
+                  NODE_FACTORY_FLOW_NODE_BUILDER_NAME,
                 )
               }
             } else {
@@ -356,7 +349,7 @@ private fun createBuildFunctionBody(
                 nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\""),
                 GET_PAYLOAD_FUN_NAME,
                 SEGMENT,
-                buildSegmentId(node)
+                buildSegmentId(node),
               )
             } else {
               addStatement(
@@ -365,7 +358,7 @@ private fun createBuildFunctionBody(
                 SEGMENT,
                 buildSegmentId(node),
                 NODE_FACTORY_PARAMETER_NAME,
-                nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\"")
+                nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\""),
               )
             }
           }
@@ -377,44 +370,40 @@ private fun createBuildFunctionBody(
     .build()
 }
 
-private fun buildGetTargetFunSpec(): FunSpec {
-  return FunSpec.builder(GET_TARGET_FUN_NAME)
-    .returns(PATH)
-    .addParameter("segment", SEGMENT)
-    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
-    .addCode(
-      "return %L.target(%L.regions.first(),${NBSP}segment, rootSegmentAlias) ?: error(%P)",
-      SCHEMA_PARAMETER_NAME,
-      SCHEMA_PARAMETER_NAME,
-      "internal error: no target generated for segment \"\${segment.id}\""
-    )
-    .build()
-}
+private fun buildGetTargetFunSpec(): FunSpec = FunSpec.builder(GET_TARGET_FUN_NAME)
+  .returns(PATH)
+  .addParameter("segment", SEGMENT)
+  .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+  .addCode(
+    "return %L.target(%L.regions.first(),${NBSP}segment, rootSegmentAlias) ?: error(%P)",
+    SCHEMA_PARAMETER_NAME,
+    SCHEMA_PARAMETER_NAME,
+    "internal error: no target generated for segment \"\${segment.id}\"",
+  )
+  .build()
 
-private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec {
-  return FunSpec.builder(GET_PAYLOAD_FUN_NAME)
-    .addTypeVariable(TypeVariableName("T"))
-    .returns(TypeVariableName("T"))
-    .addAnnotation(
-      AnnotationSpec.builder(Suppress::class)
-        .addMember("%S", "UNCHECKED_CAST")
-        .build()
-    )
-    .addParameter("segment", SEGMENT)
-    .addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
-    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
-    .addCode(
-      CodeBlock.builder()
-        .addStatement("val targetPath = $GET_TARGET_FUN_NAME(segment, rootSegmentAlias)")
-        .addStatement(
-          "val payload = payloads[targetPath] ?: error(%P)",
-          "no payload for \"\$targetPath\""
-        )
-        .addStatement("return payload as T")
-        .build()
-    )
-    .build()
-}
+private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec = FunSpec.builder(GET_PAYLOAD_FUN_NAME)
+  .addTypeVariable(TypeVariableName("T"))
+  .returns(TypeVariableName("T"))
+  .addAnnotation(
+    AnnotationSpec.builder(Suppress::class)
+      .addMember("%S", "UNCHECKED_CAST")
+      .build(),
+  )
+  .addParameter("segment", SEGMENT)
+  .addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
+  .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+  .addCode(
+    CodeBlock.builder()
+      .addStatement("val targetPath = $GET_TARGET_FUN_NAME(segment, rootSegmentAlias)")
+      .addStatement(
+        "val payload = payloads[targetPath] ?: error(%P)",
+        "no payload for \"\$targetPath\"",
+      )
+      .addStatement("return payload as T")
+      .build(),
+  )
+  .build()
 
 private const val NODE_FACTORY_FLOW_NODE_BUILDER_NAME = "createRootNode"
 private const val NODE_FACTORY_PARAMETER_NAME = "nodeFactory"

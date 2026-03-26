@@ -10,6 +10,6 @@ fun CredentialsScreen(sendEvent: (LoginFlowEvent) -> Unit) {
     title = "Login credentials",
     sendEvent = sendEvent,
     eventsClass = LoginFlowEvent::class,
-    eventFilter = { it.simpleName?.contains("Credentials") == true }
+    eventFilter = { it.simpleName?.contains("Credentials") == true },
   )
 }

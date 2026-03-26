@@ -10,6 +10,6 @@ fun OtpScreen(maskInput: Boolean?, sendEvent: (LoginFlowEvent) -> Unit) {
     title = "Otp input (maskInput=$maskInput)",
     sendEvent = sendEvent,
     eventsClass = LoginFlowEvent::class,
-    eventFilter = { it.simpleName?.contains("Otp") == true }
+    eventFilter = { it.simpleName?.contains("Otp") == true },
   )
 }

@@ -31,7 +31,7 @@ import ru.kode.way.startsWith
 @Composable
 fun NodeHost(
   service: NavigationService<*>,
-  transitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> ContentTransform = defaultTransitionSpec
+  transitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> ContentTransform = defaultTransitionSpec,
 ) {
   LaunchedEffect(service) {
     if (!service.isStarted()) {
@@ -50,10 +50,10 @@ fun NodeHost(
         (node as ComposableNode).Content(Modifier)
       } else {
         Log.d("way-compose", "didn't find a ComposableNode for \"$path\", rendering an empty content")
-        Box() {}
+        Box {}
       }
     } else {
-      Box() {}
+      Box {}
     }
   }
 }
@@ -84,6 +84,7 @@ val defaultTransitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> C
         slideIntoContainer(SlideDirection.Right) togetherWith slideOutOfContainer(SlideDirection.Right)
       }
     }
+
     // these defaults are taken from AnimatedContent's sources
     else -> (fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith fadeOut(animationSpec = tween(90)))
       .using(sizeTransform = null)
@@ -91,8 +92,8 @@ val defaultTransitionSpec: AnimatedContentTransitionScope<NodeWithPath?>.() -> C
 }
 
 @Composable
-fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> {
-  return produceState<NodeWithPath?>(initialValue = null, service) {
+fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> =
+  produceState<NodeWithPath?>(initialValue = null, service) {
     val listener = { s: NavigationState ->
       // TODO figure out how to render multiple regions
       value = s.regions.values.first().let { NodeWithPath(it.active, it.activeNode) }
@@ -102,10 +103,6 @@ fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> {
       service.removeTransitionListener(listener)
     }
   }
-}
 
 @Immutable
-data class NodeWithPath(
-  val path: Path,
-  val node: Node,
-)
+data class NodeWithPath(val path: Path, val node: Node)

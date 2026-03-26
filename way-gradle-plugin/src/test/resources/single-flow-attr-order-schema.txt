@@ -1,26 +1,34 @@
 package ru.kode.test.app.schema
 
+import kotlin.Any
 import kotlin.collections.List
-import kotlin.collections.Set
+import kotlin.collections.Map
+import ru.kode.way.Event
 import ru.kode.way.Path
 import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.Segment
 
 public class TestAppSchema : Schema {
-  override val regions: List<RegionId> = listOf(RegionId(Path("app")))
+  override val rootSegment: Segment = Segment("app@src/test/resources/single-flow-attr-order.dot")
 
-  override fun children(regionId: RegionId): Set<Segment> = emptySet()
+  override val childSchemas: Map<Segment, Schema> = emptyMap()
 
-  override fun children(regionId: RegionId, segment: Segment): Set<Segment> = emptySet()
+  override val regions: List<RegionId> =
+      listOf(RegionId(Path(listOf(Segment("app@src/test/resources/single-flow-attr-order.dot")))))
 
-  override fun target(regionId: RegionId, segment: Segment): Path? = when (regionId) {
+  override fun target(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): Path? = when (regionId) {
     regions[0] -> {
-      when(segment.name) {
-        "app" -> Path("app")
-        "screen1" -> Path("app", "screen1")
-        "screen2" -> Path("app", "screen1", "screen2")
-        "screen3" -> Path("app", "screen1", "screen2", "screen3")
+      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/single-flow-attr-order.dot")
+      when(segment.id) {
+        rootSegment.id -> Path(rootSegment)
+        "screen1@src/test/resources/single-flow-attr-order.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot")))
+        "screen2@src/test/resources/single-flow-attr-order.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot"), Segment("screen2@src/test/resources/single-flow-attr-order.dot")))
+        "screen3@src/test/resources/single-flow-attr-order.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot"), Segment("screen2@src/test/resources/single-flow-attr-order.dot"), Segment("screen3@src/test/resources/single-flow-attr-order.dot")))
         else -> null
       }
     }
@@ -29,15 +37,37 @@ public class TestAppSchema : Schema {
     }
   }
 
-  override fun nodeType(regionId: RegionId, path: Path): Schema.NodeType = when (regionId) {
+  override fun nodeType(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Schema.NodeType = when (regionId) {
     regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/single-flow-attr-order.dot")
       when {
-        path == Path("app") -> Schema.NodeType.Flow
-        path == Path("app", "screen1") -> Schema.NodeType.Screen
-        path == Path("app", "screen1", "screen2") -> Schema.NodeType.Screen
-        path == Path("app", "screen1", "screen2", "screen3") -> Schema.NodeType.Screen
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot"), Segment("screen2@src/test/resources/single-flow-attr-order.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-attr-order.dot"), Segment("screen2@src/test/resources/single-flow-attr-order.dot"), Segment("screen3@src/test/resources/single-flow-attr-order.dot"))) -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun createChildFlowFinishRequestEvent(
+    regionId: RegionId,
+    path: Path,
+    result: Any,
+  ): Event = when (regionId) {
+    regions[0] -> {
+      when(path) {
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
         }
       }
     }

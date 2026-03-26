@@ -5,30 +5,28 @@ internal fun resolveTransition(
   nodeBuilder: NodeBuilder,
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
-): ResolvedTransition {
-  return regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
-    val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
-    val transition = if (event is RootFinishRequestEvent) {
-      region.rootTransitionBuilder(event.result)
-    } else {
-      buildTransition(event, node, region.active, extensionPoints)
-    }
-    val resolved = resolveTransitionInRegion(
-      regionId = regionId,
-      transition,
-      path = region.active,
-      activePath = region.active,
-      nodes = region.nodes,
-      nodeBuilder = nodeBuilder,
-      event = event,
-      extensionPoints = extensionPoints,
-    )
-    ResolvedTransition(
-      targetPaths = acc.targetPaths + resolved.targetPaths,
-      payloads = acc.payloads + resolved.payloads,
-      enqueuedEvents = (acc.enqueuedEvents.orEmpty() + resolved.enqueuedEvents.orEmpty()).takeIf { it.isNotEmpty() },
-    )
+): ResolvedTransition = regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
+  val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
+  val transition = if (event is RootFinishRequestEvent) {
+    region.rootTransitionBuilder(event.result)
+  } else {
+    buildTransition(event, node, region.active, extensionPoints)
   }
+  val resolved = resolveTransitionInRegion(
+    regionId = regionId,
+    transition,
+    path = region.active,
+    activePath = region.active,
+    nodes = region.nodes,
+    nodeBuilder = nodeBuilder,
+    event = event,
+    extensionPoints = extensionPoints,
+  )
+  ResolvedTransition(
+    targetPaths = acc.targetPaths + resolved.targetPaths,
+    payloads = acc.payloads + resolved.payloads,
+    enqueuedEvents = (acc.enqueuedEvents.orEmpty() + resolved.enqueuedEvents.orEmpty()).takeIf { it.isNotEmpty() },
+  )
 }
 
 /**
@@ -44,98 +42,112 @@ private fun resolveTransitionInRegion(
   nodeBuilder: NodeBuilder,
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
-): ResolvedTransition {
-  return when (transition) {
-    is EnqueueEvent -> ResolvedTransition(
-      targetPaths = mapOf(regionId to activePath),
-      payloads = emptyMap(),
-      enqueuedEvents = listOf(transition.event),
-    )
-    is NavigateTo -> {
-      val schema = nodeBuilder.schema
-      val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
-      val payloads = mutableMapOf<Path, Any>()
-      transition.targets.forEach { target ->
-        when (target) {
-          is AbsoluteTarget -> {
-            System.err.println("putting payloads: ${target.payloads}")
-            payloads.putAll(target.payloads)
-            targetPaths[regionId] = target.path
-          }
-          is FlowTarget,
-          is ScreenTarget -> {
-            val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
-            target.payload?.also { payloads[targetPathAbs] = it }
-            targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
-          }
+): ResolvedTransition = when (transition) {
+  is EnqueueEvent -> ResolvedTransition(
+    targetPaths = mapOf(regionId to activePath),
+    payloads = emptyMap(),
+    enqueuedEvents = listOf(transition.event),
+  )
+
+  is NavigateTo -> {
+    val schema = nodeBuilder.schema
+    val targetPaths = HashMap<RegionId, Path>(transition.targets.size)
+    val payloads = mutableMapOf<Path, Any>()
+    transition.targets.forEach { target ->
+      when (target) {
+        is AbsoluteTarget -> {
+          System.err.println("putting payloads: ${target.payloads}")
+          payloads.putAll(target.payloads)
+          targetPaths[regionId] = target.path
+        }
+
+        is FlowTarget,
+        is ScreenTarget,
+        -> {
+          val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
+          target.payload?.also { payloads[targetPathAbs] = it }
+          targetPaths.putAll(maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads))
         }
       }
-      ResolvedTransition(
-        targetPaths = targetPaths,
-        payloads = payloads,
-        enqueuedEvents = null,
+    }
+    ResolvedTransition(
+      targetPaths = targetPaths,
+      payloads = payloads,
+      enqueuedEvents = null,
+    )
+  }
+
+  is Finish<*> -> {
+    val schema = nodeBuilder.schema
+    val finishingFlowPath = findParentFlowPathInclusive(schema, path)
+    val finishEvent = if (finishingFlowPath.isRootInRegion(regionId)) {
+      RootFinishRequestEvent(transition.result)
+    } else {
+      val parentFlowSchemaWithPath = findParentSchema(schema, finishingFlowPath, inclusive = false)
+      val relativePathSegments = finishingFlowPath.segments
+        .drop(parentFlowSchemaWithPath.path.length - 1)
+        .toMutableList()
+      relativePathSegments[0] = parentFlowSchemaWithPath.schema.rootSegment
+      val relativePath = Path(relativePathSegments)
+      parentFlowSchemaWithPath.schema.createChildFlowFinishRequestEvent(
+        findRegionIdUnsafe(parentFlowSchemaWithPath.schema.regions, path),
+        relativePath,
+        transition.result,
       )
     }
-    is Finish<*> -> {
-      val schema = nodeBuilder.schema
-      val finishingFlowPath = findParentFlowPathInclusive(schema, path)
-      val finishEvent = if (finishingFlowPath.isRootInRegion(regionId)) {
-        RootFinishRequestEvent(transition.result)
+    ResolvedTransition(
+      targetPaths = mapOf(regionId to activePath),
+      payloads = emptyMap(),
+      enqueuedEvents = listOf(finishEvent),
+    )
+  }
+
+  is Stay -> {
+    ResolvedTransition(
+      targetPaths = mapOf(regionId to activePath),
+      payloads = emptyMap(),
+      enqueuedEvents = null,
+    )
+  }
+
+  is Ignore -> {
+    if (path.isRootInRegion(regionId)) {
+      val resolved = maybeResolveBackEvent(
+        regionId,
+        activePath,
+        nodes,
+        nodeBuilder,
+        event,
+        extensionPoints,
+      )
+      if (resolved == null) {
+        println("no transition for event \"${event}\", ignoring")
+        ResolvedTransition(
+          targetPaths = mapOf(regionId to activePath),
+          payloads = emptyMap(),
+          enqueuedEvents = null,
+        )
       } else {
-        val parentFlowSchemaWithPath = findParentSchema(schema, finishingFlowPath, inclusive = false)
-        val relativePathSegments = finishingFlowPath.segments
-          .drop(parentFlowSchemaWithPath.path.length - 1)
-          .toMutableList()
-        relativePathSegments[0] = parentFlowSchemaWithPath.schema.rootSegment
-        val relativePath = Path(relativePathSegments)
-        parentFlowSchemaWithPath.schema.createChildFlowFinishRequestEvent(
-          findRegionIdUnsafe(parentFlowSchemaWithPath.schema.regions, path),
-          relativePath, transition.result
-        )
+        resolved
       }
-      ResolvedTransition(
-        targetPaths = mapOf(regionId to activePath),
-        payloads = emptyMap(),
-        enqueuedEvents = listOf(finishEvent),
+    } else {
+      val parentPath = path.dropLast(1)
+      val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
+      resolveTransitionInRegion(
+        regionId,
+        buildTransition(event, node, parentPath, extensionPoints),
+        parentPath,
+        activePath,
+        nodes,
+        nodeBuilder,
+        event,
+        extensionPoints,
       )
-    }
-    is Stay -> {
-      ResolvedTransition(
-        targetPaths = mapOf(regionId to activePath),
-        payloads = emptyMap(),
-        enqueuedEvents = null,
-      )
-    }
-    is Ignore -> {
-      if (path.isRootInRegion(regionId)) {
-        val resolved = maybeResolveBackEvent(
-          regionId, activePath, nodes, nodeBuilder, event, extensionPoints
-        )
-        if (resolved == null) {
-          println("no transition for event \"${event}\", ignoring")
-          ResolvedTransition(
-            targetPaths = mapOf(regionId to activePath),
-            payloads = emptyMap(),
-            enqueuedEvents = null,
-          )
-        } else resolved
-      } else {
-        val parentPath = path.dropLast(1)
-        val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
-        resolveTransitionInRegion(
-          regionId, buildTransition(event, node, parentPath, extensionPoints),
-          parentPath, activePath, nodes, nodeBuilder, event, extensionPoints
-        )
-      }
     }
   }
 }
 
-private fun resolveAbsoluteTargetPath(
-  schema: Schema,
-  activePath: Path,
-  targetPath: Path
-): Path {
+private fun resolveAbsoluteTargetPath(schema: Schema, activePath: Path, targetPath: Path): Path {
   val (activeSchema, activeSchemaPath) = findParentSchema(schema, activePath, inclusive = true)
   val regionId = activeSchema.regions.first() // TODO @Parallel select correct region if there are multiple!
   val relativeResolvedPath = activeSchema.target(regionId, targetPath.lastSegment())
@@ -143,10 +155,7 @@ private fun resolveAbsoluteTargetPath(
   return activeSchemaPath.append(relativeResolvedPath.drop(1))
 }
 
-data class SchemaWithPath(
-  val schema: Schema,
-  val path: Path
-)
+data class SchemaWithPath(val schema: Schema, val path: Path)
 
 /**
  * Searches for a schema which contains the specified [path], search starts from the [root].
@@ -162,7 +171,7 @@ private fun findParentSchema(
   root: Schema,
   path: Path,
   inclusive: Boolean,
-  enableDebugLog: Boolean = false
+  enableDebugLog: Boolean = false,
 ): SchemaWithPath {
   check(root.rootSegment == path.firstSegment()) {
     "path first segment must match schema rootSegment, " +
@@ -206,7 +215,7 @@ private fun findParentSchema(
   }
   return SchemaWithPath(
     schema = activeSchema,
-    path = activeSchemaPath
+    path = activeSchemaPath,
   )
 }
 
@@ -228,9 +237,11 @@ private fun maybeResolveBackEvent(
         ?: error("no flow node at path $newPath")
       Finish(result)
     }
+
     Schema.NodeType.Screen -> {
       NavigateTo(ScreenTarget(newPath))
     }
+
     // TODO @Parallel add back-event resolve
     Schema.NodeType.Parallel -> {
       TODO()
@@ -254,34 +265,36 @@ private fun buildTransition(
   node: Node,
   path: Path,
   extensionPoints: List<NodeExtensionPoint>,
-): Transition {
-  return if (event is InitEvent) {
-    when (node) {
-      is FlowNode<*> -> {
-        NavigateTo(node.initial)
-      }
-      is ParallelNode -> {
-        error("root parallel nodes are not supported, please use a \"flow\" node")
-      }
-      is ScreenNode -> {
-        error("initial event is expected to be received on flow node only")
-      }
+): Transition = if (event is InitEvent) {
+  when (node) {
+    is FlowNode<*> -> {
+      NavigateTo(node.initial)
     }
-  } else {
-    extensionPoints.forEach { it.onPreTransition(node, path, event) }
-    when (node) {
-      is FlowNode<*> -> {
-        node.transition(event)
-      }
-      is ParallelNode -> {
-        node.transition(event)
-      }
-      is ScreenNode -> {
-        node.transition(event)
-      }
-    }.also { transition ->
-      extensionPoints.forEach { it.onPostTransition(node, path, event, transition) }
+
+    is ParallelNode -> {
+      error("root parallel nodes are not supported, please use a \"flow\" node")
     }
+
+    is ScreenNode -> {
+      error("initial event is expected to be received on flow node only")
+    }
+  }
+} else {
+  extensionPoints.forEach { it.onPreTransition(node, path, event) }
+  when (node) {
+    is FlowNode<*> -> {
+      node.transition(event)
+    }
+
+    is ParallelNode -> {
+      node.transition(event)
+    }
+
+    is ScreenNode -> {
+      node.transition(event)
+    }
+  }.also { transition ->
+    extensionPoints.forEach { it.onPostTransition(node, path, event, transition) }
   }
 }
 
@@ -292,17 +305,17 @@ private fun maybeResolveInitial(
   nodes: Map<Path, Node>,
   schema: Schema,
   payloads: MutableMap<Path, Any>,
-): Map<RegionId, Path> {
-  return when (target) {
-    is ScreenTarget -> {
-      mapOf(findRegionIdUnsafe(schema.regions, targetPathAbs) to targetPathAbs)
-    }
-    is FlowTarget -> {
-      maybeResolveInitial(targetPathAbs, nodeBuilder, nodes, schema, payloads)
-    }
-    is AbsoluteTarget -> {
-      error("initial absolute targets are not supported yet")
-    }
+): Map<RegionId, Path> = when (target) {
+  is ScreenTarget -> {
+    mapOf(findRegionIdUnsafe(schema.regions, targetPathAbs) to targetPathAbs)
+  }
+
+  is FlowTarget -> {
+    maybeResolveInitial(targetPathAbs, nodeBuilder, nodes, schema, payloads)
+  }
+
+  is AbsoluteTarget -> {
+    error("initial absolute targets are not supported yet")
   }
 }
 
@@ -323,6 +336,7 @@ private fun maybeResolveInitial(
       // TODO rework to be iterative, would be clearer in presence of mutable payloads parameter...
       maybeResolveInitial(targetNode.initial, nextTargetPathAbs, nodeBuilder, nodes, schema, payloads)
     }
+
     is ParallelNode -> {
       TODO()
 //      val resolved = mutableMapOf<RegionId, Path>()
@@ -331,6 +345,7 @@ private fun maybeResolveInitial(
 //        resolved.putAll(maybeResolveInitial(regionRootNodePathAbs, nodeBuilder, nodes, schema, payloads))
 //      }
     }
+
     is ScreenNode -> {
       error("expected FlowNode or ParallelNode at $targetPathAbs, but builder returned ${targetNode::class.simpleName}")
     }
@@ -348,36 +363,31 @@ private fun findRegionIdUnsafe(regions: Collection<RegionId>, path: Path): Regio
 /**
  * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
  */
-private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Path {
-  return if (nodes[path] is FlowNode<*>) {
-    path
-  } else {
-    path.dropLast(1)
-  }
+private fun findParentFlowPathInclusive(path: Path, nodes: Map<Path, Node>): Path = if (nodes[path] is FlowNode<*>) {
+  path
+} else {
+  path.dropLast(1)
 }
 
 /**
  * Returns a parent flow path of a [path]. If node at [path] is already a [FlowNode], returns the [path] unmodified
  */
-private fun findParentFlowPathInclusive(schema: Schema, path: Path): Path {
-  return if (findNodeType(schema, path) == Schema.NodeType.Flow) {
+private fun findParentFlowPathInclusive(schema: Schema, path: Path): Path =
+  if (findNodeType(schema, path) == Schema.NodeType.Flow) {
     path
   } else {
     path.toStepsReversed().first {
       findNodeType(schema, it) != Schema.NodeType.Screen
     }
   }
-}
 
 /**
  * Returns a parent flow path of a [path]. If [path] is has only one segment, returns null.
  */
-private fun findParentFlowPath(schema: Schema, path: Path): Path? {
-  return if (path.segments.size == 1) {
-    null
-  } else {
-    findParentFlowPathInclusive(schema, path.dropLast(1))
-  }
+private fun findParentFlowPath(schema: Schema, path: Path): Path? = if (path.segments.size == 1) {
+  null
+} else {
+  findParentFlowPathInclusive(schema, path.dropLast(1))
 }
 
 internal fun findNodeType(rootSchema: Schema, path: Path): Schema.NodeType {
@@ -388,9 +398,7 @@ internal fun findNodeType(rootSchema: Schema, path: Path): Schema.NodeType {
   return activeSchema.nodeType(regionId, relativePath, rootSegmentAlias = relativePath.firstSegment())
 }
 
-private fun Path.isRootInRegion(regionId: RegionId): Boolean {
-  return this == regionId.path
-}
+private fun Path.isRootInRegion(regionId: RegionId): Boolean = this == regionId.path
 
 internal data class ResolvedTransition(
   val targetPaths: Map<RegionId, Path>,
@@ -402,8 +410,5 @@ internal data class ResolvedTransition(
     val EMPTY = ResolvedTransition(emptyMap(), emptyMap(), null)
   }
 
-  data class FinishRequestEventBuilder(
-    val flowPath: Path,
-    val build: (result: Any) -> Event
-  )
+  data class FinishRequestEventBuilder(val flowPath: Path, val build: (result: Any) -> Event)
 }

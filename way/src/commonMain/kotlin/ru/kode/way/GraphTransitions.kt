@@ -1,9 +1,6 @@
 package ru.kode.way
 
-internal fun calculateAliveNodes(
-  state: NavigationState,
-  targets: Map<RegionId, Path>
-): NavigationState {
+internal fun calculateAliveNodes(state: NavigationState, targets: Map<RegionId, Path>): NavigationState {
   targets.entries.forEach { (regionId, path) ->
     val region = state._regions[regionId] ?: error("no region with id=\"$regionId\"")
     val steps = path.toSteps()

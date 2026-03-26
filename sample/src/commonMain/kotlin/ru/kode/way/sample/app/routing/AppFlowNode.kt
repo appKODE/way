@@ -16,19 +16,19 @@ class AppFlowNode : FlowNode<AppFlowResult> {
 
   override val initial = Target.app.permissions
 
-  override fun transition(event: Event): FlowTransition<AppFlowResult> {
-    return when (event) {
-      is AppChildFinishRequest.Permissions -> {
-        when (event.result) {
-          FlowResult.Done -> NavigateTo(Target.app.main)
-          FlowResult.Dismissed -> Finish(AppFlowResult.Dismissed)
-        }
+  override fun transition(event: Event): FlowTransition<AppFlowResult> = when (event) {
+    is AppChildFinishRequest.Permissions -> {
+      when (event.result) {
+        FlowResult.Done -> NavigateTo(Target.app.main)
+        FlowResult.Dismissed -> Finish(AppFlowResult.Dismissed)
       }
-      is AppChildFinishRequest.Main -> {
-        Finish(AppFlowResult.Dismissed)
-      }
-      else -> Ignore
     }
+
+    is AppChildFinishRequest.Main -> {
+      Finish(AppFlowResult.Dismissed)
+    }
+
+    else -> Ignore
   }
 
   override fun onEntry(event: Event) = Unit

@@ -15,20 +15,21 @@ class AppFlowNode @Inject constructor() : FlowNode<Unit> {
 
   override val dismissResult: Unit = Unit
 
-  override fun transition(event: Event): FlowTransition<Unit> {
-    return when (event) {
-      is AppChildFinishRequest.Login -> {
-        when (event.result) {
-          LoginFlowResult.Success -> {
-            NavigateTo(Target.app.main)
-          }
-          LoginFlowResult.Dismissed -> {
-            Finish(Unit)
-          }
+  override fun transition(event: Event): FlowTransition<Unit> = when (event) {
+    is AppChildFinishRequest.Login -> {
+      when (event.result) {
+        LoginFlowResult.Success -> {
+          NavigateTo(Target.app.main)
+        }
+
+        LoginFlowResult.Dismissed -> {
+          Finish(Unit)
         }
       }
-      is AppChildFinishRequest.Main -> Finish(Unit)
-      else -> Ignore
     }
+
+    is AppChildFinishRequest.Main -> Finish(Unit)
+
+    else -> Ignore
   }
 }

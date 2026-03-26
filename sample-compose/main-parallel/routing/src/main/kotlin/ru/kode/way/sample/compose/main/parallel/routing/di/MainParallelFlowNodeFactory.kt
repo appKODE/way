@@ -10,14 +10,10 @@ import javax.inject.Provider
 
 class MainParallelFlowNodeFactory @Inject constructor(
   private val flowNode: Provider<MainParallelFlowNode>,
-  private val component: MainParallelFlowComponent
+  private val component: MainParallelFlowComponent,
 ) : MainParallelNodeBuilder.Factory {
   override fun createRootNode(): MainParallelFlowNode = flowNode.get()
-  override fun createSheetNodeBuilder(): NodeBuilder {
-    return CategoriesFlow.nodeBuilder()
-  }
+  override fun createSheetNodeBuilder(): NodeBuilder = CategoriesFlow.nodeBuilder()
 
-  override fun createHeadNodeBuilder(): NodeBuilder {
-    return HeadFlow.nodeBuilder(component)
-  }
+  override fun createHeadNodeBuilder(): NodeBuilder = HeadFlow.nodeBuilder(component)
 }

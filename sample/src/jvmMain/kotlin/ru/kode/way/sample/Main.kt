@@ -11,7 +11,7 @@ fun main() {
     component.nodeBuilder(),
     onFinishRequest = {
       Stay
-    }
+    },
   )
   service.addTransitionListener {
     println("State changed to $it")

@@ -34,13 +34,12 @@ object AppFlowModule {
 
   @Provides
   @AppFlowScope
-  fun provideNodeFactory(component: AppFlowComponent, appFlowNode: Provider<AppFlowNode>): AppNodeBuilder.Factory {
-    return object : AppNodeBuilder.Factory {
+  fun provideNodeFactory(component: AppFlowComponent, appFlowNode: Provider<AppFlowNode>): AppNodeBuilder.Factory =
+    object : AppNodeBuilder.Factory {
       override fun createRootNode(): FlowNode<*> = appFlowNode.get()
       override fun createMainNodeBuilder(): NodeBuilder = MainFlow.nodeBuilder(component.mainFlowComponent())
       override fun createLoginNodeBuilder(): NodeBuilder = LoginFlow.nodeBuilder(component.loginFlowComponent())
       override fun createMainParallelNodeBuilder(): NodeBuilder =
         MainParallelFlow.nodeBuilder(component.mainParallelFlowComponent())
     }
-  }
 }

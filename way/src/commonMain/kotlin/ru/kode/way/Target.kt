@@ -8,10 +8,7 @@ sealed interface Target {
 }
 
 data class ScreenTarget(override val path: Path, override val payload: Any? = null) : Target
-data class FlowTarget(
-  override val path: Path,
-  override val payload: Any? = null,
-) : Target
+data class FlowTarget(override val path: Path, override val payload: Any? = null) : Target
 
 data class AbsoluteTarget(
   /**
@@ -28,7 +25,7 @@ data class AbsoluteTarget(
    * app.login.profile.permissions → 42
    * ```
    */
-  val payloads: Map<Path, Any>
+  val payloads: Map<Path, Any>,
 ) : Target {
   override val payload: Any? = null
 }

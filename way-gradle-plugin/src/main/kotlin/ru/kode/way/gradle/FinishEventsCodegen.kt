@@ -8,10 +8,7 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.UNIT
 
-internal fun buildChildFinishEventFileSpecs(
-  parseResult: SchemaParseResult,
-  config: CodeGenConfig
-): FileSpec? {
+internal fun buildChildFinishEventFileSpecs(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec? {
   val packageName = parseResult.customPackage ?: config.outputPackageName
   val rootNode = parseResult.adjacencyList.findRootNode()
 
@@ -29,6 +26,7 @@ internal fun buildChildFinishEventFileSpecs(
       is Node.Flow -> {
         childFlowNodes.add(node)
       }
+
       is Node.Screen -> Unit
     }
   }
@@ -41,7 +39,7 @@ internal fun buildChildFinishEventFileSpecs(
   return FileSpec
     .builder(
       packageName,
-      className.simpleName
+      className.simpleName,
     )
     .addType(
       TypeSpec.interfaceBuilder(className)
@@ -58,33 +56,30 @@ internal fun buildChildFinishEventFileSpecs(
                   .primaryConstructor(
                     FunSpec.constructorBuilder()
                       .addParameter("result", resultClassName)
-                      .build()
+                      .build(),
                   )
                   .addProperty(
                     PropertySpec.builder("result", resultClassName)
                       .initializer("result")
-                      .build()
+                      .build(),
                   )
-                  .build()
+                  .build(),
               )
             } else {
               addType(
                 TypeSpec.objectBuilder(node.id.toPascalCase())
                   .addModifiers(KModifier.DATA)
                   .addSuperinterface(className)
-                  .build()
+                  .build(),
               )
             }
           }
         }
-        .build()
+        .build(),
     )
     .build()
 }
 
 internal fun childFinishRequestInterfaceName(nodeId: String) = nodeId.toPascalCase() + "ChildFinishRequest"
-internal fun childFinishRequestEventClassName(
-  packageName: String,
-  flowNodeId: String,
-  childFlowNodeId: String
-) = ClassName(packageName, childFinishRequestInterfaceName(flowNodeId) + '.' + childFlowNodeId.toPascalCase())
+internal fun childFinishRequestEventClassName(packageName: String, flowNodeId: String, childFlowNodeId: String) =
+  ClassName(packageName, childFinishRequestInterfaceName(flowNodeId) + '.' + childFlowNodeId.toPascalCase())

@@ -7,7 +7,7 @@ class NavigationService<R : Any>(
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
     _nodeExtensionPoints = mutableListOf(),
-    _enqueuedEvents = ArrayDeque(initialCapacity = 3)
+    _enqueuedEvents = ArrayDeque(initialCapacity = 3),
   )
   private val listeners = ArrayList<(NavigationState) -> Unit>()
   private val serviceExtensionPoints = mutableListOf<ServiceExtensionPoint<R>>()
@@ -17,9 +17,7 @@ class NavigationService<R : Any>(
     sendEvent(InitEvent(rootFlowPayload))
   }
 
-  fun isStarted(): Boolean {
-    return state.isInitialized()
-  }
+  fun isStarted(): Boolean = state.isInitialized()
 
   fun addTransitionListener(listener: (NavigationState) -> Unit) {
     listeners.add(listener)
@@ -61,7 +59,7 @@ class NavigationService<R : Any>(
         val regionRoot = nodeBuilder.build(
           regionRootPath,
           payloads = event.payload?.let { mapOf(regionRootPath to it) } ?: emptyMap(),
-          rootSegmentAlias = null
+          rootSegmentAlias = null,
         )
         require(regionRoot is FlowNode<*>) {
           "expected FlowNode at $regionId, but builder returned ${regionRoot::class.simpleName}"
@@ -71,7 +69,7 @@ class NavigationService<R : Any>(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
           _active = regionRootPath,
           _alive = mutableListOf(regionRootPath),
-          _rootFinishTransitionBuilder = onFinishRequest as (Any) -> Transition
+          _rootFinishTransitionBuilder = onFinishRequest as (Any) -> Transition,
         )
       }
     }
@@ -96,11 +94,13 @@ class NavigationService<R : Any>(
               "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
             }
           }
+
           is ParallelNode -> {
             check(nodeType == Schema.NodeType.Parallel) {
               "according to schema, \"$path\" should be a $nodeType, but it is a ${FlowNode::class.simpleName}"
             }
           }
+
           is ScreenNode -> {
             check(nodeType == Schema.NodeType.Screen) {
               "according to schema, \"$path\" should be a $nodeType, but it is a ${ScreenNode::class.simpleName}"
@@ -115,7 +115,7 @@ class NavigationService<R : Any>(
     state: NavigationState,
     event: Event,
     payloads: Map<Path, Any>,
-    previousAlive: Map<RegionId, List<Path>>
+    previousAlive: Map<RegionId, List<Path>>,
   ) {
     state._regions.forEach { (regionId, region) ->
       previousAlive[regionId].orEmpty().reversed().forEach { path ->
@@ -167,18 +167,16 @@ class NavigationService<R : Any>(
   }
 }
 
-private fun NavigationState.runValidityChecks(): List<String> {
-  return regions.mapNotNull { (regionId, region) ->
-    if (region.alive.toSet() != region.nodes.keys) {
-      "region \"$regionId\": alive node path set is different from nodes set. Alive paths: " +
-        "${region.alive}, alive nodes: ${region.nodes.keys}"
-    } else null
+private fun NavigationState.runValidityChecks(): List<String> = regions.mapNotNull { (regionId, region) ->
+  if (region.alive.toSet() != region.nodes.keys) {
+    "region \"$regionId\": alive node path set is different from nodes set. Alive paths: " +
+      "${region.alive}, alive nodes: ${region.nodes.keys}"
+  } else {
+    null
   }
 }
 
-private fun NavigationState.isInitialized(): Boolean {
-  return this.regions.isNotEmpty()
-}
+private fun NavigationState.isInitialized(): Boolean = this.regions.isNotEmpty()
 
 // TODO be more sensible, actually calculate!
 private fun Schema.regionCount() = 1

@@ -21,17 +21,13 @@ object PermissionsFlowModule {
     flowNode: Provider<PermissionsFlowNode>,
     introNode: Provider<IntroNode>,
     requestNode: Provider<RequestNode>,
-  ): PermissionsNodeBuilder.Factory {
-    return object : PermissionsNodeBuilder.Factory {
-      override fun createRootNode() = flowNode.get()
-      override fun createIntroNode() = introNode.get()
-      override fun createRequestNode() = requestNode.get()
-    }
+  ): PermissionsNodeBuilder.Factory = object : PermissionsNodeBuilder.Factory {
+    override fun createRootNode() = flowNode.get()
+    override fun createIntroNode() = introNode.get()
+    override fun createRequestNode() = requestNode.get()
   }
 
   @Provides
   @PermissionsScope
-  fun providePermissionsService(): PermissionsService {
-    return PermissionsService()
-  }
+  fun providePermissionsService(): PermissionsService = PermissionsService()
 }

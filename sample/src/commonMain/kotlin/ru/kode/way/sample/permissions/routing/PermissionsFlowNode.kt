@@ -18,12 +18,10 @@ sealed interface PermissionsEvent : Event {
 class PermissionsFlowNode : FlowNode<FlowResult> {
   override val initial = Target.permissions.intro
 
-  override fun transition(event: Event): FlowTransition<FlowResult> {
-    return event.whenFlowEvent { e: PermissionsEvent ->
-      when (e) {
-        PermissionsEvent.IntroDone -> NavigateTo(Target.permissions.request)
-        PermissionsEvent.AllGranted -> Finish(FlowResult.Dismissed)
-      }
+  override fun transition(event: Event): FlowTransition<FlowResult> = event.whenFlowEvent { e: PermissionsEvent ->
+    when (e) {
+      PermissionsEvent.IntroDone -> NavigateTo(Target.permissions.request)
+      PermissionsEvent.AllGranted -> Finish(FlowResult.Dismissed)
     }
   }
 

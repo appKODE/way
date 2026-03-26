@@ -12,13 +12,13 @@ import ru.kode.way.ScreenTransition
  *
  * Requires [NodeHooksSupportExtensionPoint] to be added to [NavigationService] to work.
  */
-abstract class BaseScreenNode : ScreenNode, HasScreenNodeHooks {
+abstract class BaseScreenNode :
+  ScreenNode,
+  HasScreenNodeHooks {
   private val _hooks = mutableListOf<ScreenNodeHook>()
   override val hooks: List<ScreenNodeHook> = _hooks
 
-  override fun transition(event: Event): ScreenTransition {
-    return Ignore
-  }
+  override fun transition(event: Event): ScreenTransition = Ignore
 
   override fun addHook(hook: ScreenNodeHook) {
     _hooks.add(hook)

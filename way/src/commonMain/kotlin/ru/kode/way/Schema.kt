@@ -25,13 +25,11 @@ interface Schema {
    */
   fun nodeType(regionId: RegionId, path: Path, rootSegmentAlias: Segment? = null): NodeType
 
-  fun createChildFlowFinishRequestEvent(
-    regionId: RegionId,
-    path: Path,
-    result: Any
-  ): Event
+  fun createChildFlowFinishRequestEvent(regionId: RegionId, path: Path, result: Any): Event
 
   enum class NodeType {
-    Flow, Parallel, Screen
+    Flow,
+    Parallel,
+    Screen,
   }
 }

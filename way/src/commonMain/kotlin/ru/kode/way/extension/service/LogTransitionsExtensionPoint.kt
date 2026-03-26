@@ -9,7 +9,7 @@ import ru.kode.way.ServiceExtensionPoint
 class LogTransitionsExtensionPoint<R : Any>(
   private val logAliveNodes: Boolean = false,
   private val logTargetResolveStartEvents: Boolean = true,
-  private val logger: (msg: () -> String) -> Unit = { msg -> println(msg()) }
+  private val logger: (msg: () -> String) -> Unit = { msg -> println(msg()) },
 ) : ServiceExtensionPoint<R> {
   private var preTransitionActivePath: Path? = null
 

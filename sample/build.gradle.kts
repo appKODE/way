@@ -1,18 +1,23 @@
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinMultiplatform.get().pluginId)
+  alias(libs.plugins.ksp)
   alias(libs.plugins.way)
-  id("application")
 }
 
 kotlin {
   jvmToolchain(11)
 
-  targets {
-    jvm {
-      withJava()
+  jvm {
+    mainRun {
+      mainClass.set("ru.kode.way.sample.MainKt")
     }
   }
+
   sourceSets {
     val commonMain by getting {
       dependencies {
@@ -27,8 +32,4 @@ kotlin {
     val jvmTest by getting {
     }
   }
-}
-
-application {
-  getMainClass().set("ru.kode.way.sample.MainKt")
 }

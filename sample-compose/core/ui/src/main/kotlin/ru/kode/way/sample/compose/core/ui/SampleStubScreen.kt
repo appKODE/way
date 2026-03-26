@@ -33,7 +33,7 @@ fun <E : Event> SampleStubScreen(
             kClass.primaryConstructor!!.call()
           }
           sendEvent(event)
-        }
+        },
       ) {
         Text(text = kClass.simpleName!!)
       }

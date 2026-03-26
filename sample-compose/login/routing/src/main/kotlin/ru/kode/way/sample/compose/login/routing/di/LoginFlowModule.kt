@@ -25,22 +25,15 @@ object LoginFlowModule {
     credentialsNode: Provider<CredentialsNode>,
     otpNode: Provider<OtpNode>,
     loginFlowComponent: LoginFlowComponent,
-  ): LoginNodeBuilder.Factory {
-    return object : LoginNodeBuilder.Factory {
-      override fun createRootNode() = flowNode.get()
-      override fun createPermissionsNodeBuilder(): PermissionsNodeBuilder {
-        return PermissionsFlow.nodeBuilder(loginFlowComponent.permissionsFlowComponent())
-      }
-      override fun createCredentialsNode() = credentialsNode.get()
-      override fun createOtpNode(maskInput: Boolean): ScreenNode {
-        return otpNode.get().apply { this.maskInput = maskInput }
-      }
-    }
+  ): LoginNodeBuilder.Factory = object : LoginNodeBuilder.Factory {
+    override fun createRootNode() = flowNode.get()
+    override fun createPermissionsNodeBuilder(): PermissionsNodeBuilder =
+      PermissionsFlow.nodeBuilder(loginFlowComponent.permissionsFlowComponent())
+    override fun createCredentialsNode() = credentialsNode.get()
+    override fun createOtpNode(maskInput: Boolean): ScreenNode = otpNode.get().apply { this.maskInput = maskInput }
   }
 
   @Provides
   @LoginScope
-  fun provideLoginService(): LoginService {
-    return LoginService()
-  }
+  fun provideLoginService(): LoginService = LoginService()
 }

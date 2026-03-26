@@ -11,15 +11,14 @@ import ru.kode.way.sample.compose.permissions.ui.routing.PermissionsFlowEvent
 import ru.kode.way.whenFlowEvent
 import javax.inject.Inject
 
-class PermissionsFlowNode @Inject constructor(
-  private val service: PermissionsService,
-) : FlowNode<PermissionsFlowResult> {
+class PermissionsFlowNode @Inject constructor(private val service: PermissionsService) :
+  FlowNode<PermissionsFlowResult> {
 
   override val initial = Target.permissions.intro
   override val dismissResult = PermissionsFlowResult.Dismissed
 
-  override fun transition(event: Event): FlowTransition<PermissionsFlowResult> {
-    return event.whenFlowEvent { e: PermissionsFlowEvent ->
+  override fun transition(event: Event): FlowTransition<PermissionsFlowResult> =
+    event.whenFlowEvent { e: PermissionsFlowEvent ->
       when (e) {
         PermissionsFlowEvent.AllGranted -> Finish(PermissionsFlowResult.AllGranted)
         PermissionsFlowEvent.IntroDone -> NavigateTo(Target.permissions.request)
@@ -27,7 +26,6 @@ class PermissionsFlowNode @Inject constructor(
         PermissionsFlowEvent.Denied -> Finish(PermissionsFlowResult.Denied)
       }
     }
-  }
 
   override fun onEntry(event: Event) {
     service.start()

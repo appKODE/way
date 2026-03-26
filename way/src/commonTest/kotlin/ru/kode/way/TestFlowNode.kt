@@ -13,7 +13,7 @@ class TestFlowNodeWithResult<R : Any>(
   override val dismissResult: R,
   onEntryImpl: () -> Unit = {},
   onExitImpl: () -> Unit = {},
-  transitions: List<TestFlowTransitionSpec> = emptyList()
+  transitions: List<TestFlowTransitionSpec> = emptyList(),
 ) : GenericTestFlowNode<R>(initialTarget, dismissResult, onEntryImpl, onExitImpl, transitions)
 
 open class GenericTestFlowNode<R : Any>(
@@ -26,10 +26,10 @@ open class GenericTestFlowNode<R : Any>(
 
   override val initial: Target = initialTarget
 
-  override fun transition(event: Event): FlowTransition<R> {
-    return if (transitions.isEmpty()) Ignore else {
-      transitions.find { it.eventMatcher(event) }?.transition as FlowTransition<R>? ?: Ignore
-    }
+  override fun transition(event: Event): FlowTransition<R> = if (transitions.isEmpty()) {
+    Ignore
+  } else {
+    transitions.find { it.eventMatcher(event) }?.transition as FlowTransition<R>? ?: Ignore
   }
 
   override fun onEntry(event: Event) {
@@ -49,10 +49,10 @@ class TestScreenNode(
   private val onEntryImpl: () -> Unit = {},
   private val onExitImpl: () -> Unit = {},
 ) : ScreenNode {
-  override fun transition(event: Event): ScreenTransition {
-    return if (transitions.isEmpty()) Ignore else {
-      transitions.find { it.eventMatcher(event) }?.transition ?: Ignore
-    }
+  override fun transition(event: Event): ScreenTransition = if (transitions.isEmpty()) {
+    Ignore
+  } else {
+    transitions.find { it.eventMatcher(event) }?.transition ?: Ignore
   }
 
   override fun onEntry(event: Event) {
@@ -75,11 +75,11 @@ class TestParallelNode(
   override val backDispatchStrategy: BackDispatchStrategy
     get() = TODO("create fake for this or use some default implementation")
 
-  override fun transition(event: Event): FlowTransition<Unit> {
-    return event.whenFlowEvent { e: TestEvent ->
-      if (transitions.isEmpty()) Ignore else {
-        transitions.find { it.eventMatcher(e) }?.transition as FlowTransition<Unit>? ?: Ignore
-      }
+  override fun transition(event: Event): FlowTransition<Unit> = event.whenFlowEvent { e: TestEvent ->
+    if (transitions.isEmpty()) {
+      Ignore
+    } else {
+      transitions.find { it.eventMatcher(e) }?.transition as FlowTransition<Unit>? ?: Ignore
     }
   }
 }

@@ -36,6 +36,23 @@ class WayPluginSourceResolutionTest :
       isWayTestSourceSet("release") shouldBe false
     }
 
+    should("collect resolved android source dirs when they are valid") {
+      val kotlinDir = File("/tmp/proj-android/feature/login/routing/custom/kotlin")
+      val javaDir = File("/tmp/proj-android/feature/login/routing/custom/java")
+
+      collectAndroidSourceDirectories(
+        kotlinSourceDirectories = listOf(kotlinDir),
+        javaSourceDirectories = listOf(javaDir),
+      ) shouldBe listOf(kotlinDir, javaDir)
+    }
+
+    should("return empty source dirs when resolved dirs are unavailable") {
+      collectAndroidSourceDirectories(
+        kotlinSourceDirectories = emptyList(),
+        javaSourceDirectories = null,
+      ) shouldBe emptyList()
+    }
+
     should("register generated dir in kotlin main source set without reflection") {
       val project = ProjectBuilder.builder().build()
       project.pluginManager.apply("org.jetbrains.kotlin.jvm")

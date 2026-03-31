@@ -6,6 +6,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.util.GradleVersion
+import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinBasePlugin
@@ -83,12 +84,14 @@ class WayPlugin : Plugin<Project> {
 
   private fun configureTask(task: GenerateClassesTask, sources: List<Source>) {
     task.group = "way"
+    task.include("**/*.dot")
     sources.forEach { source ->
-      val waySourceDirs = source.sourceDirectories.map { sourceDirectory ->
-        sourceDirectory.resolveWaySourceDir(source.name)
+      val waySourceDirs = source.sourceDirectories.map { sourceDirectories ->
+        sourceDirectories.map { sourceDirectory ->
+          sourceDirectory.resolveWaySourceDir(source.name)
+        }
       }
       task.source(waySourceDirs)
-      task.include("**/*.dot")
     }
   }
 
@@ -100,7 +103,7 @@ class WayPlugin : Plugin<Project> {
         return listOf(
           Source(
             name = "commonMain",
-            sourceDirectories = commonMain.kotlin.srcDirs.toList(),
+            sourceDirectories = providers.provider { commonMain.kotlin.srcDirs.toList() },
             registerGeneratedDir = { taskProvider ->
               commonMain.kotlin.srcDir(taskProvider)
             },
@@ -112,10 +115,13 @@ class WayPlugin : Plugin<Project> {
     // Android project
     val androidExtension = project.extensions.findByType(CommonExtension::class.java)
     if (androidExtension != null) {
-      // AGP sourceSet.kotlin.directories API changed semantics across versions.
-      // Kotlin main source set srcDirs is stable and points to src/main/kotlin|java.
-      val sourceDirectories = findAndroidSourceDirectories(androidExtension)
-      if (sourceDirectories.isNotEmpty()) {
+      // Read resolved source roots from srcDirs; directories snapshots can contain
+      // provider placeholders (e.g. provider(?)) in AGP built-in Kotlin setups.
+      val sourceDirectories = findAndroidSourceDirectories(
+        androidExtension = androidExtension,
+        kotlinExtension = project.extensions.findByType(KotlinProjectExtension::class.java),
+      )
+      if (androidExtension.sourceSets.any { sourceSet -> !isWayTestSourceSet(sourceSet.name) }) {
         val androidComponents = project.extensions.findByType(AndroidComponentsExtension::class.java)
         if (androidComponents != null) {
           return listOf(
@@ -158,7 +164,7 @@ class WayPlugin : Plugin<Project> {
         return listOf(
           Source(
             name = "main",
-            sourceDirectories = mainSourceSet.kotlin.srcDirs.toList(),
+            sourceDirectories = providers.provider { mainSourceSet.kotlin.srcDirs.toList() },
             registerGeneratedDir = { taskProvider ->
               mainSourceSet.kotlin.srcDir(taskProvider)
             },
@@ -177,7 +183,7 @@ class WayPlugin : Plugin<Project> {
         return listOf(
           Source(
             name = "commonTest",
-            sourceDirectories = commonTest.kotlin.srcDirs.toList(),
+            sourceDirectories = providers.provider { commonTest.kotlin.srcDirs.toList() },
             registerGeneratedDir = { taskProvider ->
               commonTest.kotlin.srcDir(taskProvider)
             },
@@ -188,22 +194,31 @@ class WayPlugin : Plugin<Project> {
     return emptyList()
   }
 
-  private fun Project.findAndroidSourceDirectories(androidExtension: CommonExtension): List<File> =
+  private fun Project.findAndroidSourceDirectories(
+    androidExtension: CommonExtension,
+    kotlinExtension: KotlinProjectExtension?,
+  ): Provider<List<File>> = providers.provider {
     androidExtension.sourceSets
       .asSequence()
       .filterNot { sourceSet -> isWayTestSourceSet(sourceSet.name) }
       .flatMap { sourceSet ->
-        sequenceOf(sourceSet.kotlin, sourceSet.java)
-          .flatMap { sourceDirectorySet -> sourceDirectorySet.directories.asSequence() }
+        collectAndroidSourceDirectories(
+          kotlinSourceDirectories = kotlinExtension
+            ?.sourceSets
+            ?.findByName(sourceSet.name)
+            ?.kotlin
+            ?.srcDirs,
+          javaSourceDirectories = sourceSet.java.directories.asSequence().map(::file).toList(),
+        ).asSequence()
       }
-      .map(::file)
       .distinct()
       .toList()
+  }
 }
 
 private data class Source(
   val name: String,
-  val sourceDirectories: List<File>,
+  val sourceDirectories: Provider<List<File>>,
   val registerGeneratedDir: (TaskProvider<GenerateClassesTask>) -> Unit = {},
 )
 
@@ -225,6 +240,24 @@ internal fun File.resolveWaySourceDir(sourceSetName: String): File = when (name)
 
 internal fun isWayTestSourceSet(sourceSetName: String): Boolean = sourceSetName.startsWith("test", ignoreCase = true) ||
   sourceSetName.startsWith("androidTest", ignoreCase = true)
+
+internal fun collectAndroidSourceDirectories(
+  kotlinSourceDirectories: Collection<File>?,
+  javaSourceDirectories: Collection<File>?,
+): List<File> = (
+  resolveAndroidLanguageSourceDirectories(
+    sourceDirectories = kotlinSourceDirectories,
+  ) +
+    resolveAndroidLanguageSourceDirectories(
+      sourceDirectories = javaSourceDirectories,
+    )
+  ).distinct()
+
+internal fun resolveAndroidLanguageSourceDirectories(
+  sourceDirectories: Collection<File>?,
+): List<File> = sourceDirectories
+  .orEmpty()
+  .distinct()
 
 internal fun registerGeneratedDirInKotlinMainSourceSet(
   kotlinExtension: KotlinProjectExtension?,

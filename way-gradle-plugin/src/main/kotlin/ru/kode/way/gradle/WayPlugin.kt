@@ -4,9 +4,9 @@ import com.android.build.api.dsl.CommonExtension
 import com.android.build.api.variant.AndroidComponentsExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.util.GradleVersion
-import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 import org.jetbrains.kotlin.gradle.plugin.KotlinBasePlugin
@@ -253,11 +253,10 @@ internal fun collectAndroidSourceDirectories(
     )
   ).distinct()
 
-internal fun resolveAndroidLanguageSourceDirectories(
-  sourceDirectories: Collection<File>?,
-): List<File> = sourceDirectories
-  .orEmpty()
-  .distinct()
+internal fun resolveAndroidLanguageSourceDirectories(sourceDirectories: Collection<File>?): List<File> =
+  sourceDirectories
+    .orEmpty()
+    .distinct()
 
 internal fun registerGeneratedDirInKotlinMainSourceSet(
   kotlinExtension: KotlinProjectExtension?,

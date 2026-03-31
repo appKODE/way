@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.7 - 2026-03-31
+
+* Fix Windows-incompatible Android source discovery in `way-gradle-plugin` by avoiding `SourceDirectorySet.directories` snapshot/provider placeholder paths (e.g. `provider(?)`)
+* Rework source input wiring to stay provider/lazy-based until task execution, resolving only real source directories for generation
+* Keep existing generation contract and generated output layout while restoring reliable `*Schema`/`*NodeBuilder` generation across Android modules
+
 ## 0.9.6 - 2026-03-26
 
 * Rework `way-gradle-plugin` Android source wiring to use typed Gradle/AGP APIs instead of reflection-based source set registration

@@ -1,0 +1,15 @@
+digraph Parallel05Main {
+  package = "ru.kode.way.par05.main"
+
+  par05Main [type=parallelFlow]
+  par05Alpha [type=flow]
+  par05AlphaScreen1
+  par05AlphaScreen2
+  par05Beta [type=flow]
+  par05BetaScreen
+
+  par05Main -> par05Alpha
+  par05Alpha -> par05AlphaScreen1 -> par05AlphaScreen2
+  par05Main -> par05Beta
+  par05Beta -> par05BetaScreen
+}

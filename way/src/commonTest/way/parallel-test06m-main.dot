@@ -1,0 +1,12 @@
+digraph Parallel06MixedMain {
+  package = "ru.kode.way.par06m.main"
+
+  par06mMain [type=parallelFlow]
+  par06mAlpha [type=schema]
+  par06mBeta [type=flow]
+  par06mBetaScreen
+
+  par06mMain -> par06mAlpha
+  par06mMain -> par06mBeta
+  par06mBeta -> par06mBetaScreen
+}

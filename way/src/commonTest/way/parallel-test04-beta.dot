@@ -1,0 +1,6 @@
+digraph Parallel04Beta {
+  package = "ru.kode.way.par04.beta"
+
+  par04Beta [type=flow]
+  par04Beta -> par04BetaScreen
+}

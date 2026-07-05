@@ -1,0 +1,21 @@
+digraph ParallelTestCrossRegionIntermediate {
+  package = "ru.kode.way.parcri"
+
+  // Top-level parallel root with two flow sub-regions. Region B has a sibling-of-screen import to
+  // a parallel-rooted schema that is NOT pre-mounted at Init (its initial leads to parcriBetaIntro
+  // screen). Exercises Fix #3 (TargetResolution.kt): when a screen in region A NavigateTo's into
+  // a path under the unmounted intermediate sitting in region B's subtree, the source region's
+  // alive list must stay intact while the intermediate mounts and target sub-regions become alive.
+  parcriRoot [type=parallelFlow]
+  parcriAlpha [type=flow]
+  parcriBeta [type=flow]
+  parcriAlphaScreen [type=screen]
+  parcriBetaIntro [type=screen]
+  parcriBetaImported [type=schema]
+
+  parcriRoot -> parcriAlpha
+  parcriRoot -> parcriBeta
+  parcriAlpha -> parcriAlphaScreen
+  parcriBeta -> parcriBetaIntro
+  parcriBeta -> parcriBetaImported
+}

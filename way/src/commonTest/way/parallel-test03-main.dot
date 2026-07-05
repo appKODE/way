@@ -1,0 +1,10 @@
+digraph Parallel03Main {
+  package = "ru.kode.way.par03.main"
+
+  par03Main [type=parallelFlow]
+  par03Alpha [type=schema]
+  par03Beta [type=schema]
+
+  par03Main -> par03Alpha
+  par03Main -> par03Beta
+}

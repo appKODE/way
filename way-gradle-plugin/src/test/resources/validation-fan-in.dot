@@ -1,0 +1,11 @@
+digraph ValidationFanIn {
+  app [type = flow]
+  screen1
+  screen2
+  shared
+
+  app -> screen1
+  app -> screen2
+  screen1 -> shared
+  screen2 -> shared
+}

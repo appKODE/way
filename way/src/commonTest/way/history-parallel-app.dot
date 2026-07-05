@@ -1,0 +1,15 @@
+digraph HistoryParallelApp {
+  package = "ru.kode.way.histapp"
+
+  // Flow root whose initial child is the plain screen `histHome`. The parallel-rooted schema
+  // `histMain` (history-parallel-main.dot) is mounted lazily as a sibling sub-region: reaching it
+  // needs an explicit NavigateTo, and navigating back to `histHome` fully exits it — the moment
+  // deep history is recorded for BOTH of its parallel regions at once. Mirrors the supported
+  // flow-root + lazily-mounted-intermediate-parallel shape (parallel-test-lazy-intermediate.dot).
+  histApp [type = "flow"]
+  histHome [type = "screen"]
+  histMain [type = "schema"]
+
+  histApp -> histHome
+  histApp -> histMain
+}

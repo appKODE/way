@@ -24,6 +24,9 @@ suspend fun runTest(testCase: TestCase) {
     schemaFileSpec.writeTo(outputDirectory.toNioPath())
     targetsFileSpec.writeTo(outputDirectory.toNioPath())
     nodeBuilderSpecs.forEach { it.writeTo(outputDirectory.toNioPath()) }
+    finishEventsFileSpecs.forEach { it.writeTo(outputDirectory.toNioPath()) }
+    virtualSchemaFileSpecs.forEach { it.writeTo(outputDirectory.toNioPath()) }
+    regionEnumFileSpec?.writeTo(outputDirectory.toNioPath())
   }
   expectedResults.forEach { expectedFile ->
     FileSystem.SYSTEM.apply {

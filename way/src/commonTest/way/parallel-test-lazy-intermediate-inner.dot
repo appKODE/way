@@ -1,0 +1,17 @@
+digraph ParallelTestLazyIntermediateInner {
+  package = "ru.kode.way.parlazyint.inner"
+
+  // Inner parallel-rooted schema referenced as a sub-region from
+  // parallel-test-lazy-intermediate.dot. Mirrors the topology used by parallel-test-nested-inner
+  // but with its own distinct segment ids so it can coexist in the same test module.
+  importedParallel [type = "parallelFlow"]
+  leftTab [type = "flow"]
+  rightTab [type = "flow"]
+  leftScreen [type = "screen"]
+  rightScreen [type = "screen"]
+
+  importedParallel -> leftTab
+  importedParallel -> rightTab
+  leftTab -> leftScreen
+  rightTab -> rightScreen
+}

@@ -33,12 +33,20 @@ class SchemaGenerateTest :
       ),
       TestCase(
         schemaFile = "schema-parallel01.dot",
-        expectedOutputFiles = listOf("schema-parallel01.txt"),
+        expectedOutputFiles = listOf("schema-parallel01.txt", "TestAppRegion.txt"),
         testName = "basic parallel flow schema",
       ),
       TestCase(
         schemaFile = "schema-parallel02.dot",
-        expectedOutputFiles = listOf("schema-parallel02.txt"),
+        expectedOutputFiles = listOf(
+          "schema-parallel02.txt",
+          "MainChildFinishRequest.txt",
+          "OneChildFinishRequest.txt",
+          "OneSchema.txt",
+          // Region enum for the top-level parallel; the nested OneSchema also emits one
+          // (`OneRegion.kt`) but its fixture coverage is left to schema-parallel01's enum
+          // assertion since the generation logic is identical.
+        ),
         testName = "multiple parallel in one schema",
       ),
     ) { runTest(it) }

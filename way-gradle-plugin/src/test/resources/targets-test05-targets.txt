@@ -1,0 +1,31 @@
+package ru.kode.test.app.schema
+
+import kotlin.String
+import ru.kode.way.FlowTarget
+import ru.kode.way.Path
+import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class AppTargets(
+  private val prefix: Path? = null,
+) {
+  public fun child(token: String?): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("child@TargetsTest05:src/test/resources/targets-test05.dot")))), payload = token)
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public class ChildTargets(
+  private val prefix: Path? = null,
+) {
+  public fun screen(note: String?): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("screen@TargetsTest05:src/test/resources/targets-test05.dot")))), payload = note)
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.app: AppTargets
+  get() = AppTargets()
+
+public val Target.Companion.child: ChildTargets
+  get() = ChildTargets()

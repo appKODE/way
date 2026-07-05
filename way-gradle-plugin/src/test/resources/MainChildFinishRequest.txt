@@ -1,0 +1,9 @@
+package ru.kode.test.app.schema
+
+import ru.kode.way.Event
+
+public sealed interface MainChildFinishRequest : Event {
+  public data object One : MainChildFinishRequest
+
+  public data object Two : MainChildFinishRequest
+}

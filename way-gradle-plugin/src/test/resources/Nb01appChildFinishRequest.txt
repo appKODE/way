@@ -1,0 +1,15 @@
+package ru.kode.test.app.schema
+
+import ru.kode.test.app.LoginFlowResult
+import ru.kode.test.app.OnboardingFlowResult
+import ru.kode.way.Event
+
+public sealed interface Nb01appChildFinishRequest : Event {
+  public data class Nb01login(
+    public val result: LoginFlowResult,
+  ) : Nb01appChildFinishRequest
+
+  public data class Nb01onboarding(
+    public val result: OnboardingFlowResult,
+  ) : Nb01appChildFinishRequest
+}

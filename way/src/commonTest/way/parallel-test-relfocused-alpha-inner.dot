@@ -1,0 +1,8 @@
+digraph ParallelTestRelFocusedAlphaInner {
+  package = "ru.kode.way.parrelfocused.alpha.inner"
+
+  parrelfAlphaInner [type=flow]
+  parrelfAlphaInnerScreen [type=screen]
+
+  parrelfAlphaInner -> parrelfAlphaInnerScreen
+}

@@ -1,0 +1,14 @@
+digraph ParallelTestAcmeSandwichMain {
+  package = "ru.kode.way.acmesw.main"
+
+  // Middle flow imported by the outer parallel root. Its initial child is `mainScreen`. It
+  // also imports a parallel-rooted sub-schema (`homeImport`) so a NavigateTo into the home
+  // tree triggers the runtime mount of an intermediate parallel. Mirrors a real-world app's
+  // mainFlow -> mainScreen + homeImport [parallelFlow] arrangement.
+  mainFlowImport [type = "flow"]
+  mainScreen [type = "screen"]
+  homeImport [type = "schema"]
+
+  mainFlowImport -> mainScreen
+  mainFlowImport -> homeImport
+}

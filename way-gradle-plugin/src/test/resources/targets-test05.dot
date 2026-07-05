@@ -1,0 +1,21 @@
+// nullable parameter and result types
+digraph TargetsTest05 {
+  schemaFileName = "targets-test05-schema"
+  targetsFileName = "targets-test05-targets"
+
+  app [type = flow]
+
+  child [
+    type = flow,
+    resultType = "kotlin.String?",
+    parameterName = "token",
+    parameterType = "kotlin.String?"
+  ]
+
+  screen [
+    parameterName = "note",
+    parameterType = "kotlin.String?"
+  ]
+
+  app -> child -> screen
+}

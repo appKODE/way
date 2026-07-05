@@ -1,0 +1,9 @@
+digraph ParallelTestAcmeSandwichTabA {
+  package = "ru.kode.way.acmesw.home.taba"
+
+  // Minimal leaf flow for the tabA sub-region of the inner parallel.
+  tabA [type = "flow"]
+  tabAScreen [type = "screen"]
+
+  tabA -> tabAScreen
+}

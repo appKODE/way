@@ -4,6 +4,7 @@ import kotlin.Any
 import kotlin.Suppress
 import kotlin.Unit
 import kotlin.collections.Map
+import kotlin.collections.Set
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
@@ -21,22 +22,22 @@ public class Nb02appNodeBuilder(
     payloads: Map<Path, Any>,
     rootSegmentAlias: Segment?,
   ): Node {
-    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb02app@src/test/resources/node-builders-single-flow.dot"))
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb02app@NodeBuildersTest02:src/test/resources/node-builders-single-flow.dot"))
     check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nb02app" node: $path"""
     }
     return when {
       path == rootPath -> nodeFactory.createRootNode()
-      path == targetOrError(Segment("nb02screen3@src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen3Node()
-      path == targetOrError(Segment("nb02screen1@src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen1Node()
-      path == targetOrError(Segment("nb02screen2@src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen2Node()
+      path == targetOrError(Segment("nb02screen3@NodeBuildersTest02:src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen3Node()
+      path == targetOrError(Segment("nb02screen1@NodeBuildersTest02:src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen1Node()
+      path == targetOrError(Segment("nb02screen2@NodeBuildersTest02:src/test/resources/node-builders-single-flow.dot"), rootSegmentAlias) -> nodeFactory.createNb02screen2Node()
       else -> error("""illegal path build requested for "nb02app" node: $path""")
     }
   }
 
-  override fun invalidateCache(path: Path): Unit = Unit
+  override fun invalidateCache(alivePaths: Set<Path>): Unit = Unit
 
-  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
   public fun <T> payloadOrError(

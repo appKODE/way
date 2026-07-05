@@ -1,0 +1,6 @@
+digraph {
+  app [type=flow]
+  app -> screen1
+  x -> y
+  y -> x
+}

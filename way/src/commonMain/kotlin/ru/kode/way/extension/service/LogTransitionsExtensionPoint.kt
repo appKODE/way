@@ -11,13 +11,14 @@ class LogTransitionsExtensionPoint<R : Any>(
   private val logTargetResolveStartEvents: Boolean = true,
   private val logger: (msg: () -> String) -> Unit = { msg -> println(msg()) },
 ) : ServiceExtensionPoint<R> {
-  private var preTransitionActivePath: Path? = null
+  private var preTransitionActivePaths: Map<String, Path> = emptyMap()
 
   override fun onPreTransition(service: NavigationService<R>, event: Event, state: NavigationState) {
-    preTransitionActivePath = state.regions.values.firstOrNull()?.active
+    preTransitionActivePaths = state.activePathsByRegion()
     if (logTargetResolveStartEvents) {
-      if (preTransitionActivePath != null) {
-        logger { "$preTransitionActivePath ⨯ $event → [resolving target...]" }
+      val activeDesc = preTransitionActivePaths.describe()
+      if (activeDesc.isNotEmpty()) {
+        logger { "$activeDesc ⨯ $event → [resolving target...]" }
       } else {
         logger { "$event → [resolving target...]" }
       }
@@ -25,13 +26,24 @@ class LogTransitionsExtensionPoint<R : Any>(
   }
 
   override fun onPostTransition(service: NavigationService<R>, event: Event, state: NavigationState) {
-    if (preTransitionActivePath != null) {
-      logger { "$preTransitionActivePath ⨯ $event → ${state.regions.values.first().active}" }
+    val postDesc = state.activePathsByRegion().describe()
+    val preDesc = preTransitionActivePaths.describe()
+    if (preDesc.isNotEmpty()) {
+      logger { "$preDesc ⨯ $event → $postDesc" }
     } else {
-      logger { "$event → ${state.regions.values.first().active}" }
+      logger { "$event → $postDesc" }
     }
     if (logAliveNodes) {
-      logger { "  alive nodes: ${state.regions.values.first().alive.joinToString()}" }
+      state.regions.forEach { (regionId, region) ->
+        logger { "  [${regionId.path}] alive: ${region.alive.joinToString()}" }
+      }
     }
   }
 }
+
+/** The active path of every region keyed by the region's path string. */
+private fun NavigationState.activePathsByRegion(): Map<String, Path> =
+  regions.entries.associate { (regionId, region) -> regionId.path.toString() to region.active }
+
+/** Renders `region:path` entries joined by ` | ` for a one-line transition log. */
+private fun Map<String, Path>.describe(): String = entries.joinToString(" | ") { (name, path) -> "$name:$path" }

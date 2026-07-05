@@ -1,0 +1,10 @@
+package ru.kode.test.app.schema
+
+import kotlin.String
+import ru.kode.way.Event
+
+public sealed interface AppChildFinishRequest : Event {
+  public data class Child(
+    public val result: String?,
+  ) : AppChildFinishRequest
+}

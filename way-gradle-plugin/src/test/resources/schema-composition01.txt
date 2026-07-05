@@ -14,13 +14,17 @@ public class TestAppSchema(
   private val loginSchema: Schema,
   private val mainSchema: Schema,
 ) : Schema {
-  override val rootSegment: Segment = Segment("app@src/test/resources/schema-composition01.dot")
+  override val rootSegment: Segment =
+      Segment("app@TestApp:src/test/resources/schema-composition01.dot")
 
   override val childSchemas: Map<Segment, Schema> =
-      mapOf(Segment("app@src/test/resources/schema-composition01.dot") to appSchema, Segment("login@src/test/resources/schema-composition01.dot") to loginSchema, Segment("main@src/test/resources/schema-composition01.dot") to mainSchema)
+      mapOf(Segment("app@TestApp:src/test/resources/schema-composition01.dot") to appSchema, Segment("login@TestApp:src/test/resources/schema-composition01.dot") to loginSchema, Segment("main@TestApp:src/test/resources/schema-composition01.dot") to mainSchema)
 
   override val regions: List<RegionId> =
-      listOf(RegionId(Path(listOf(Segment("app@src/test/resources/schema-composition01.dot")))))
+      listOf(RegionId(Path(listOf(Segment("app@TestApp:src/test/resources/schema-composition01.dot")))))
+
+  public val appRegionId: RegionId
+    get() = regions[0]
 
   override fun target(
     regionId: RegionId,
@@ -28,11 +32,11 @@ public class TestAppSchema(
     rootSegmentAlias: Segment?,
   ): Path? = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/schema-composition01.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("app@TestApp:src/test/resources/schema-composition01.dot")
       when(segment.id) {
-        rootSegment.id -> Path(rootSegment)
-        "login@src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot")))
-        "main@src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot")))
+        "app@TestApp:src/test/resources/schema-composition01.dot" -> Path(rootSegment)
+        "login@TestApp:src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot")))
+        "main@TestApp:src/test/resources/schema-composition01.dot" -> Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot"), Segment("main@TestApp:src/test/resources/schema-composition01.dot")))
         else -> null
       }
     }
@@ -47,11 +51,11 @@ public class TestAppSchema(
     rootSegmentAlias: Segment?,
   ): Schema.NodeType = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/schema-composition01.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("app@TestApp:src/test/resources/schema-composition01.dot")
       when {
         path == Path(rootSegment) -> Schema.NodeType.Flow
-        path == Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
-        path == Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot"), Segment("main@TestApp:src/test/resources/schema-composition01.dot"))) -> Schema.NodeType.Flow
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }
@@ -69,8 +73,8 @@ public class TestAppSchema(
   ): Event = when (regionId) {
     regions[0] -> {
       when(path) {
-        Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Login
-        Path(listOf(rootSegment, Segment("login@src/test/resources/schema-composition01.dot"), Segment("main@src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Main
+        Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Login
+        Path(listOf(rootSegment, Segment("login@TestApp:src/test/resources/schema-composition01.dot"), Segment("main@TestApp:src/test/resources/schema-composition01.dot"))) -> AppChildFinishRequest.Main
         else -> {
           error("""internal error: failed to build child finish event for path=$path""")
         }

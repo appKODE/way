@@ -1,0 +1,20 @@
+digraph ParallelTestTopRootFinish {
+  package = "ru.kode.way.partoprootfinish"
+
+  // Top-level parallel-rooted schema whose `child` sub-region carries a non-Unit
+  // resultType. Exercises NavigationService.kt:226-237 — when a sub-region of a
+  // parallel-flow root emits Finish, the runtime must route it through
+  // `computeSubRegionFinishBuilder` so the parent parallel-flow sees a typed
+  // `ChildFinishRequest`, NOT through `onFinishRequest` (which would receive
+  // a wrongly-typed `Any`).
+  rootParallel [type = "parallelFlow"]
+  childFinish [type = "flow", resultType = "kotlin.Int"]
+  childOther [type = "flow"]
+  childFinishScreen [type = "screen"]
+  childOtherScreen [type = "screen"]
+
+  rootParallel -> childFinish
+  rootParallel -> childOther
+  childFinish -> childFinishScreen
+  childOther -> childOtherScreen
+}

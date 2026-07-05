@@ -1,0 +1,6 @@
+digraph Parallel03Alpha {
+  package = "ru.kode.way.par03.alpha"
+
+  par03Alpha [type=flow]
+  par03Alpha -> par03AlphaScreen -> par03AlphaScreen2
+}

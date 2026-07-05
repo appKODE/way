@@ -5,6 +5,7 @@ import kotlin.Suppress
 import kotlin.collections.HashMap
 import kotlin.collections.Map
 import kotlin.collections.MutableMap
+import kotlin.collections.Set
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
@@ -21,11 +22,11 @@ public class Nb01appNodeBuilder(
 ) : NodeBuilder {
   private val nodeBuilders: MutableMap<Path, NodeBuilder> = HashMap(2)
 
-  private fun nb01loginNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nb01login@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) {
+  private fun nb01loginNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) {
     nodeFactory.createNb01loginNodeBuilder()
   }
 
-  private fun nb01onboardingNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nb01onboarding@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) {
+  private fun nb01onboardingNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) {
     nodeFactory.createNb01onboardingNodeBuilder()
   }
 
@@ -34,37 +35,36 @@ public class Nb01appNodeBuilder(
     payloads: Map<Path, Any>,
     rootSegmentAlias: Segment?,
   ): Node {
-    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb01app@src/test/resources/node-builders-multiple-flows.dot"))
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb01app@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"))
     check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nb01app" node: $path"""
     }
     return when {
       path == rootPath -> nodeFactory.createRootNode()
-      path.startsWith(targetOrError(Segment("nb01login@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
-        val targetPath = targetOrError(Segment("nb01login@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
+      path.startsWith(targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
         val nodeBuilder = nb01loginNodeBuilder(rootSegmentAlias)
-        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
       }
-      path.startsWith(targetOrError(Segment("nb01onboarding@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
-        val targetPath = targetOrError(Segment("nb01onboarding@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
+      path.startsWith(targetOrError(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
         val nodeBuilder = nb01onboardingNodeBuilder(rootSegmentAlias)
-        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
       }
       else -> error("""illegal path build requested for "nb01app" node: $path""")
     }
   }
 
-  override fun invalidateCache(path: Path) {
-    nodeBuilders.keys.filter { !path.startsWith(it) }.forEach {
-      println("""${this::class.simpleName}: removing nodeBuilder for $it""")
-    }
-    nodeBuilders.keys.retainAll { path.startsWith(it) }
+  override fun invalidateCache(alivePaths: Set<Path>) {
+    nodeBuilders.keys.retainAll { key -> alivePaths.any { it.startsWith(key) } }
     nodeBuilders.forEach { (builderPath, builder) ->
-      builder.invalidateCache(path.drop(builderPath.length - 1))
+      val drop = builderPath.length - 1
+      val childAlive = alivePaths.filter { it.startsWith(builderPath) && it.length > drop }.map { it.drop(drop) }.toSet()
+      builder.invalidateCache(childAlive)
     }
   }
 
-  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
   public fun <T> payloadOrError(

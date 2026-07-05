@@ -1,0 +1,3 @@
+digraph ValidationEmptyFlow {
+  app [type = flow]
+}

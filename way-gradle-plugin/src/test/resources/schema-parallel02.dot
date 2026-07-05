@@ -3,9 +3,9 @@ digraph TestApp {
 
   // Multiple parallel nodes in one file
 
-  main [type = parallel]
+  main [type = parallelFlow]
 
-  one [type = parallel]
+  one [type = parallelFlow]
   two [type = flow]
   alpha [type = flow]
   beta [type = flow]

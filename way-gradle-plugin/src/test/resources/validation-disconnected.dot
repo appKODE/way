@@ -1,0 +1,10 @@
+digraph ValidationDisconnected {
+  app [type = flow]
+  screen1
+
+  orphanA
+  orphanB
+
+  app -> screen1
+  orphanA -> orphanB
+}

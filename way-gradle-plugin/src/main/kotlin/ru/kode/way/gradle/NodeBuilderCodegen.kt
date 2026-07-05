@@ -13,17 +13,37 @@ import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterSpec
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.SET
 import com.squareup.kotlinpoet.STAR
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.TypeVariableName
-import java.nio.file.Path
 
-internal fun buildNodeBuilderFileSpecs(parseResult: SchemaParseResult, config: CodeGenConfig): List<FileSpec> {
+internal fun buildNodeBuilderFileSpecs(
+  parseResult: SchemaParseResult,
+  config: CodeGenConfig,
+  registry: SchemaRegistry,
+): List<FileSpec> {
   val packageName = parseResult.customPackage ?: config.outputPackageName
-  val rootNode = parseResult.adjacencyList.findRootNode()
-  val schemaClassName = ClassName(packageName, schemaClassName(parseResult, config))
-  return parseResult.adjacencyList.mapFlow { flow, _ ->
-    val className = ClassName(packageName, flow.id.toPascalCase() + "NodeBuilder")
+  val mainAdjList = parseResult.adjacencyList
+  val mainRootNode = mainAdjList.findRootNode()
+  val mainSchemaClassName = ClassName(packageName, schemaClassName(parseResult, config))
+
+  // Every node that owns a virtual sub-schema — nested LocalParallels plus LOCAL flow children of
+  // LocalParallel — needs its NodeBuilder generated against that sub-schema's view of the graph.
+  val virtualRoots: Set<Node> = mainAdjList.virtualSubSchemaRoots().toSet()
+  val virtualSubgraphs: Map<Node, AdjacencyList> = virtualRoots.associateWith { mainAdjList.subgraphFor(it) }
+
+  return mainAdjList.mapFlow { flow, _ ->
+    val className = ClassName(packageName, nodeBuilderClassName(flow))
+    val owner = resolveNodeBuilderOwner(
+      flow,
+      mainAdjList,
+      mainSchemaClassName,
+      mainRootNode,
+      virtualRoots,
+      virtualSubgraphs,
+      packageName,
+    )
     FileSpec
       .builder(
         packageName,
@@ -33,13 +53,56 @@ internal fun buildNodeBuilderFileSpecs(parseResult: SchemaParseResult, config: C
         buildNodeBuilderTypeSpec(
           flow = flow,
           className = className,
-          schemaClassName = schemaClassName,
-          adjacencyList = parseResult.adjacencyList,
-          isRootNode = rootNode == flow,
-          schemaFilePath = parseResult.filePath,
+          schemaClassName = owner.schemaClassName,
+          adjacencyList = owner.adjacencyList,
+          isRootNode = flow == owner.rootNode,
+          parseResult = parseResult,
+          registry = registry,
         ),
       )
       .build()
+  }
+}
+
+/** The schema view a flow's NodeBuilder is generated against — its own virtual sub-schema, or the main schema. */
+private data class NodeBuilderOwner(
+  val adjacencyList: AdjacencyList,
+  val schemaClassName: ClassName,
+  val rootNode: Node,
+)
+
+/**
+ * Resolves the [NodeBuilderOwner] for [flow]: the innermost ancestor (inclusive) that owns a virtual
+ * sub-schema — whose graph/schema/root drive the flow's path lookups (`schema.target`,
+ * `schema.nodeType`) — or the main outer schema when [flow] belongs to no virtual sub-schema.
+ */
+private fun resolveNodeBuilderOwner(
+  flow: Node,
+  mainAdjList: AdjacencyList,
+  mainSchemaClassName: ClassName,
+  mainRootNode: Node,
+  virtualRoots: Set<Node>,
+  virtualSubgraphs: Map<Node, AdjacencyList>,
+  packageName: String,
+): NodeBuilderOwner {
+  val owner = findOwnerVirtualSubSchemaRoot(flow, mainAdjList, virtualRoots)
+    ?: return NodeBuilderOwner(mainAdjList, mainSchemaClassName, mainRootNode)
+  return NodeBuilderOwner(
+    adjacencyList = virtualSubgraphs[owner]!!,
+    schemaClassName = ClassName(packageName, virtualSchemaClassName(owner)),
+    rootNode = owner,
+  )
+}
+
+/**
+ * Returns the innermost ancestor (inclusive) of [flow] that owns a virtual sub-schema, or `null`
+ * when [flow] belongs to the main outer schema.
+ */
+private fun findOwnerVirtualSubSchemaRoot(flow: Node, mainAdjList: AdjacencyList, virtualRoots: Set<Node>): Node? {
+  var current: Node = flow
+  while (true) {
+    if (current in virtualRoots) return current
+    current = mainAdjList.findParent(current) ?: return null
   }
 }
 
@@ -49,9 +112,10 @@ internal fun buildNodeBuilderTypeSpec(
   schemaClassName: ClassName,
   adjacencyList: AdjacencyList,
   isRootNode: Boolean,
-  schemaFilePath: Path,
+  parseResult: SchemaParseResult,
+  registry: SchemaRegistry,
 ): TypeSpec {
-  fun buildSegmentId(node: Node): String = "${node.id}@$schemaFilePath"
+  fun buildSegmentId(node: Node): String = buildSegmentId(node, parseResult, registry)
 
   val typeSpecBuilder = TypeSpec.classBuilder(className)
   val constructorBuilder = FunSpec.constructorBuilder()
@@ -61,19 +125,17 @@ internal fun buildNodeBuilderTypeSpec(
   val factoryBuilderTypeName = className.nestedClass("Factory")
   val factoryTypeSpecBuilder = TypeSpec.interfaceBuilder(factoryBuilderTypeName)
     .addFunction(
-      FunSpec.builder(NODE_FACTORY_FLOW_NODE_BUILDER_NAME)
+      FunSpec.builder(ROOT_NODE_FACTORY_METHOD_NAME)
         .addModifiers(KModifier.ABSTRACT)
         .returns(
           when (flow) {
             is Node.Flow.Local -> FLOW_NODE.parameterizedBy(STAR)
-            is Node.Flow.LocalParallel -> PARALLEL_NODE
+            is Node.Flow.LocalParallel -> PARALLEL_FLOW_NODE.parameterizedBy(STAR)
             is Node.Flow.Imported -> error("unexpected node type: ${flow::class.simpleName}")
           },
         )
         .apply {
-          if (flow.parameter != null) {
-            addParameter(flow.parameter!!.name, ClassName.bestGuess(flow.parameter!!.type))
-          }
+          flow.parameter?.let { param -> addParameter(param.name, parseTypeName(param.type)) }
         }
         .build(),
     )
@@ -101,13 +163,12 @@ internal fun buildNodeBuilderTypeSpec(
     .build()
   constructorBuilder.addParameter(schemaParameter)
   typeSpecBuilder.addProperty(schemaProperty)
-  val builderCachePropertyName = "nodeBuilders"
 
-  dfs(adjacencyList, flow) { node ->
-    if (node == flow) return@dfs
-    // See NOTE_GROUPING_NODES_BY_FLOW_RULE
-    if (node is Node.Screen && adjacencyList.findParentFlow(node) != flow) return@dfs
-    if (node is Node.Flow && !isRootNode) return@dfs
+  dfsWhile(adjacencyList, flow) { node ->
+    if (node == flow) return@dfsWhile true // skip root, but DO descend
+    val shouldDescend = shouldDescendInto(node, flow)
+    // See NOTE_GROUPING_NODES_BY_FLOW_RULE — foreign nodes are handled by their own flow's NodeBuilder.
+    if (isForeignToFlowScope(node, flow, isRootNode, adjacencyList)) return@dfsWhile shouldDescend
     when (node) {
       is Node.Flow -> {
         val flowFactoryName = "create${node.id.toPascalCase()}NodeBuilder"
@@ -116,14 +177,12 @@ internal fun buildNodeBuilderTypeSpec(
             .addModifiers(KModifier.ABSTRACT)
             .returns(NODE_BUILDER)
             .apply {
-              if (node.parameter != null) {
-                addParameter(node.parameter!!.name, ClassName.bestGuess(node.parameter!!.type))
-              }
+              node.parameter?.let { param -> addParameter(param.name, parseTypeName(param.type)) }
             }
             .build(),
         )
         val lazyPropertyBuilderFun = FunSpec
-          .builder("${node.id.toCamelCase()}NodeBuilder")
+          .builder("${node.id}NodeBuilder")
           .addModifiers(KModifier.PRIVATE)
           .returns(NODE_BUILDER)
           .apply {
@@ -134,8 +193,8 @@ internal fun buildNodeBuilderTypeSpec(
           .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
           .beginControlFlow(
             "return %L.getOrPut(%L(%T(%S), rootSegmentAlias))",
-            builderCachePropertyName,
-            GET_TARGET_FUN_NAME,
+            NODE_BUILDER_CACHE_PROPERTY_NAME,
+            TARGET_OR_ERROR_FUN_NAME,
             SEGMENT,
             buildSegmentId(node),
           )
@@ -144,7 +203,7 @@ internal fun buildNodeBuilderTypeSpec(
               addStatement(
                 "nodeFactory.%L(%L(%T(%S), payloads, rootSegmentAlias))",
                 flowFactoryName,
-                GET_PAYLOAD_FUN_NAME,
+                PAYLOAD_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
               )
@@ -166,14 +225,18 @@ internal fun buildNodeBuilderTypeSpec(
           .returns(SCREEN_NODE)
           .apply {
             if (node.parameter != null) {
-              addParameter(node.parameter.name, ClassName.bestGuess(node.parameter.type))
+              addParameter(node.parameter.name, parseTypeName(node.parameter.type))
             }
           }
           .build()
         factoryTypeSpecBuilder.addFunction(screenBuilderFunSpec)
         nodeBuilders[node] = screenBuilderFunSpec
       }
+
+      // History nodes are never built: no factory method, no lazy builder.
+      is Node.History -> Unit
     }
+    shouldDescend
   }
   return typeSpecBuilder
     .primaryConstructor(constructorBuilder.build())
@@ -181,7 +244,7 @@ internal fun buildNodeBuilderTypeSpec(
       if (lazyNodeBuilderFactories.isNotEmpty()) {
         val builderCacheProperty = PropertySpec
           .builder(
-            builderCachePropertyName,
+            NODE_BUILDER_CACHE_PROPERTY_NAME,
             MUTABLE_MAP.parameterizedBy(PATH, NODE_BUILDER),
             KModifier.PRIVATE,
           )
@@ -194,6 +257,28 @@ internal fun buildNodeBuilderTypeSpec(
       }
     }
     .addType(factoryTypeSpecBuilder.build())
+    .apply {
+      // For parallel nodes: emit named val <childId>RegionId constants so users never need
+      // to hardcode Path strings for sub-region lookups.
+      if (flow is Node.Flow.LocalParallel) {
+        adjacencyList[flow].orEmpty().forEach { child ->
+          addProperty(
+            PropertySpec
+              .builder("${child.id}RegionId", REGION_ID)
+              .getter(
+                FunSpec.getterBuilder()
+                  .addCode(
+                    "return %T(%L)",
+                    REGION_ID,
+                    buildPathConstructorCall(reversedParents(child, adjacencyList)) { node -> buildSegmentId(node) },
+                  )
+                  .build(),
+              )
+              .build(),
+          )
+        }
+      }
+    }
     .addSuperinterface(NODE_BUILDER)
     .addFunction(
       FunSpec.builder("build")
@@ -209,7 +294,8 @@ internal fun buildNodeBuilderTypeSpec(
             lazyNodeBuilderFactories,
             nodeBuilders,
             isRootNode,
-            schemaFilePath,
+            parseResult,
+            registry,
           ),
         )
         .build(),
@@ -217,29 +303,23 @@ internal fun buildNodeBuilderTypeSpec(
     .addFunction(
       FunSpec.builder("invalidateCache")
         .addModifiers(KModifier.OVERRIDE)
-        .addParameter("path", PATH)
+        .addParameter("alivePaths", SET.parameterizedBy(PATH))
         .apply {
-          val includeDebug = true
           if (lazyNodeBuilderFactories.isNotEmpty()) {
-            if (includeDebug) {
-              beginControlFlow(
-                "%L.keys.filter { !path.%M(it) }.forEach",
-                builderCachePropertyName,
-                MemberName(LIBRARY_PACKAGE, "startsWith"),
-              )
-              addStatement("println(%P)", "\${this::class.simpleName}: removing nodeBuilder for \$it")
-              endControlFlow()
-            }
             addStatement(
-              "%L.keys.retainAll { path.%M(it) }",
-              builderCachePropertyName,
+              "%L.keys.retainAll·{·key·->·alivePaths.any·{·it.%M(key)·}·}",
+              NODE_BUILDER_CACHE_PROPERTY_NAME,
               MemberName(LIBRARY_PACKAGE, "startsWith"),
             )
-            beginControlFlow("%L.forEach { (builderPath, builder) ->", builderCachePropertyName)
+            beginControlFlow("%L.forEach·{·(builderPath,·builder)·->", NODE_BUILDER_CACHE_PROPERTY_NAME)
+            addStatement("val·drop·=·builderPath.length·-·1")
             addStatement(
-              "builder.invalidateCache(path.%M(builderPath.length - 1))",
+              "val·childAlive·=·alivePaths.filter·{·it.%M(builderPath)·&&·it.length·>·drop·}" +
+                ".map·{·it.%M(drop)·}.toSet()",
+              MemberName(LIBRARY_PACKAGE, "startsWith"),
               MemberName(LIBRARY_PACKAGE, "drop"),
             )
+            addStatement("builder.invalidateCache(childAlive)")
             endControlFlow()
           } else {
             addStatement("return Unit")
@@ -247,20 +327,45 @@ internal fun buildNodeBuilderTypeSpec(
         }
         .build(),
     )
-    .addFunction(buildGetTargetFunSpec())
-    .addFunction(buildGetPayloadBySegmentIdFunSpec())
+    .addFunction(buildTargetOrErrorFunSpec())
+    .addFunction(buildPayloadOrErrorFunSpec())
+    .apply {
+      // Only emit the path-keyed payload helper when the root flow has a parameter — that's
+      // the sole call site (the root branch of build()). Skipping it for parameter-less roots
+      // keeps the generated NodeBuilder minimal.
+      if (flow.parameter != null) {
+        addFunction(buildRootPayloadOrErrorFunSpec())
+      }
+    }
     .build()
 }
 
+/**
+ * Whether a dfsWhile scoped to [flow]'s subtree should descend into [node]'s children. A nested
+ * LocalParallel owns its own NodeBuilder, so it is processed but NOT descended into; everything else
+ * is descended.
+ */
+private fun shouldDescendInto(node: Node, flow: Node): Boolean = !(node is Node.Flow.LocalParallel && node != flow)
+
+/**
+ * True when [node] is FOREIGN to a dfsWhile scoped to [flow] and must be skipped for processing (but
+ * still descended): a screen whose nearest parent flow isn't [flow], or a non-root flow other than
+ * [flow] itself. Such nodes are emitted by their own flow's NodeBuilder.
+ */
+private fun isForeignToFlowScope(node: Node, flow: Node, isRootNode: Boolean, adjacencyList: AdjacencyList): Boolean =
+  (node is Node.Screen && adjacencyList.findParentFlow(node) != flow) ||
+    (node is Node.Flow && !isRootNode && node != flow)
+
 private fun createBuildFunctionBody(
-  flow: Node,
-  adjacencyList: Map<Node, List<Node>>,
+  flow: Node.Flow,
+  adjacencyList: AdjacencyList,
   lazyNodeBuilderFactories: Map<Node, FunSpec>,
   nodeBuilders: Map<Node, FunSpec>,
   isRootNode: Boolean,
-  schemaFilePath: Path,
+  parseResult: SchemaParseResult,
+  registry: SchemaRegistry,
 ): CodeBlock {
-  fun buildSegmentId(node: Node): String = "${node.id}@$schemaFilePath"
+  fun buildSegmentId(node: Node): String = buildSegmentId(node, parseResult, registry)
 
   return CodeBlock.builder()
     .addStatement(
@@ -279,39 +384,38 @@ private fun createBuildFunctionBody(
     .endControlFlow()
     .beginControlFlow("return when")
     .apply {
-      dfs(adjacencyList, flow) { node ->
-        // See NOTE_GROUPING_NODES_BY_FLOW_RULE
-        if (node is Node.Screen && adjacencyList.findParentFlow(node) != flow) return@dfs
-        if (node is Node.Flow && !isRootNode) return@dfs
+      dfsWhile(adjacencyList, flow) { node ->
+        val shouldDescend = shouldDescendInto(node, flow)
+        // See NOTE_GROUPING_NODES_BY_FLOW_RULE — foreign nodes route through their own flow's NodeBuilder.
+        if (isForeignToFlowScope(node, flow, isRootNode, adjacencyList)) return@dfsWhile shouldDescend
         when (node) {
           is Node.Flow -> {
             if (node == flow) {
               if (node.parameter != null) {
                 addStatement(
-                  "path == rootPath -> %L.%L(%L(rootPath.%M(), payloads, rootSegmentAlias))",
+                  "path == rootPath -> %L.%L(%L(rootPath, payloads))",
                   NODE_FACTORY_PARAMETER_NAME,
-                  NODE_FACTORY_FLOW_NODE_BUILDER_NAME,
-                  GET_PAYLOAD_FUN_NAME,
-                  libraryMemberName("firstSegment"),
+                  ROOT_NODE_FACTORY_METHOD_NAME,
+                  ROOT_PAYLOAD_OR_ERROR_FUN_NAME,
                 )
               } else {
                 addStatement(
                   "path == rootPath -> %L.%L()",
                   NODE_FACTORY_PARAMETER_NAME,
-                  NODE_FACTORY_FLOW_NODE_BUILDER_NAME,
+                  ROOT_NODE_FACTORY_METHOD_NAME,
                 )
               }
             } else {
               beginControlFlow(
                 "path.%M(%L(%T(%S), rootSegmentAlias)) ->",
                 MemberName(LIBRARY_PACKAGE, "startsWith"),
-                GET_TARGET_FUN_NAME,
+                TARGET_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
               )
               addStatement(
                 "val targetPath = %L(%T(%S), rootSegmentAlias)",
-                GET_TARGET_FUN_NAME,
+                TARGET_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
               )
@@ -326,9 +430,15 @@ private fun createBuildFunctionBody(
                   lazyNodeBuilderFactories[node] ?: error("no lazy builder property for \"${node.id}\""),
                 )
               }
+              // The `.filterKeys { it.length > targetPath.length - 1 }` before mapKeys is a drop
+              // safety guard: `Path.drop(n)` on a Path with `n` segments would yield an empty
+              // segment list and fail Path's `isNotEmpty` init check. Filter-first removes the
+              // payloads keys that can't survive the drop — by definition those keys refer to
+              // ancestors above the current cascade level, which the inner build no longer needs.
               addStatement(
                 "nodeBuilder.build(path.%M(targetPath.length·-·1)," +
-                  " payloads·=·payloads.mapKeys·{·it.key.%M(targetPath.length·-·1)·}," +
+                  " payloads·=·payloads.filterKeys·{·it.length·>·targetPath.length·-·1·}" +
+                  ".mapKeys·{·it.key.%M(targetPath.length·-·1)·}," +
                   " rootSegmentAlias·=·targetPath.%M())",
                 MemberName(LIBRARY_PACKAGE, "drop"),
                 MemberName(LIBRARY_PACKAGE, "drop"),
@@ -342,19 +452,19 @@ private fun createBuildFunctionBody(
             if (node.parameter != null) {
               addStatement(
                 "path == %L(%T(%S), rootSegmentAlias) -> %L.%N(%L(%T(%S), payloads, rootSegmentAlias))",
-                GET_TARGET_FUN_NAME,
+                TARGET_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
                 NODE_FACTORY_PARAMETER_NAME,
                 nodeBuilders[node] ?: error("no builder for screen node \"${node.id}\""),
-                GET_PAYLOAD_FUN_NAME,
+                PAYLOAD_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
               )
             } else {
               addStatement(
                 "path == %L(%T(%S), rootSegmentAlias) -> %L.%N()",
-                GET_TARGET_FUN_NAME,
+                TARGET_OR_ERROR_FUN_NAME,
                 SEGMENT,
                 buildSegmentId(node),
                 NODE_FACTORY_PARAMETER_NAME,
@@ -362,7 +472,11 @@ private fun createBuildFunctionBody(
               )
             }
           }
+
+          // History nodes are never built, so they emit no routing branch.
+          is Node.History -> Unit
         }
+        shouldDescend
       }
       addStatement("else -> error(%P)", "illegal path build requested for \"${flow.id}\" node: \$path")
     }
@@ -370,19 +484,19 @@ private fun createBuildFunctionBody(
     .build()
 }
 
-private fun buildGetTargetFunSpec(): FunSpec = FunSpec.builder(GET_TARGET_FUN_NAME)
+private fun buildTargetOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGET_OR_ERROR_FUN_NAME)
   .returns(PATH)
   .addParameter("segment", SEGMENT)
   .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
   .addCode(
-    "return %L.target(%L.regions.first(),${NBSP}segment, rootSegmentAlias) ?: error(%P)",
+    "return %L.regions.firstNotNullOfOrNull·{·%L.target(it,${NBSP}segment, rootSegmentAlias)·}·?: error(%P)",
     SCHEMA_PARAMETER_NAME,
     SCHEMA_PARAMETER_NAME,
     "internal error: no target generated for segment \"\${segment.id}\"",
   )
   .build()
 
-private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec = FunSpec.builder(GET_PAYLOAD_FUN_NAME)
+private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_ERROR_FUN_NAME)
   .addTypeVariable(TypeVariableName("T"))
   .returns(TypeVariableName("T"))
   .addAnnotation(
@@ -395,7 +509,7 @@ private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec = FunSpec.builder(GET_P
   .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
   .addCode(
     CodeBlock.builder()
-      .addStatement("val targetPath = $GET_TARGET_FUN_NAME(segment, rootSegmentAlias)")
+      .addStatement("val targetPath = $TARGET_OR_ERROR_FUN_NAME(segment, rootSegmentAlias)")
       .addStatement(
         "val payload = payloads[targetPath] ?: error(%P)",
         "no payload for \"\$targetPath\"",
@@ -405,11 +519,37 @@ private fun buildGetPayloadBySegmentIdFunSpec(): FunSpec = FunSpec.builder(GET_P
   )
   .build()
 
-private const val NODE_FACTORY_FLOW_NODE_BUILDER_NAME = "createRootNode"
+// Direct path-keyed payload lookup. Used for the root branch of NodeBuilder.build, where
+// rootPath is already known and looking up via `targetOrError(rootSegment)` would walk
+// `schema.regions` searching for the root — which fails for parallel-flow roots (whose own
+// segment is the parent of all regions, not a member of any). NavigationService.start()
+// places the root payload at rootPath directly (NavigationService.kt:166-175), so we
+// retrieve it from there.
+private fun buildRootPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(ROOT_PAYLOAD_OR_ERROR_FUN_NAME)
+  .addTypeVariable(TypeVariableName("T"))
+  .returns(TypeVariableName("T"))
+  .addAnnotation(
+    AnnotationSpec.builder(Suppress::class)
+      .addMember("%S", "UNCHECKED_CAST")
+      .build(),
+  )
+  .addParameter("path", PATH)
+  .addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
+  .addCode(
+    "return (payloads[path] ?: error(%P)) as T",
+    "no payload for \"\$path\"",
+  )
+  .build()
+
+// These constants hold the NAMES of functions/properties emitted into the generated NodeBuilder;
+// the string values are part of the generated code and must not change.
+private const val ROOT_NODE_FACTORY_METHOD_NAME = "createRootNode"
 private const val NODE_FACTORY_PARAMETER_NAME = "nodeFactory"
 private const val SCHEMA_PARAMETER_NAME = "schema"
-private const val GET_TARGET_FUN_NAME = "targetOrError"
-private const val GET_PAYLOAD_FUN_NAME = "payloadOrError"
+private const val NODE_BUILDER_CACHE_PROPERTY_NAME = "nodeBuilders"
+private const val TARGET_OR_ERROR_FUN_NAME = "targetOrError"
+private const val PAYLOAD_OR_ERROR_FUN_NAME = "payloadOrError"
+private const val ROOT_PAYLOAD_OR_ERROR_FUN_NAME = "payloadAtPathOrError"
 
 // NOTE_GROUPING_NODES_BY_FLOW_RULE
 //

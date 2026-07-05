@@ -1,0 +1,14 @@
+digraph MalformedAdjacentAttrsNoComma {
+  appFlow [type = "flow"]
+
+  // prsv/rosseti regression: parameterType line has NO trailing comma,
+  // resultType follows on the next line. Both must still be parsed.
+  bookFlow [
+    type = "schema"
+    parameterName = "config",
+    parameterType = "kotlin.String"
+    resultType = "kotlin.Int"
+  ]
+
+  appFlow -> bookFlow
+}

@@ -1,0 +1,6 @@
+digraph Parallel04InnerB {
+  package = "ru.kode.way.par04.innerb"
+
+  par04InnerB [type=flow]
+  par04InnerB -> par04InnerBScreen
+}

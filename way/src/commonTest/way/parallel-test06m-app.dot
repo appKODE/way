@@ -1,0 +1,8 @@
+digraph Parallel06Mixed {
+  package = "ru.kode.way.par06m"
+
+  par06mApp [type=flow]
+  par06mMain [type=schema]
+
+  par06mApp -> par06mMain
+}

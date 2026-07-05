@@ -1,0 +1,10 @@
+digraph Parallel04Alpha {
+  package = "ru.kode.way.par04.alpha"
+
+  par04Alpha [type=parallelFlow]
+  par04InnerA [type=schema]
+  par04InnerB [type=schema]
+
+  par04Alpha -> par04InnerA
+  par04Alpha -> par04InnerB
+}

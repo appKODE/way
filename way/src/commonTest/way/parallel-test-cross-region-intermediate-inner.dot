@@ -1,0 +1,18 @@
+digraph ParallelTestCrossRegionIntermediateInner {
+  package = "ru.kode.way.parcri.inner"
+
+  // Inner parallel-rooted schema referenced as a sub-region from
+  // parallel-test-cross-region-intermediate.dot. Mirrors the topology used by
+  // parallel-test-lazy-intermediate-inner but with its own distinct segment ids so it can coexist
+  // in the same test module.
+  parcriBetaImported [type=parallelFlow]
+  parcriBetaLeft [type=flow]
+  parcriBetaRight [type=flow]
+  parcriBetaLeftScreen [type=screen]
+  parcriBetaRightScreen [type=screen]
+
+  parcriBetaImported -> parcriBetaLeft
+  parcriBetaImported -> parcriBetaRight
+  parcriBetaLeft -> parcriBetaLeftScreen
+  parcriBetaRight -> parcriBetaRightScreen
+}

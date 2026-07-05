@@ -1,0 +1,16 @@
+digraph TestApp {
+  schemaFileName = "schema-parallel03"
+
+  // Nested parallel: main -> one[parallel] -> alpha[flow] -> alphaSub[flow] -> screen
+  // plus a sibling beta[flow] under one for completeness.
+
+  mainParallel03 [type = parallelFlow]
+
+  one [type = parallelFlow]
+  alpha [type = flow, resultType = "kotlin.String"]
+  alphaSub [type = flow]
+  beta [type = flow]
+
+  mainParallel03 -> one -> alpha -> alphaSub -> alphaSubScreen
+  one -> beta -> betaScreen
+}

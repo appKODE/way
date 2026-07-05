@@ -1,7 +1,7 @@
 digraph TestApp {
   schemaFileName = "schema-parallel01"
 
-  main [type = parallel]
+  main [type = parallelFlow]
 
   one [type = flow]
   two [type = flow]

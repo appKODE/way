@@ -1,0 +1,9 @@
+digraph ParallelTestParamswTabA {
+  package = "ru.kode.way.paramsw.home.taba"
+
+  // Minimal leaf flow for the tabA sub-region of the inner parallel.
+  paramTabA [ type = "flow" ]
+  paramTabAScreen [ type = "screen" ]
+
+  paramTabA -> paramTabAScreen
+}

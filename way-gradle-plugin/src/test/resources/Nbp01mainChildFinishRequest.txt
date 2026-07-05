@@ -1,0 +1,9 @@
+package ru.kode.test.app.schema
+
+import ru.kode.way.Event
+
+public sealed interface Nbp01mainChildFinishRequest : Event {
+  public data object Nbp01head : Nbp01mainChildFinishRequest
+
+  public data object Nbp01sheet : Nbp01mainChildFinishRequest
+}

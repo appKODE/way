@@ -1,0 +1,6 @@
+digraph ValidationQuotedNodes {
+  "myFlow" [type = flow]
+  "myScreen"
+
+  "myFlow" -> "myScreen"
+}

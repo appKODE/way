@@ -45,18 +45,24 @@ abstract class GenerateClassesTask : SourceTask() {
   fun generate() {
     val output = outputDirectory.get().asFile
     val projectDir = projectDirectory.get().asFile
+    val config = CodeGenConfig(outputPackageName = packageName, outputSchemaClassName = outputSchemaClassName)
+    output.deleteRecursively()
+    output.mkdirs()
     logger.debug("generation started")
-    source.forEach { file ->
-      logger.debug("generating classes from schema file: $file")
-      generate(
-        file,
-        projectDir,
-        output,
-        CodeGenConfig(
-          outputPackageName = packageName,
-          outputSchemaClassName = outputSchemaClassName,
-        ),
-      )
+    val files = source.toList()
+    // Parse all files first so we can detect output filename collisions before writing anything.
+    val parseResults = files.map { file ->
+      logger.debug("parsing schema file: $file")
+      parseSchemaDotFile(file, projectDir, warn = logger::warn)
+    }
+    validateNoOutputFileCollisions(parseResults, config)
+    // Build the cross-file registry once so every per-file codegen pass agrees on segment ids
+    // at schema boundaries (parent emits the same id for `homeFlow [type=schema]` that the
+    // child schema emits for its own rootSegment). See `SchemaRegistry`.
+    val registry = SchemaRegistry.from(parseResults)
+    parseResults.forEach { parseResult ->
+      logger.debug("generating classes from schema: ${parseResult.graphId ?: "<default>"}")
+      generateFromParseResult(parseResult, output, config, registry)
     }
   }
 }

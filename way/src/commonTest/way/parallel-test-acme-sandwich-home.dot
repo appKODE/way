@@ -1,0 +1,12 @@
+digraph ParallelTestAcmeSandwichHome {
+  package = "ru.kode.way.acmesw.home"
+
+  // Inner parallelFlow imported by the middle flow as a `type=schema` import. Has two
+  // schema-imported tab sub-regions. Mirrors a real-world app's homeFlow [parallelFlow] -> { tabA, tabB }.
+  homeImport [type = "parallelFlow"]
+  tabA [type = "schema"]
+  tabB [type = "schema"]
+
+  homeImport -> tabA
+  homeImport -> tabB
+}

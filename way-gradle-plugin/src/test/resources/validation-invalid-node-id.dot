@@ -1,0 +1,6 @@
+digraph ValidationInvalidNodeId {
+  app [type = flow]
+  "login-screen"
+
+  app -> "login-screen"
+}

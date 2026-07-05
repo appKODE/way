@@ -11,10 +11,10 @@ public class AppTargets(
   private val prefix: Path? = null,
 ) {
   public val intro: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test03.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest03:src/test/resources/targets-test03.dot")))))
 
   public val permissions: FlowTarget =
-      FlowTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test03.dot"), Segment("permissions@src/test/resources/targets-test03.dot")))))
+      FlowTarget(flowPath(Path(listOf(Segment("intro@TargetsTest03:src/test/resources/targets-test03.dot"), Segment("permissions@TargetsTest03:src/test/resources/targets-test03.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

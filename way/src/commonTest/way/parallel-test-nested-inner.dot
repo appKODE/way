@@ -1,0 +1,16 @@
+digraph ParallelTestNestedInner {
+  package = "ru.kode.way.parnested.nested"
+
+  // Inner parallel-rooted schema referenced as a sub-region from parallel-test-nested-root.dot.
+  // Has two local flow children so both sub-regions get materialised inside the inner parallel.
+  nestedInner [type = "parallelFlow"]
+  nestedAlpha [type = "flow"]
+  nestedBeta [type = "flow"]
+  nestedAlphaScreen [type = "screen"]
+  nestedBetaScreen [type = "screen"]
+
+  nestedInner -> nestedAlpha
+  nestedInner -> nestedBeta
+  nestedAlpha -> nestedAlphaScreen
+  nestedBeta -> nestedBetaScreen
+}

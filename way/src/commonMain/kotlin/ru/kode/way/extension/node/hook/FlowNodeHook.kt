@@ -10,4 +10,6 @@ interface FlowNodeHook<R : Any> {
   fun onPostTransition(event: Event, transition: FlowTransition<R>)
   fun onPreExit()
   fun onPostExit()
+  fun onPreDispose() {}
+  fun onPostDispose() {}
 }

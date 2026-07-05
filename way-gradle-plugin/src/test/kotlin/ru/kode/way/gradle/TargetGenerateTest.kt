@@ -26,5 +26,20 @@ class TargetGenerateTest :
         expectedOutputFiles = listOf("targets-test04-targets.txt"),
         testName = "targets with arguments",
       ),
+      TestCase(
+        schemaFile = "targets-test05.dot",
+        expectedOutputFiles = listOf("targets-test05-targets.txt", "AppChildFinishRequest.txt"),
+        testName = "nullable parameter and result types",
+      ),
+      TestCase(
+        schemaFile = "targets-test06.dot",
+        expectedOutputFiles = listOf("targets-test06-targets.txt"),
+        testName = "history pseudostate targets",
+      ),
+      TestCase(
+        schemaFile = "targets-test07.dot",
+        expectedOutputFiles = listOf("targets-test07-targets.txt"),
+        testName = "history under a parallel parent",
+      ),
     ) { runTest(it) }
   })

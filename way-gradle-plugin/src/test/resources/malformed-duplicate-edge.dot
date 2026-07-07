@@ -1,0 +1,8 @@
+digraph MalformedDuplicateEdge {
+  // rosseti regression (main_flow.dot): the same edge declared twice.
+  appFlow [type = "flow"]
+  shutdownFlow [type = "schema"]
+
+  appFlow -> shutdownFlow
+  appFlow -> shutdownFlow
+}

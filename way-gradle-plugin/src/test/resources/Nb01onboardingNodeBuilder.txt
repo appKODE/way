@@ -4,6 +4,7 @@ import kotlin.Any
 import kotlin.Suppress
 import kotlin.Unit
 import kotlin.collections.Map
+import kotlin.collections.Set
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
@@ -21,19 +22,20 @@ public class Nb01onboardingNodeBuilder(
     payloads: Map<Path, Any>,
     rootSegmentAlias: Segment?,
   ): Node {
-    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb01onboarding@src/test/resources/node-builders-multiple-flows.dot"))
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"))
     check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nb01onboarding" node: $path"""
     }
     return when {
-      path == targetOrError(Segment("nb01intro@src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias) -> nodeFactory.createNb01introNode()
+      path == rootPath -> nodeFactory.createRootNode()
+      path == targetOrError(Segment("nb01intro@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias) -> nodeFactory.createNb01introNode()
       else -> error("""illegal path build requested for "nb01onboarding" node: $path""")
     }
   }
 
-  override fun invalidateCache(path: Path): Unit = Unit
+  override fun invalidateCache(alivePaths: Set<Path>): Unit = Unit
 
-  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
   public fun <T> payloadOrError(

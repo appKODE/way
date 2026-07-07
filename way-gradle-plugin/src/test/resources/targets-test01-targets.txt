@@ -11,19 +11,19 @@ public class AppTargets(
   private val prefix: Path? = null,
 ) {
   public val permissions: FlowTarget =
-      FlowTarget(flowPath(Path(listOf(Segment("permissions@src/test/resources/targets-test01.dot")))))
+      FlowTarget(flowPath(Path(listOf(Segment("permissions@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val screen4: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("screen4@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("screen4@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val screen1: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val screen2: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot"), Segment("screen2@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@TestApp:src/test/resources/targets-test01.dot"), Segment("screen2@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val screen3: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("screen1@src/test/resources/targets-test01.dot"), Segment("screen2@src/test/resources/targets-test01.dot"), Segment("screen3@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("screen1@TestApp:src/test/resources/targets-test01.dot"), Segment("screen2@TestApp:src/test/resources/targets-test01.dot"), Segment("screen3@TestApp:src/test/resources/targets-test01.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }
@@ -32,13 +32,13 @@ public class PermissionsTargets(
   private val prefix: Path? = null,
 ) {
   public val finish: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("finish@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("finish@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val intro: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@TestApp:src/test/resources/targets-test01.dot")))))
 
   public val page1: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test01.dot"), Segment("page1@src/test/resources/targets-test01.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@TestApp:src/test/resources/targets-test01.dot"), Segment("page1@TestApp:src/test/resources/targets-test01.dot")))))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

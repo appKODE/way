@@ -1,0 +1,13 @@
+digraph ParallelTestParamswHome {
+  package = "ru.kode.way.paramsw.home"
+
+  // Inner parallelFlow imported by the parameterized intermediate flow. Mirrors a real-world app's
+  // homeFlow [parallelFlow] -> { exploreFlow, myAcmeFlow, ... }. Kept unparameterized to match
+  // the real app's homeFlow (no root parameter); the two tab sub-regions are plain leaf flows.
+  paramHomeImport [ type = "parallelFlow" ]
+  paramTabA [ type = "schema" ]
+  paramTabB [ type = "schema" ]
+
+  paramHomeImport -> paramTabA
+  paramHomeImport -> paramTabB
+}

@@ -1,0 +1,15 @@
+digraph ParallelTestParamsw {
+  package = "ru.kode.way.paramsw"
+
+  // Parameterized parallelFlow ROOT importing two sub-regions. Mirrors a real-world app's exact cold-start
+  // topology: appFlow [parallelFlow, parameterName=initialDeeplink] -> mainFlow + sheetFlow, where
+  // start(deeplink) must deliver the SAME payload to BOTH the parallel root's onEntry/createRootNode
+  // AND the parameterized mainFlow sub-region root (see AppFlowNodeFactory "Way simultaneously routes
+  // it to mainFlow sub-region"). No prior parallel fixture carried a parameterName — this is G-A/G-B.
+  paramAppRoot [ type = "parallelFlow", parameterName = "deeplink", parameterType = "kotlin.String" ]
+  paramMainImport [ type = "schema" ]
+  paramSheetImport [ type = "schema" ]
+
+  paramAppRoot -> paramMainImport
+  paramAppRoot -> paramSheetImport
+}

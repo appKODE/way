@@ -1,0 +1,6 @@
+digraph "bad-graph" {
+  app [type = flow]
+  login
+
+  app -> login
+}

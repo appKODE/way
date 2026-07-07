@@ -11,12 +11,15 @@ import ru.kode.way.Segment
 
 public class TestAppSchema : Schema {
   override val rootSegment: Segment =
-      Segment("permissions@src/test/resources/single-flow-non-app-root.dot")
+      Segment("permissions@TestApp:src/test/resources/single-flow-non-app-root.dot")
 
   override val childSchemas: Map<Segment, Schema> = emptyMap()
 
   override val regions: List<RegionId> =
-      listOf(RegionId(Path(listOf(Segment("permissions@src/test/resources/single-flow-non-app-root.dot")))))
+      listOf(RegionId(Path(listOf(Segment("permissions@TestApp:src/test/resources/single-flow-non-app-root.dot")))))
+
+  public val permissionsRegionId: RegionId
+    get() = regions[0]
 
   override fun target(
     regionId: RegionId,
@@ -24,12 +27,12 @@ public class TestAppSchema : Schema {
     rootSegmentAlias: Segment?,
   ): Path? = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("permissions@src/test/resources/single-flow-non-app-root.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("permissions@TestApp:src/test/resources/single-flow-non-app-root.dot")
       when(segment.id) {
-        rootSegment.id -> Path(rootSegment)
-        "screen1@src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot")))
-        "screen2@src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@src/test/resources/single-flow-non-app-root.dot")))
-        "screen3@src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@src/test/resources/single-flow-non-app-root.dot"), Segment("screen3@src/test/resources/single-flow-non-app-root.dot")))
+        "permissions@TestApp:src/test/resources/single-flow-non-app-root.dot" -> Path(rootSegment)
+        "screen1@TestApp:src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot")))
+        "screen2@TestApp:src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@TestApp:src/test/resources/single-flow-non-app-root.dot")))
+        "screen3@TestApp:src/test/resources/single-flow-non-app-root.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen3@TestApp:src/test/resources/single-flow-non-app-root.dot")))
         else -> null
       }
     }
@@ -44,12 +47,12 @@ public class TestAppSchema : Schema {
     rootSegmentAlias: Segment?,
   ): Schema.NodeType = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("permissions@src/test/resources/single-flow-non-app-root.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("permissions@TestApp:src/test/resources/single-flow-non-app-root.dot")
       when {
         path == Path(rootSegment) -> Schema.NodeType.Flow
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@src/test/resources/single-flow-non-app-root.dot"), Segment("screen3@src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@TestApp:src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen2@TestApp:src/test/resources/single-flow-non-app-root.dot"), Segment("screen3@TestApp:src/test/resources/single-flow-non-app-root.dot"))) -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

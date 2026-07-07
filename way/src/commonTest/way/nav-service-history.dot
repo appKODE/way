@@ -1,0 +1,14 @@
+digraph NavServiceHistory {
+  package = "ru.kode.way.navhist"
+
+  app [type = flow]
+  onboarding [type = flow, resultType = "kotlin.Int"]
+  login [type = flow]
+
+  onboardingHist [type = "history"]
+
+  app -> onboarding -> intro
+  app -> onboarding -> page1
+  app -> login -> credentials
+  onboarding -> onboardingHist
+}

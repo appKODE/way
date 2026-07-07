@@ -1,0 +1,14 @@
+// history pseudostate declared under a PARALLEL parent; accessor hosts in the enclosing flow
+digraph TargetsTest07 {
+  schemaFileName = "targets-test07-schema"
+  targetsFileName = "targets-test07-targets"
+
+  app [type = flow]
+  tabs [type = parallelFlow]
+  tabsHist [type = "deepHistory"]
+
+  app -> tabs
+  tabs -> tabsHist
+  tabs -> tabA -> screenA
+  tabs -> tabB -> screenB
+}

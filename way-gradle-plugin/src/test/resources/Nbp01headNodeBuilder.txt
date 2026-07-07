@@ -4,6 +4,7 @@ import kotlin.Any
 import kotlin.Suppress
 import kotlin.Unit
 import kotlin.collections.Map
+import kotlin.collections.Set
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
@@ -13,25 +14,26 @@ import ru.kode.way.firstSegment
 
 public class Nbp01headNodeBuilder(
   private val nodeFactory: Factory,
-  override val schema: NodeBuildersParallel01Schema,
+  override val schema: Nbp01headSchema,
 ) : NodeBuilder {
   override fun build(
     path: Path,
     payloads: Map<Path, Any>,
     rootSegmentAlias: Segment?,
   ): Node {
-    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nbp01head@src/test/resources/node-builders-parallel01.dot"))
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("nbp01head@NodeBuildersParallel01:src/test/resources/node-builders-parallel01.dot"))
     check(path.firstSegment().id == rootPath.firstSegment().id) {
       """illegal path build requested for "nbp01head" node: $path"""
     }
     return when {
+      path == rootPath -> nodeFactory.createRootNode()
       else -> error("""illegal path build requested for "nbp01head" node: $path""")
     }
   }
 
-  override fun invalidateCache(path: Path): Unit = Unit
+  override fun invalidateCache(alivePaths: Set<Path>): Unit = Unit
 
-  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.target(schema.regions.first(), segment, rootSegmentAlias) ?: error("""internal error: no target generated for segment "${segment.id}"""")
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
 
   @Suppress("UNCHECKED_CAST")
   public fun <T> payloadOrError(

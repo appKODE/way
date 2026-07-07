@@ -1,0 +1,12 @@
+digraph ParallelTestNestedRoot {
+  package = "ru.kode.way.parnested"
+
+  // Outer parallel-flow root. Its only sub-region is `nestedInner`, itself the root of
+  // another schema whose own root is `parallelFlow` (see parallel-test-nested-inner.dot).
+  // Exercises the parallel-rooted init branch in NavigationService.start when BOTH the
+  // top-level schema AND a sub-region's referenced schema are parallel-rooted.
+  nestedOuter [type = "parallelFlow"]
+  nestedInner [type = "schema"]
+
+  nestedOuter -> nestedInner
+}

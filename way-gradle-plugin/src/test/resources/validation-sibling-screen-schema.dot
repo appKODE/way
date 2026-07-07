@@ -1,0 +1,10 @@
+// Reproduces the "sibling screen + schema" pattern:
+// mainFlow has both a screen node (main) and a schema node (chatFlow) as direct children.
+// Navigating to chatFlow will dismiss main from the alive stack.
+digraph Main {
+  package = "ru.kode.way.test"
+  mainFlow [type = "flow"]
+  chatFlow [type = "schema"]
+  mainFlow -> main
+  mainFlow -> chatFlow
+}

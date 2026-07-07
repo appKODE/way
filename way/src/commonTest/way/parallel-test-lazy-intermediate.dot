@@ -1,0 +1,16 @@
+digraph ParallelTestLazyIntermediate {
+  package = "ru.kode.way.parlazyint"
+
+  // Outer flow-rooted schema. Its initial child is `outerScreen` (a plain screen). The
+  // parallel-rooted schema `importedParallel` (parallel-test-lazy-intermediate-inner.dot) is
+  // mounted as a sub-region of `outerApp` but is NOT reached at Init time. Reaching it requires
+  // an explicit NavigateTo at runtime — that's the case the runtime mount step in
+  // NavigationService.transition has to handle. See plan-when-i-integrated-a-lazy-hennessy.md.
+  outerApp [type = "flow"]
+  outerScreen [type = "screen"]
+
+  importedParallel [type = "schema"]
+
+  outerApp -> outerScreen
+  outerApp -> importedParallel
+}

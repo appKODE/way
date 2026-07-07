@@ -1,0 +1,8 @@
+digraph {
+  flowA [type = flow]
+  flowB [type = flow]
+  screenA [type = flow]
+  screenB [type = flow]
+  flowA -> screenA
+  flowB -> screenB
+}

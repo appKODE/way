@@ -1,7 +1,7 @@
 digraph Parallel01Main {
   package = "ru.kode.way.par01.main"
 
-  par01Main [type=parallel]
+  par01Main [type=parallelFlow]
   par01Top [type=schema]
   par01Bottom [type=schema]
 

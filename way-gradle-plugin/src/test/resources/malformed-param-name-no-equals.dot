@@ -1,0 +1,13 @@
+digraph MalformedParamNameNoEquals {
+  appFlow [type = "flow"]
+
+  // prsv regression: `parameterName "categoryType"` has NO '=' sign.
+  // Reproduced verbatim from prsv main_flow.dot / shelf_book_categories_flow.dot.
+  categoriesFlow [
+    type = "schema"
+    parameterName "categoryType"
+    parameterType = "kotlin.String"
+  ]
+
+  appFlow -> categoriesFlow
+}

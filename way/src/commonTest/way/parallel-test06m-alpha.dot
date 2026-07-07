@@ -1,0 +1,14 @@
+digraph Parallel06MixedAlpha {
+  package = "ru.kode.way.par06m.alpha"
+
+  par06mAlpha [type=parallelFlow]
+  par06mInnerA [type=flow]
+  par06mInnerAScreen
+  par06mInnerB [type=flow]
+  par06mInnerBScreen
+
+  par06mAlpha -> par06mInnerA
+  par06mInnerA -> par06mInnerAScreen
+  par06mAlpha -> par06mInnerB
+  par06mInnerB -> par06mInnerBScreen
+}

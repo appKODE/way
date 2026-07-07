@@ -1,0 +1,20 @@
+digraph ParallelTestAcmeSandwich {
+  package = "ru.kode.way.acmesw"
+
+  // Outer parallelFlow root with TWO imported (type=schema) sub-regions. Mirrors a real-world app's
+  // appFlow [parallelFlow] -> mainFlow [schema-imported flow] + sheetFlow [schema-imported flow]
+  // arrangement.
+  //
+  //   outerRoot [parallelFlow]
+  //     ├── mainFlowImport [type=schema, flow] -> mainScreen
+  //     │                                    └── homeImport [type=schema, parallelFlow]
+  //     │                                          ├── tabA [type=schema, flow]
+  //     │                                          └── tabB [type=schema, flow]
+  //     └── siblingSheet [type=schema, flow] -> sheetScreen
+  outerRoot [type = "parallelFlow"]
+  mainFlowImport [type = "schema"]
+  siblingSheet [type = "schema"]
+
+  outerRoot -> mainFlowImport
+  outerRoot -> siblingSheet
+}

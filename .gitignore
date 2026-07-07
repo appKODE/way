@@ -13,3 +13,8 @@ tmp/
 build
 .gradle
 local.properties
+
+/courses/
+/docs/
+AGENTS.md
+CLAUDE.md

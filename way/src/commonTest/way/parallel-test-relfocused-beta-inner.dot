@@ -1,0 +1,8 @@
+digraph ParallelTestRelFocusedBetaInner {
+  package = "ru.kode.way.parrelfocused.beta.inner"
+
+  parrelfBetaInner [type=flow]
+  parrelfBetaInnerScreen [type=screen]
+
+  parrelfBetaInner -> parrelfBetaInnerScreen
+}

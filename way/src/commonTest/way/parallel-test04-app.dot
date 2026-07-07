@@ -1,0 +1,7 @@
+digraph Parallel04 {
+  package = "ru.kode.way.par04"
+
+  par04App [type=flow]
+  par04Main [type=schema]
+  par04App -> par04Main
+}

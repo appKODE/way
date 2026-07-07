@@ -8,46 +8,71 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.UNIT
 
-internal fun buildChildFinishEventFileSpecs(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec? {
+internal fun buildChildFinishEventFileSpecs(
+  parseResult: SchemaParseResult,
+  config: CodeGenConfig,
+  @Suppress("UNUSED_PARAMETER") registry: SchemaRegistry,
+  emitParentParallelEntries: Boolean = true,
+): List<FileSpec> {
   val packageName = parseResult.customPackage ?: config.outputPackageName
-  val rootNode = parseResult.adjacencyList.findRootNode()
+  val adjacencyList = parseResult.adjacencyList
+  val regionRoots = buildRegionRoots(adjacencyList)
 
-  // all "local" flows are considered to be children of the root flow in the dot file
-  // (remember! dot file graph specifies backstack, not structure!)
-  // Therefore only one "ChildEvents"-class must be generated per dot-file.
-  // Complex multiple flows in one dot file are not permitted, better to factor out logic in multiple dot files in
-  // this case.
-  // See NOTE_GROUPING_NODES_BY_FLOW_RULE
+  // Collect (parentInterfaceId -> ordered list of child flow nodes) for each interface to generate.
+  // Two sources contribute:
+  // 1. For each regionRoot R that is a flow child of a LocalParallel P: R contributes to PChildFinishRequest.
+  //    Skipped when [emitParentParallelEntries] is false (e.g. when generating finish-event specs for a
+  //    virtual sub-schema, where the outer schema is responsible for emitting the parent's entries).
+  // 2. For each regionRoot R: flows discovered by DFS from R contribute to RChildFinishRequest.
+  val interfaceGroups = mutableMapOf<String, MutableList<Node.Flow>>()
 
-  val childFlowNodes = mutableListOf<Node.Flow>()
-  dfs(parseResult.adjacencyList, rootNode) { node ->
-    if (node == rootNode) return@dfs
-    when (node) {
-      is Node.Flow -> {
-        childFlowNodes.add(node)
+  regionRoots.forEach { regionRoot ->
+    if (emitParentParallelEntries) {
+      val parallelParent = adjacencyList.parallelParentOf(regionRoot)
+      if (parallelParent != null && regionRoot is Node.Flow) {
+        interfaceGroups.getOrPut(parallelParent.id) { mutableListOf() }.add(regionRoot)
       }
-
-      is Node.Screen -> Unit
+    }
+    // A regionRoot that is a LOCAL flow child of a LocalParallel owns its own virtual sub-schema
+    // — that sub-schema is responsible for emitting `<regionRoot>ChildFinishRequest`. Skip the
+    // outer DFS to avoid generating a duplicate (and colliding) interface here.
+    if (adjacencyList.isLocalChildOfParallel(regionRoot)) {
+      return@forEach
+    }
+    dfsWhile(adjacencyList, regionRoot) { node ->
+      if (node != regionRoot && node is Node.Flow) {
+        interfaceGroups.getOrPut(regionRoot.id) { mutableListOf() }.add(node)
+      }
+      // Stop descent at any node that has its own virtual sub-schema — that sub-schema emits
+      // its own child interfaces. Without this prune we would attribute deeply-nested flows to
+      // the wrong parent (their grandparent's interface).
+      val ownsVirtualSubSchema = node is Node.Flow.LocalParallel || adjacencyList.isLocalChildOfParallel(node)
+      node === regionRoot || !ownsVirtualSubSchema
     }
   }
 
-  if (childFlowNodes.isEmpty()) {
-    return null
-  }
+  return interfaceGroups
+    .filterValues { it.isNotEmpty() }
+    .map { (parentId, childFlows) ->
+      buildFinishEventFileSpec(packageName, parentId, childFlows.distinctBy { it.id })
+    }
+}
 
-  val className = ClassName(packageName, childFinishRequestInterfaceName(rootNode.id))
+private fun buildFinishEventFileSpec(
+  packageName: String,
+  parentId: String,
+  childFlowNodes: List<Node.Flow>,
+): FileSpec {
+  val className = ClassName(packageName, childFinishRequestInterfaceName(parentId))
   return FileSpec
-    .builder(
-      packageName,
-      className.simpleName,
-    )
+    .builder(packageName, className.simpleName)
     .addType(
       TypeSpec.interfaceBuilder(className)
         .addModifiers(KModifier.SEALED)
         .addSuperinterface(EVENT)
         .apply {
           childFlowNodes.forEach { node ->
-            val resultClassName = ClassName.bestGuess(node.resultType)
+            val resultClassName = parseTypeName(node.resultType)
             if (resultClassName != UNIT) {
               addType(
                 TypeSpec.classBuilder(node.id.toPascalCase())
@@ -82,4 +107,4 @@ internal fun buildChildFinishEventFileSpecs(parseResult: SchemaParseResult, conf
 
 internal fun childFinishRequestInterfaceName(nodeId: String) = nodeId.toPascalCase() + "ChildFinishRequest"
 internal fun childFinishRequestEventClassName(packageName: String, flowNodeId: String, childFlowNodeId: String) =
-  ClassName(packageName, childFinishRequestInterfaceName(flowNodeId) + '.' + childFlowNodeId.toPascalCase())
+  ClassName(packageName, childFinishRequestInterfaceName(flowNodeId)).nestedClass(childFlowNodeId.toPascalCase())

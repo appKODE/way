@@ -1,0 +1,14 @@
+digraph ParallelTestParamswMain {
+  package = "ru.kode.way.paramsw.main"
+
+  // Parameterized intermediate flow imported by the parameterized parallel root (G-B). It receives
+  // the same `deeplink` payload the root got, consumes it via createRootNode(deeplink), and also
+  // imports a parallel-rooted sub-schema (paramHomeImport) so a NavigateTo into the home tree mounts
+  // an intermediate parallel. Mirrors a real-world app's mainFlow [param=initialDeeplink] -> mainScreen + homeFlow.
+  paramMainImport [ type = "flow", parameterName = "deeplink", parameterType = "kotlin.String" ]
+  paramMainScreen [ type = "screen" ]
+  paramHomeImport [ type = "schema" ]
+
+  paramMainImport -> paramMainScreen
+  paramMainImport -> paramHomeImport
+}

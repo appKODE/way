@@ -1,0 +1,24 @@
+digraph HistoryParallelMain {
+  package = "ru.kode.way.histapp.main"
+
+  // Parallel-rooted schema imported by history-parallel-app.dot as the "main" subtree. It fans
+  // into two LOCAL flow regions:
+  //   histMain [parallelFlow]
+  //     +-- histTabA [flow] -> histA1 (initial), histA2
+  //     \-- histTabB [flow] -> histB1
+  // Drilling tabA to histA2 while tabB stays at histB1, then exiting the whole parallel, records
+  // deep history {histA2, histB1}. A deep HistoryTarget must restore BOTH; a shallow one re-enters
+  // each region at its default (histA1 / histB1).
+  histMain [type = "parallelFlow"]
+  histTabA [type = "flow"]
+  histTabB [type = "flow"]
+  histA1 [type = "screen"]
+  histA2 [type = "screen"]
+  histB1 [type = "screen"]
+
+  histMain -> histTabA
+  histMain -> histTabB
+  histTabA -> histA1
+  histTabA -> histA2
+  histTabB -> histB1
+}

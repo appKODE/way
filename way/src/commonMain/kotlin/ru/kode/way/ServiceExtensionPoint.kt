@@ -11,7 +11,13 @@ interface ServiceExtensionPoint<R : Any> {
   fun onPreTransition(service: NavigationService<R>, event: Event, state: NavigationState)
 
   /**
-   * Called after service processed an event, built and executed a transition
+   * Called after service processed an event, built and executed a transition.
+   * The transition is fully committed before this method is called — navigation state,
+   * alive stacks, and node lifecycle calls ([Node.onEntry]/[Node.onExit]) are all final.
+   *
+   * If this method throws, the exception propagates to the caller of [NavigationService.sendEvent]
+   * but navigation state is **not** rolled back. Guard any error-prone work with `try/catch`
+   * inside your implementation.
    *
    * @param service navigation service
    * @param event event which has triggered the transition

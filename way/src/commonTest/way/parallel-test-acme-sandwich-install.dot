@@ -1,0 +1,12 @@
+digraph ParallelTestAcmeSandwichInstall {
+  package = "ru.kode.way.acmesw.sheet.install"
+
+  // Imported schema that lives as a sibling of a SCREEN inside the sheet sub-region. Mirrors a real-world app's
+  // sheetFlow -> placeholder [screen] + installationFlow [schema, resultType]. Finishing it returns a
+  // typed result to siblingSheet, which navigates back to sheetScreen WITHOUT bubbling to the outer
+  // parallel root (G-G).
+  installationImport [ type = "flow", resultType = "kotlin.String" ]
+  installScreen [ type = "screen" ]
+
+  installationImport -> installScreen
+}

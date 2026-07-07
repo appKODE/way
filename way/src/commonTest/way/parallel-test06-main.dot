@@ -1,0 +1,21 @@
+digraph Parallel06Main {
+  package = "ru.kode.way.par06.main"
+
+  par06Main [type=parallelFlow]
+  par06Alpha [type=parallelFlow]
+  par06InnerA [type=flow]
+  par06InnerAScreen1
+  par06InnerAScreen2
+  par06InnerB [type=flow]
+  par06InnerBScreen
+  par06Beta [type=flow]
+  par06BetaScreen
+
+  par06Main -> par06Alpha
+  par06Alpha -> par06InnerA
+  par06InnerA -> par06InnerAScreen1 -> par06InnerAScreen2
+  par06Alpha -> par06InnerB
+  par06InnerB -> par06InnerBScreen
+  par06Main -> par06Beta
+  par06Beta -> par06BetaScreen
+}

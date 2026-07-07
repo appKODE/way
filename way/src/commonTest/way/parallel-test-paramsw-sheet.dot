@@ -1,0 +1,11 @@
+digraph ParallelTestParamswSheet {
+  package = "ru.kode.way.paramsw.sheet"
+
+  // Unparameterized sibling sub-region of the parallel root. The root's `deeplink` payload is also
+  // seeded at this region's root path by materializeRegion, but this root is NOT parameterized, so
+  // its createRootNode() ignores it (no "no payload" crash). Mirrors a real-world app's sheetFlow sibling.
+  paramSheetImport [ type = "flow" ]
+  paramSheetScreen [ type = "screen" ]
+
+  paramSheetImport -> paramSheetScreen
+}

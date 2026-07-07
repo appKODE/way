@@ -1,0 +1,7 @@
+digraph ValidationCycle {
+  app [type = flow]
+  screen1
+  screen2
+
+  app -> screen1 -> screen2 -> screen1
+}

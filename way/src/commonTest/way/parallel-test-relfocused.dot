@@ -1,0 +1,15 @@
+digraph ParallelTestRelFocused {
+  package = "ru.kode.way.parrelfocused"
+
+  // Top-level parallel root with two sub-region flows imported as their OWN schemas
+  // (parallel-test-relfocused-alpha.dot, parallel-test-relfocused-beta.dot). Each sub-schema
+  // declares multiple sibling targets so that NavigateTo(FlowTarget | ScreenTarget) returned
+  // from the root parallel's transition() can meaningfully distinguish the focused vs unfocused
+  // sub-region. Exercises Fix #2 (TargetResolution.kt).
+  parrelfRoot [type=parallelFlow]
+  parrelfAlpha [type=schema]
+  parrelfBeta [type=schema]
+
+  parrelfRoot -> parrelfAlpha
+  parrelfRoot -> parrelfBeta
+}

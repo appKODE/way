@@ -1,0 +1,41 @@
+digraph ParallelTestAcmeTabs {
+  package = "ru.kode.way.acmetabs"
+
+  // Mirrors a real-world app's layout: parallel root -> app flow -> nested parallel -> tabs.
+  //
+  //   acmeAppFlow [parallelFlow]   <-- schema root
+  //     |
+  //     +-- acmeMainFlow [flow]            <-- LOCAL flow sub-region
+  //     |     |
+  //     |     \-- acmeTabsFlow [parallelFlow]   <-- nested parallel inside the flow
+  //     |           |
+  //     |           +-- acmeHomeTab [flow] -> acmeHomeScreen
+  //     |           \-- acmeExploreTab [flow] -> acmeExploreScreen
+  //     |
+  //     \-- acmeAuthFlow [flow] -> acmeAuthScreen   <-- sibling sub-region at the top
+  acmeAppFlow [type = "parallelFlow"]
+  acmeMainFlow [type = "flow"]
+  acmeAuthFlow [type = "flow"]
+  acmeTabsFlow [type = "parallelFlow"]
+  acmeHomeTab [type = "flow"]
+  acmeExploreTab [type = "flow"]
+  acmeAuthScreen [type = "screen"]
+  acmeHomeScreen [type = "screen"]
+  acmeExploreScreen [type = "screen"]
+  // acmeTopUpScreen is pushed on top of acmeHomeScreen (a real 1-deep back entry, popped by
+  // maybeResolveBackEvent). Models the cross-tab "top-up from Explore" jump. acmeExploreDetailScreen
+  // is a concrete Explore destination the Back-side "switch focus + navigate" step lands on.
+  acmeTopUpScreen [type = "screen"]
+  acmeExploreDetailScreen [type = "screen"]
+
+  acmeAppFlow -> acmeMainFlow
+  acmeAppFlow -> acmeAuthFlow
+  acmeMainFlow -> acmeTabsFlow
+  acmeTabsFlow -> acmeHomeTab
+  acmeTabsFlow -> acmeExploreTab
+  acmeHomeTab -> acmeHomeScreen
+  acmeHomeScreen -> acmeTopUpScreen
+  acmeExploreTab -> acmeExploreScreen
+  acmeExploreScreen -> acmeExploreDetailScreen
+  acmeAuthFlow -> acmeAuthScreen
+}

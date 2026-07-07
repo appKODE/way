@@ -1,0 +1,14 @@
+digraph DocumentDetailsFlow {
+  package = "ru.kode.rosseti.feature.instrument.document.details.routing"
+
+  // rosseti regression: this child's ROOT node is `documentDetailsFlow`, but the
+  // importing parent (instruments_flow.dot) declares the import as
+  // `instrumentDocumentDetailsFlow [type=schema]` — a DIFFERENT alias name.
+  documentDetailsFlow [
+    type = "flow"
+    parameterName = "documentId"
+    parameterType = "kotlin.String"
+  ]
+
+  documentDetailsFlow -> main
+}

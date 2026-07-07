@@ -1,0 +1,16 @@
+// history pseudostate targets (shallow + deep) alongside screens
+digraph TargetsTest06 {
+  schemaFileName = "targets-test06-schema"
+  targetsFileName = "targets-test06-targets"
+
+  app [type = flow]
+  main [type = flow]
+
+  mainHist [type = "history"]
+  mainDeepHist [type = "deepHistory"]
+
+  app -> main -> screenA
+  main -> screenB
+  main -> mainHist
+  main -> mainDeepHist
+}

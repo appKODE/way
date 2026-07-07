@@ -1,0 +1,8 @@
+digraph ParallelFlatMix {
+  package = "ru.kode.way.parfm"
+
+  parfmApp [type=flow]
+  parfmMain [type=schema]
+
+  parfmApp -> parfmMain
+}

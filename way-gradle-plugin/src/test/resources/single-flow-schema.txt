@@ -10,12 +10,15 @@ import ru.kode.way.Schema
 import ru.kode.way.Segment
 
 public class TestAppSchema : Schema {
-  override val rootSegment: Segment = Segment("app@src/test/resources/single-flow.dot")
+  override val rootSegment: Segment = Segment("app@TestApp:src/test/resources/single-flow.dot")
 
   override val childSchemas: Map<Segment, Schema> = emptyMap()
 
   override val regions: List<RegionId> =
-      listOf(RegionId(Path(listOf(Segment("app@src/test/resources/single-flow.dot")))))
+      listOf(RegionId(Path(listOf(Segment("app@TestApp:src/test/resources/single-flow.dot")))))
+
+  public val appRegionId: RegionId
+    get() = regions[0]
 
   override fun target(
     regionId: RegionId,
@@ -23,12 +26,12 @@ public class TestAppSchema : Schema {
     rootSegmentAlias: Segment?,
   ): Path? = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/single-flow.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("app@TestApp:src/test/resources/single-flow.dot")
       when(segment.id) {
-        rootSegment.id -> Path(rootSegment)
-        "screen1@src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot")))
-        "screen2@src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot"), Segment("screen2@src/test/resources/single-flow.dot")))
-        "screen3@src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot"), Segment("screen2@src/test/resources/single-flow.dot"), Segment("screen3@src/test/resources/single-flow.dot")))
+        "app@TestApp:src/test/resources/single-flow.dot" -> Path(rootSegment)
+        "screen1@TestApp:src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot")))
+        "screen2@TestApp:src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot"), Segment("screen2@TestApp:src/test/resources/single-flow.dot")))
+        "screen3@TestApp:src/test/resources/single-flow.dot" -> Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot"), Segment("screen2@TestApp:src/test/resources/single-flow.dot"), Segment("screen3@TestApp:src/test/resources/single-flow.dot")))
         else -> null
       }
     }
@@ -43,12 +46,12 @@ public class TestAppSchema : Schema {
     rootSegmentAlias: Segment?,
   ): Schema.NodeType = when (regionId) {
     regions[0] -> {
-      val rootSegment = rootSegmentAlias ?: Segment("app@src/test/resources/single-flow.dot")
+      val rootSegment = rootSegmentAlias ?: Segment("app@TestApp:src/test/resources/single-flow.dot")
       when {
         path == Path(rootSegment) -> Schema.NodeType.Flow
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot"), Segment("screen2@src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
-        path == Path(listOf(rootSegment, Segment("screen1@src/test/resources/single-flow.dot"), Segment("screen2@src/test/resources/single-flow.dot"), Segment("screen3@src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot"), Segment("screen2@TestApp:src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("screen1@TestApp:src/test/resources/single-flow.dot"), Segment("screen2@TestApp:src/test/resources/single-flow.dot"), Segment("screen3@TestApp:src/test/resources/single-flow.dot"))) -> Schema.NodeType.Screen
         else -> {
           error("""internal error: no nodeType for path=$path""")
         }

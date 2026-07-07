@@ -1,0 +1,23 @@
+package ru.kode.test.app.schema
+
+import ru.kode.way.FlowTarget
+import ru.kode.way.HistoryTarget
+import ru.kode.way.Path
+import ru.kode.way.Segment
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class AppTargets(
+  private val prefix: Path? = null,
+) {
+  public val tabs: FlowTarget =
+      FlowTarget(flowPath(Path(listOf(Segment("tabs@TargetsTest07:src/test/resources/targets-test07.dot")))))
+
+  public val tabsHist: HistoryTarget =
+      HistoryTarget(flowPath(Path(listOf(Segment("app@TargetsTest07:src/test/resources/targets-test07.dot"), Segment("tabs@TargetsTest07:src/test/resources/targets-test07.dot")))), deep = true)
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.app: AppTargets
+  get() = AppTargets()

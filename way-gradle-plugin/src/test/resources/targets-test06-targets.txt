@@ -1,0 +1,42 @@
+package ru.kode.test.app.schema
+
+import ru.kode.way.FlowTarget
+import ru.kode.way.HistoryTarget
+import ru.kode.way.Path
+import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class AppTargets(
+  private val prefix: Path? = null,
+) {
+  public val main: FlowTarget =
+      FlowTarget(flowPath(Path(listOf(Segment("main@TargetsTest06:src/test/resources/targets-test06.dot")))))
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public class MainTargets(
+  private val prefix: Path? = null,
+) {
+  public val mainDeepHist: HistoryTarget =
+      HistoryTarget(flowPath(Path(listOf(Segment("app@TargetsTest06:src/test/resources/targets-test06.dot"), Segment("main@TargetsTest06:src/test/resources/targets-test06.dot")))), deep = true)
+
+  public val mainHist: HistoryTarget =
+      HistoryTarget(flowPath(Path(listOf(Segment("app@TargetsTest06:src/test/resources/targets-test06.dot"), Segment("main@TargetsTest06:src/test/resources/targets-test06.dot")))), deep = false)
+
+  public val screenB: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screenB@TargetsTest06:src/test/resources/targets-test06.dot")))))
+
+  public val screenA: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("screenA@TargetsTest06:src/test/resources/targets-test06.dot")))))
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.app: AppTargets
+  get() = AppTargets()
+
+public val Target.Companion.main: MainTargets
+  get() = MainTargets()

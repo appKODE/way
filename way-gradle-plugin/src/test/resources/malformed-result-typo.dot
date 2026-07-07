@@ -1,0 +1,9 @@
+digraph MalformedResultTypo {
+  // rosseti regression (mapaddress_flow.dot): `result` used instead of `resultType`.
+  mapAddressFlow [
+    type = "flow",
+    result = "com.example.MapAddressFlow.Result"
+  ]
+
+  mapAddressFlow -> picker
+}

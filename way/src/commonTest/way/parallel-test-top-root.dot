@@ -1,0 +1,14 @@
+digraph ParallelTestTopRoot {
+  package = "ru.kode.way.partoproot"
+
+  topRoot [type = "parallelFlow"]
+  alpha [type = "flow"]
+  beta [type = "flow"]
+  alphaScreen [type = "screen"]
+  betaScreen [type = "screen"]
+
+  topRoot -> alpha
+  topRoot -> beta
+  alpha -> alphaScreen
+  beta -> betaScreen
+}

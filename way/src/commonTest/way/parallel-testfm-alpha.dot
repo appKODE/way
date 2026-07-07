@@ -1,0 +1,9 @@
+digraph ParallelFlatMixAlpha {
+  package = "ru.kode.way.parfm.alpha"
+
+  parfmAlpha [type=flow]
+  parfmAlphaScreen1
+  parfmAlphaScreen2
+
+  parfmAlpha -> parfmAlphaScreen1 -> parfmAlphaScreen2
+}

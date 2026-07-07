@@ -11,6 +11,9 @@ import ru.kode.way.ScreenTransition
  * Create your own custom node if this one is too basic or if you don't need to use hooks.
  *
  * Requires [NodeHooksSupportExtensionPoint] to be added to [NavigationService] to work.
+ *
+ * Unlike [BaseFlowNode] there is no `nodePath`: only flow nodes need their absolute mount point (to
+ * translate schema-local sibling RegionIds to absolute paths), so screens deliberately omit it.
  */
 abstract class BaseScreenNode :
   ScreenNode,

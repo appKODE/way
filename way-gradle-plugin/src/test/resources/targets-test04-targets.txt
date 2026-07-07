@@ -14,15 +14,15 @@ public class AppTargets(
   private val prefix: Path? = null,
 ) {
   public val intro: ScreenTarget =
-      ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test04.dot")))))
+      ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot")))))
 
-  public fun main(userId: Int): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("main@src/test/resources/targets-test04.dot")))), payload = userId)
+  public fun main(userId: Int): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("main@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = userId)
 
-  public fun page1(charset: Charset): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test04.dot"), Segment("page1@src/test/resources/targets-test04.dot")))), payload = charset)
+  public fun page1(charset: Charset): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = charset)
 
-  public fun page2(userCount: Int): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test04.dot"), Segment("page1@src/test/resources/targets-test04.dot"), Segment("page2@src/test/resources/targets-test04.dot")))), payload = userCount)
+  public fun page2(userCount: Int): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page2@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = userCount)
 
-  public fun permissions(requireGrantAll: Boolean): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("intro@src/test/resources/targets-test04.dot"), Segment("page1@src/test/resources/targets-test04.dot"), Segment("page2@src/test/resources/targets-test04.dot"), Segment("permissions@src/test/resources/targets-test04.dot")))), payload = requireGrantAll)
+  public fun permissions(requireGrantAll: Boolean): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page2@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("permissions@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = requireGrantAll)
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
 }

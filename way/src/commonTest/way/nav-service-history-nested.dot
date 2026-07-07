@@ -1,0 +1,14 @@
+digraph NavServiceHistoryNested {
+  package = "ru.kode.way.navhistnested"
+  schemaFileName = "nav-service-history-nested-schema"
+  targetsFileName = "nav-service-history-nested-targets"
+
+  app [type = flow]
+  onboarding [type = flow]
+  wizard [type = flow]
+  login [type = flow]
+
+  app -> onboarding -> wizard -> step1
+  wizard -> step2
+  app -> login -> credentials
+}

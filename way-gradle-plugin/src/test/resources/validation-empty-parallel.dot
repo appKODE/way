@@ -1,0 +1,7 @@
+digraph {
+  app [type = flow]
+  main [type = parallelFlow]
+  emptyChild [type = parallelFlow]
+  app -> main
+  main -> emptyChild
+}

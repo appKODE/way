@@ -1,0 +1,5 @@
+digraph {
+  app [type=flow]
+  app [type=schema]
+  app -> screen1
+}

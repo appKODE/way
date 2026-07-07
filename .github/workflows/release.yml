@@ -3,7 +3,7 @@ name: Release Libraries
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
 
 permissions:
   contents: read
@@ -37,6 +37,21 @@ jobs:
           sdkmanager --install \
             "platforms;android-36" \
             "build-tools;36.0.0"
+      - name: Run tests
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :way-gradle-plugin:test \
+            :way:jvmTest
+
+      - name: Validate tag matches version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION=$(grep '^versionName=' gradle.properties | cut -d'=' -f2)
+          if [ "v${VERSION}" != "${TAG}" ] && [ "${VERSION}" != "${TAG}" ]; then
+            echo "Tag '${TAG}' does not match versionName '${VERSION}' in gradle.properties"
+            exit 1
+          fi
+
       - name: Prepare publishing credentials
         env:
           NEXUS_USERTOKEN_NAME: ${{ secrets.NEXUS_USERTOKEN_NAME }}

@@ -1,0 +1,6 @@
+digraph Parallel04InnerA {
+  package = "ru.kode.way.par04.innera"
+
+  par04InnerA [type=flow]
+  par04InnerA -> par04InnerAScreen1 -> par04InnerAScreen2
+}

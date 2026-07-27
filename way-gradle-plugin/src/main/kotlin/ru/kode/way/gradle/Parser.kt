@@ -86,7 +86,10 @@ private class Visitor : DotBaseVisitor<Unit>() {
   }
 
   private fun findGraphAttributeValue(ctx: GraphContext, name: String): String? {
-    for (stmt in ctx.stmt_list().stmt()) {
+    // A genuinely blank/whitespace-only `.dot` file fails ANTLR's grammar check on immediate EOF,
+    // leaving `ctx.stmt_list()` null. Route that into the same empty-adjacency-list path (and its
+    // clear "empty navigation graph" error in GenerateClassesTask.generate()) instead of NPEing here.
+    for (stmt in ctx.stmt_list()?.stmt().orEmpty()) {
       // A graph attribute statement is `attrName = attrValue`: id_(0) is the name, id_(1) the value.
       val attrName = stmt.id_(0)?.asString()
       if (attrName == name) {

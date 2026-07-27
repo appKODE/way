@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.9 - 2026-07-31
+
+* Add flavor-aware `.dot` file routing to `way-gradle-plugin`: a product flavor (or build type, or
+  flavor+buildType variant) can override any `.dot` file from a lower-priority source set by
+  placing a file at the same relative path — full-file replacement, same precedence Android uses
+  for resources (`main` < flavor < buildType < variant-specific)
+  * Per-variant `generate<Variant>WayClasses` tasks are registered only when a variant actually
+    resolves to a distinct file set, so single-flavor and non-Android projects keep the existing
+    cheap single-task path
+  * Variant-specific-only overrides (e.g. `src/googleDebug/way/`) are detected via filesystem
+    scanning at the point AGP's DSL source set container is still incomplete, avoiding the
+    timing gap where such overrides would otherwise be silently ignored
+  * Blank `.dot` files no longer NPE in the ANTLR parser; empty/unmatched override directories
+    surface a clear warning or validation error instead of silently generating nothing
+* Add a flavor-dot-routing sample to `sample-compose:app:routing` (`google`/`huawei` flavors) with
+  matching flavor-specific hand-written `FlowNode` implementations and unit tests proving both
+  flavors' generated code compiles and behaves correctly
+
 ## 0.9.8 - 2026-07-07
 
 The headline of this release is **parallel navigation**, built on the W3C SCXML statechart

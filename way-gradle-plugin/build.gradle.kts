@@ -53,6 +53,7 @@ dependencies {
   testImplementation(libs.bundles.koTestJvm)
   testImplementation(libs.okio)
   testImplementation(libs.kotlin.plugin)
+  testImplementation(libs.android.plugin)
   testImplementation(libs.ksp.gradle.plugin)
   testImplementation(gradleTestKit())
 

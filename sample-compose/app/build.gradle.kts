@@ -25,6 +25,12 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
 
+  flavorDimensions += "store"
+  productFlavors {
+    create("google") { dimension = "store" }
+    create("huawei") { dimension = "store" }
+  }
+
   buildFeatures {
     compose = true
   }

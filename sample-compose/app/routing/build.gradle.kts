@@ -16,6 +16,12 @@ android {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+
+  flavorDimensions += "store"
+  productFlavors {
+    create("google") { dimension = "store" }
+    create("huawei") { dimension = "store" }
+  }
 }
 
 kotlin {
@@ -32,4 +38,11 @@ dependencies {
 
   implementation(libs.dagger)
   ksp(libs.daggerCompiler)
+
+  testImplementation(libs.bundles.koTestCommon)
+  testImplementation(libs.bundles.koTestJvm)
+}
+
+tasks.withType<Test> {
+  useJUnitPlatform()
 }

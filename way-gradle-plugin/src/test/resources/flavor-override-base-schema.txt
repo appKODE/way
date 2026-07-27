@@ -1,0 +1,80 @@
+package ru.kode.test.app.schema
+
+import kotlin.Any
+import kotlin.collections.List
+import kotlin.collections.Map
+import ru.kode.way.Event
+import ru.kode.way.Path
+import ru.kode.way.RegionId
+import ru.kode.way.Schema
+import ru.kode.way.Segment
+
+public class FlavorBaseAppSchema : Schema {
+  override val rootSegment: Segment =
+      Segment("app@FlavorBaseApp:src/test/resources/flavor-override-base.dot")
+
+  override val childSchemas: Map<Segment, Schema> = emptyMap()
+
+  override val regions: List<RegionId> =
+      listOf(RegionId(Path(listOf(Segment("app@FlavorBaseApp:src/test/resources/flavor-override-base.dot")))))
+
+  public val appRegionId: RegionId
+    get() = regions[0]
+
+  override fun target(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): Path? = when (regionId) {
+    regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@FlavorBaseApp:src/test/resources/flavor-override-base.dot")
+      when(segment.id) {
+        "app@FlavorBaseApp:src/test/resources/flavor-override-base.dot" -> Path(rootSegment)
+        "login@FlavorBaseApp:src/test/resources/flavor-override-base.dot" -> Path(listOf(rootSegment, Segment("login@FlavorBaseApp:src/test/resources/flavor-override-base.dot")))
+        "home@FlavorBaseApp:src/test/resources/flavor-override-base.dot" -> Path(listOf(rootSegment, Segment("login@FlavorBaseApp:src/test/resources/flavor-override-base.dot"), Segment("home@FlavorBaseApp:src/test/resources/flavor-override-base.dot")))
+        else -> null
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun nodeType(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Schema.NodeType = when (regionId) {
+    regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@FlavorBaseApp:src/test/resources/flavor-override-base.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("login@FlavorBaseApp:src/test/resources/flavor-override-base.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("login@FlavorBaseApp:src/test/resources/flavor-override-base.dot"), Segment("home@FlavorBaseApp:src/test/resources/flavor-override-base.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun createChildFlowFinishRequestEvent(
+    regionId: RegionId,
+    path: Path,
+    result: Any,
+  ): Event = when (regionId) {
+    regions[0] -> {
+      when(path) {
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+}

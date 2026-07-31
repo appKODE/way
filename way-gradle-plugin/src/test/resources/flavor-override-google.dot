@@ -1,0 +1,6 @@
+digraph FlavorGoogleApp {
+    schemaFileName = "flavor-override-google-schema"
+
+    app [type = flow, shape = hexagon]
+    app -> login -> countrySelect -> home
+}

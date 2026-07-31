@@ -56,6 +56,21 @@ abstract class GenerateClassesTask : SourceTask() {
       parseSchemaDotFile(file, projectDir, warn = logger::warn)
     }
     validateNoOutputFileCollisions(parseResults, config)
+    // An empty (or whitespace-only) schema file parses to an empty adjacencyList with no
+    // validator errors — SchemaRegistry.from() already skips these silently for registry-matching
+    // purposes, but the codegen path below has no equivalent guard and would otherwise fail deep
+    // inside codegen (e.g. a root-node lookup on an empty graph) with an unhelpful, unrelated
+    // exception. Fail fast here with a message naming the specific file, since this most likely
+    // means a flavor/buildType override file accidentally replaced a real base graph with a blank
+    // stub.
+    val emptySchemaFiles = parseResults.filter { it.adjacencyList.isEmpty() }
+    if (emptySchemaFiles.isNotEmpty()) {
+      error(
+        emptySchemaFiles.joinToString("\n") { parseResult ->
+          "${parseResult.filePath} parsed to an empty navigation graph — check for a blank or invalid override file."
+        },
+      )
+    }
     // Build the cross-file registry once so every per-file codegen pass agrees on segment ids
     // at schema boundaries (parent emits the same id for `homeFlow [type=schema]` that the
     // child schema emits for its own rootSegment). See `SchemaRegistry`.

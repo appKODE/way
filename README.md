@@ -20,6 +20,8 @@ The Compose integration (`:way-compose`) renders active nodes with `NodeHost`.
 - `:way-gradle-plugin` - Gradle plugin (`id("ru.kode.way")`) that generates code from `.dot` schemas.
 - `:sample` - JVM sample (KMP multi-target support is not yet released).
 - `:sample-compose:*` - Android sample split into feature modules.
+  - `:sample-compose:main-parallel:*` - tab-bar example using `ParallelFlowNode` (see [Compose Integration](#compose-integration)).
+  - `:sample-compose:app:routing` - `google`/`huawei` product flavors with per-flavor `.dot` overrides (see [Flavor-Specific Routing](#flavor-specific-routing)).
 
 ## Requirements
 
@@ -121,6 +123,45 @@ Typical generated types (from graph id `App`):
 - Android: generated dir is attached to all non-test variants via Android Components API.
 - Android + KSP: variant `ksp<Variant>Kotlin` tasks depend on generation and receive generated roots.
 - Kotlin/JVM: generated dir is added to `main`.
+
+### Flavor-Specific Routing
+
+Android product flavors can each get their own `.dot` file for the same schema — e.g. a step only
+some flavors need. Resolution works exactly like Android resource merging: a file at
+`src/<flavor>/way/<name>.dot` **fully replaces** the file at the same relative path in a
+lower-priority source set (never merged). Priority, low to high:
+`main` < flavor < build type < flavor+buildType variant-specific.
+
+```
+src/main/way/app-flow.dot     # base: app -> login -> main
+src/huawei/way/app-flow.dot   # override: app -> main (huawei skips login)
+```
+
+The plugin registers one `generate<Variant>WayClasses` task per Android variant
+(`generateGoogleDebugWayClasses`, `generateHuaweiDebugWayClasses`, ...), each writing to
+`build/generated/way/code/<variant>/`. A flavor that doesn't override anything simply reuses
+`main`'s file as its own input — there is no `generated/way/code/main/`, since `main` is a
+contributing source set, never a buildable variant on its own.
+
+**The gotcha: hand-written code can't straddle flavors.** `.dot` overrides use full-file
+*replacement*; ordinary Kotlin/Java source sets (`src/main/kotlin`, `src/google/kotlin`,
+`src/huawei/kotlin`) use plain Gradle *union* — every flavor's compilation always includes
+`main/kotlin`. So if one flavor's `.dot` file declares a node another flavor's doesn't, the
+flavor missing it won't generate the matching class member (e.g. `AppChildFinishRequest.Login`),
+and hand-written code in `src/main/kotlin` referencing it fails with `Unresolved reference` for
+that flavor.
+
+Rule: anything touching a symbol that isn't in **every** flavor's generated output must live in
+that flavor's own Kotlin source set (`src/google/kotlin`, `src/huawei/kotlin`, ...), not
+`src/main/kotlin`. Code that stays in `main` may only reference the intersection of what every
+flavor generates.
+
+Worked example: `sample-compose/app/routing` (`google` / `huawei` flavors) —
+`src/huawei/way/app-flow.dot` overrides `src/main/way/app-flow.dot` to drop a Google-only login
+step, and the hand-written `AppFlow.kt` / `AppFlowNode.kt` / `di/AppFlowComponent.kt` are
+duplicated per flavor under `src/google/kotlin` / `src/huawei/kotlin` accordingly.
+`src/test/kotlin/.../AppFlowNodeTest.kt` is a shared test that only touches the symbols common to
+both flavors, compiled once per flavor to prove both generate usable code.
 
 ## Runtime Model
 

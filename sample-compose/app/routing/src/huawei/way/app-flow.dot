@@ -1,0 +1,10 @@
+digraph App {
+  package = "ru.kode.way.sample.compose.app.routing"
+
+  app [type=flow]
+  main [type=schema, resultType = "ru.kode.way.sample.compose.main.routing.MainFlowResult"]
+  mainParallel [type=schema]
+
+  app -> main
+  app -> mainParallel
+}

@@ -80,6 +80,41 @@ class KspTaskConfigurerTest :
       kspTask.kspConfig.javaSourceRoots.files.contains(outputDirectory) shouldBe false
       kspTask.kspConfig.commonSourceRoots.files.contains(outputDirectory) shouldBe false
     }
+
+    should("wire two distinct variants' generate tasks to their own ksp task, never to each other's") {
+      val project = ProjectBuilder.builder().build()
+
+      val googleDebugDir = project.layout.buildDirectory.dir("generated/way/code/googleDebug")
+      val googleDebugGenerateTask = project.tasks.register(
+        "generateGoogleDebugWayClasses",
+        GenerateClassesTask::class.java,
+      ) { task -> task.outputDirectory.set(googleDebugDir) }
+      val googleDebugKspTask = project.tasks.register("kspGoogleDebugKotlin", FakeKspAATask::class.java)
+
+      val otherDebugDir = project.layout.buildDirectory.dir("generated/way/code/otherDebug")
+      val otherDebugGenerateTask = project.tasks.register(
+        "generateOtherDebugWayClasses",
+        GenerateClassesTask::class.java,
+      ) { task -> task.outputDirectory.set(otherDebugDir) }
+      val otherDebugKspTask = project.tasks.register("kspOtherDebugKotlin", FakeKspAATask::class.java)
+
+      project.configureKspTask(kspTaskName = "kspGoogleDebugKotlin", taskProvider = googleDebugGenerateTask)
+      project.configureKspTask(kspTaskName = "kspOtherDebugKotlin", taskProvider = otherDebugGenerateTask)
+
+      val googleDebugOutput = googleDebugDir.get().asFile
+      val otherDebugOutput = otherDebugDir.get().asFile
+
+      // Each variant's ksp task only sees its own generate task's output, never the other's.
+      googleDebugKspTask.get().kspConfig.sourceRoots.files.contains(googleDebugOutput) shouldBe true
+      googleDebugKspTask.get().kspConfig.sourceRoots.files.contains(otherDebugOutput) shouldBe false
+      otherDebugKspTask.get().kspConfig.sourceRoots.files.contains(otherDebugOutput) shouldBe true
+      otherDebugKspTask.get().kspConfig.sourceRoots.files.contains(googleDebugOutput) shouldBe false
+
+      googleDebugKspTask.get().taskDependencies.getDependencies(googleDebugKspTask.get())
+        .contains(otherDebugGenerateTask.get()) shouldBe false
+      otherDebugKspTask.get().taskDependencies.getDependencies(otherDebugKspTask.get())
+        .contains(googleDebugGenerateTask.get()) shouldBe false
+    }
   })
 
 private open class FakeKspAATask

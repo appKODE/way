@@ -49,5 +49,21 @@ class SchemaGenerateTest :
         ),
         testName = "multiple parallel in one schema",
       ),
+      // These two fixtures only prove that two independently valid graphs codegen correctly and
+      // differently from each other — they do NOT exercise resolveOverriddenDotFiles itself (no
+      // source-set resolution happens here, each file is codegenned standalone). The actual
+      // override-resolution behavior (picking the higher-priority file at a shared relative path,
+      // including an end-to-end resolve+codegen assertion using these same two fixtures) is
+      // covered in WayPluginSourceResolutionTest.
+      TestCase(
+        schemaFile = "flavor-override-base.dot",
+        expectedOutputFiles = listOf("flavor-override-base-schema.txt"),
+        testName = "codegen fixture: base graph (paired with the overriding-variant fixture below)",
+      ),
+      TestCase(
+        schemaFile = "flavor-override-google.dot",
+        expectedOutputFiles = listOf("flavor-override-google-schema.txt"),
+        testName = "codegen fixture: overriding-variant graph produces different generated code than the base fixture",
+      ),
     ) { runTest(it) }
   })

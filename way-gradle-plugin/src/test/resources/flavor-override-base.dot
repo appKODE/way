@@ -1,0 +1,6 @@
+digraph FlavorBaseApp {
+    schemaFileName = "flavor-override-base-schema"
+
+    app [type = flow, shape = hexagon]
+    app -> login -> home
+}

@@ -35,6 +35,10 @@ internal fun calculateAliveNodes(
     region._alive.removeAll { it !in stepsSet }
     steps.forEach { if (it !in aliveSet) region._alive.add(it) }
     region._active = region._alive.last()
+    // Set once, on this region's first-ever resolution (whether that's InitEvent's
+    // FlowNode.initial chain or a lazily-mounted region's first NavigateTo) — never touched again
+    // on subsequent navigation. See Region.rootPath.
+    if (region._rootPath == null) region._rootPath = region._active
   }
 
   pruneOrphanRegions(state, schema)

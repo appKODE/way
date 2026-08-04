@@ -95,6 +95,14 @@ class NavigationState internal constructor(
 }
 
 /**
+ * Whether [regionId]'s [Region.active] is still its [Region.rootPath] — i.e. the region hasn't
+ * navigated anywhere since it was first resolved. `false` for an unmaterialized/unknown
+ * [regionId], same as an absent region has no meaningful "root" to compare against.
+ */
+fun NavigationState.isRegionAtRoot(regionId: RegionId): Boolean =
+  regions[regionId]?.let { it.active == it.rootPath } ?: false
+
+/**
  * Pair of an intermediate [ParallelFlowNode] root and the finish-transition builder used to
  * convert a `Finish(result)` returned from its `transition()` into a transition that reaches the
  * nearest enclosing parallel-flow (via a `ChildFinishRequest` event) or, for a single-segment
@@ -123,6 +131,7 @@ class Region internal constructor(
   internal var _active: Path,
   internal var _alive: MutableList<Path>,
   internal val _rootFinishTransitionBuilder: (Any) -> Transition,
+  internal var _rootPath: Path? = null,
 ) {
   val nodes: Map<Path, Node> = _nodes
   val active: Path get() = _active
@@ -130,6 +139,14 @@ class Region internal constructor(
 
   // TODO rename active -> attached/top/current, alive -> active?
   val alive: List<Path> get() = _alive
+
+  /**
+   * This region's resolved root/initial path — wherever [active] pointed the very first time it
+   * was resolved, fixed for the region's whole lifetime regardless of later navigation. Falls
+   * back to the current [active] on the (in practice unreachable) chance it's read before the
+   * first resolution ever ran.
+   */
+  val rootPath: Path get() = _rootPath ?: _active
 
   // Structural copy: new map/list instances with the same Path keys and Node references.
   // Node instances are SHARED between original and copy; mutations to Node state affect both.
@@ -139,6 +156,7 @@ class Region internal constructor(
     _active = this._active,
     _alive = this._alive.toMutableList(),
     _rootFinishTransitionBuilder = this._rootFinishTransitionBuilder,
+    _rootPath = this._rootPath,
   )
 
   override fun toString(): String = "Region(_nodes=$_nodes, _active=$_active)"

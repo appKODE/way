@@ -972,6 +972,68 @@ class ParallelNodeTest : ShouldSpec() {
       }
     }
 
+    should("isRegionAtRoot is true for every region right after Init") {
+      val sut = buildPar02Service()
+
+      sut.collectTransitions().test {
+        val initial = awaitItem()
+        val alphaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Alpha" }!!
+        val betaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Beta" }!!
+
+        initial.isRegionAtRoot(alphaRegionId) shouldBe true
+        initial.isRegionAtRoot(betaRegionId) shouldBe true
+
+        cancelAndIgnoreRemainingEvents()
+      }
+    }
+
+    should("isRegionAtRoot turns false after navigating within a region, true again once back at root") {
+      val sut = buildPar02Service(
+        alphaTransitions = listOf(
+          tr("screen2", Target.par02Alpha.par02AlphaScreen2),
+          tr("back-to-screen1", Target.par02Alpha.par02AlphaScreen1),
+        ),
+      )
+
+      sut.collectTransitions().test {
+        val initial = awaitItem()
+        val alphaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Alpha" }!!
+        val betaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Beta" }!!
+        val rootPathBeforeNavigating = initial.regions[alphaRegionId]!!.rootPath
+
+        sut.sendEvent(TestEvent("screen2"))
+        awaitItem().apply {
+          isRegionAtRoot(alphaRegionId) shouldBe false
+          // Sibling region, untouched by the alpha-only navigation, stays at its root.
+          isRegionAtRoot(betaRegionId) shouldBe true
+        }
+
+        // Back to the flow's root screen — via an ordinary NavigateTo, not the AbsoluteTarget
+        // chain-resolution path exercised by the test above.
+        sut.sendEvent(TestEvent("back-to-screen1"))
+        awaitItem().apply {
+          isRegionAtRoot(alphaRegionId) shouldBe true
+          // rootPath itself never changes across this round trip — only `active` moved.
+          regions[alphaRegionId]!!.rootPath shouldBe rootPathBeforeNavigating
+        }
+
+        cancelAndIgnoreRemainingEvents()
+      }
+    }
+
+    should("isRegionAtRoot is false for a region id that does not exist") {
+      val sut = buildPar02Service()
+
+      sut.collectTransitions().test {
+        val initial = awaitItem()
+        val unknownRegionId = RegionId(Path("doesNotExist"))
+
+        initial.isRegionAtRoot(unknownRegionId) shouldBe false
+
+        cancelAndIgnoreRemainingEvents()
+      }
+    }
+
     should("deepestRegion selects the region with the deepest active path") {
       val alphaId = RegionId(Path("alpha"))
       val betaId = RegionId(Path("beta"))

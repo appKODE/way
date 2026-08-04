@@ -20,6 +20,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -35,8 +36,8 @@ import ru.kode.way.ParallelFlowNode
 import ru.kode.way.Path
 import ru.kode.way.Region
 import ru.kode.way.RegionId
-import ru.kode.way.append
-import ru.kode.way.drop
+import ru.kode.way.isRegionAtRoot
+import ru.kode.way.resolveAbsolute
 import ru.kode.way.startsWith
 
 @ExperimentalAnimationApi
@@ -298,20 +299,56 @@ val defaultTransitionSpec: AnimatedContentTransitionScope<Path?>.() -> ContentTr
 }
 
 /**
+ * The single per-[service] [NavigationState] subscription every `collectActiveNode`/
+ * `collectIsRegionAtRoot` overload derives from. Keyed ONLY on [service] — never on a
+ * [RegionId] — so watching a *different* region (e.g. "whichever tab is currently focused" in a
+ * [ParallelFlowNode]'s tab bar) never tears down and restarts the underlying transition listener.
+ * A regionId-keyed subscription would otherwise reset to its `initial = null` value on every
+ * such switch, which briefly reads as "nothing here yet" to every derived call below — this
+ * shared subscription is what avoids that flicker.
+ */
+@Composable
+private fun collectNavigationState(service: NavigationService<*>): State<NavigationState?> =
+  service.produceTransitionState(initial = null) { it }
+
+/**
  * When the schema has multiple flow regions, this returns the first one declared.
  * For deterministic rendering of every region use the [NodeHost] overload that accepts a [RegionId].
  */
 @Composable
-fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> =
-  service.produceTransitionState<NodeWithPath?>(initial = null) { s ->
-    s.regions.entries.firstOrNull()?.value?.toNodeWithPath()
+fun collectActiveNode(service: NavigationService<*>): State<NodeWithPath?> {
+  val navState by collectNavigationState(service)
+  return remember(navState) {
+    mutableStateOf(navState?.regions?.entries?.firstOrNull()?.value?.toNodeWithPath())
   }
+}
 
+/** The active node in [regionId], reactively. [regionId] may change freely between calls (e.g. to
+ * track a UI-level "focused region") without ever restarting the underlying subscription — see
+ * [collectNavigationState]. [regionId] must already be absolute; resolve a schema-relative one
+ * with [resolveAbsolute] first (the same resolution [NodeHost] applies internally). */
 @Composable
-fun collectActiveNode(service: NavigationService<*>, regionId: RegionId): State<NodeWithPath?> =
-  service.produceTransitionState<NodeWithPath?>(initial = null, keys = arrayOf(regionId)) { s ->
-    s.regions[regionId]?.toNodeWithPath()
+fun collectActiveNode(service: NavigationService<*>, regionId: RegionId): State<NodeWithPath?> {
+  val navState by collectNavigationState(service)
+  return remember(navState, regionId) {
+    mutableStateOf(navState?.regions?.get(regionId)?.toNodeWithPath())
   }
+}
+
+/**
+ * Whether [regionId]'s active node is currently its resolved root/initial screen — i.e. the
+ * region hasn't navigated anywhere since entering. Useful for chrome that should only show at a
+ * region's root (a tab bar hidden once the focused tab has drilled into a sub-screen). See
+ * [Region.rootPath] / [isRegionAtRoot] for the underlying comparison; [regionId] must already be
+ * absolute, same requirement as [collectActiveNode].
+ */
+@Composable
+fun collectIsRegionAtRoot(service: NavigationService<*>, regionId: RegionId): State<Boolean> {
+  val navState by collectNavigationState(service)
+  return remember(navState, regionId) {
+    mutableStateOf(navState?.isRegionAtRoot(regionId) ?: false)
+  }
+}
 
 /**
  * Renders the active screen in [regionId].
@@ -324,13 +361,8 @@ fun collectActiveNode(service: NavigationService<*>, regionId: RegionId): State<
  * absolute path of the rendered node via [LocalNodePath]. Without that wrapping parent,
  * `LocalNavigationService.current` will throw with a clear error.
  *
- * When [regionId] is schema-relative (i.e. its path does not already start with the parent path),
- * it is resolved to the absolute [RegionId] used as the key in [NavigationState.regions], mirroring
- * the runtime's `absoluteRegionRoot` logic. As a special case, length-1 relative regionIds
- * (e.g. an imported non-parallel schema) cannot supply a tail to append; the guard at the
- * `regionId.path.length > 1` check uses the parent path itself as the absolute path, mirroring
- * `TargetResolution.absoluteRegionRoot` — without it, `Path.drop(1)` would return an empty Path
- * and the init `check(segments.isNotEmpty())` would throw on first composition.
+ * [regionId] may be schema-relative — resolved to the absolute [RegionId] used as the key in
+ * [NavigationState.regions] via [resolveAbsolute]. See that function for the resolution rules.
  */
 @ExperimentalAnimationApi
 @Composable
@@ -341,22 +373,7 @@ fun NodeHost(
 ) {
   val service = LocalNavigationService.current
   val parentPath = LocalNodePath.current
-  // If we're rendered inside a parallel node's Content (parentPath != null) and the supplied
-  // regionId is schema-relative (i.e. its path does not already start with parentPath),
-  // resolve it to the absolute regionId used as the key in NavigationState.regions.
-  // This mirrors the runtime's absoluteRegionRoot logic.
-  val absoluteRegionId = remember(parentPath, regionId) {
-    if (parentPath != null && !regionId.path.startsWith(parentPath)) {
-      // Length-1 relative regionIds (e.g. an imported non-parallel schema) cannot supply a
-      // tail to append; in that case the parent path itself is the absolute path. Mirrors the
-      // guard in TargetResolution.absoluteRegionRoot — without it, Path.drop(1) returns an
-      // empty Path and the init `check(segments.isNotEmpty())` throws on first composition.
-      val tail = if (regionId.path.length > 1) regionId.path.drop(1) else null
-      RegionId(if (tail != null) parentPath.append(tail) else parentPath)
-    } else {
-      regionId
-    }
-  }
+  val absoluteRegionId = remember(parentPath, regionId) { regionId.resolveAbsolute(parentPath) }
   val activeNode by collectActiveNode(service, absoluteRegionId)
   val saveableStateHolder = rememberSaveableStateHolder()
   NodeAnimatedContent(

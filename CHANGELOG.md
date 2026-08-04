@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.9.10 - 2026-08-04
+
+Three additions to `way`/`way-compose` that remove app-side workarounds around a `ParallelFlowNode`
+region's identity and root state — all backward compatible, no breaking changes.
+
+* Add `RegionId.resolveAbsolute(parentPath: Path?): RegionId` — resolves a schema-relative
+  `RegionId` (e.g. a generated `Schema.exploreFlowRegionId`) to the absolute id used as the key in
+  `NavigationState.regions`. This is the exact resolution `NodeHost(regionId = ...)` already
+  performed internally; it's now extracted and public so app code reading region state outside of
+  `NodeHost` (via `collectActiveNode`/`collectIsRegionAtRoot`) doesn't have to re-derive it by hand.
+  `NodeHost` itself now calls this shared function instead of its own private inline copy.
+* Add `Region.rootPath: Path` and `NavigationState.isRegionAtRoot(regionId: RegionId): Boolean` —
+  a region's resolved root/initial path, captured once the first time it's resolved (whether via
+  `InitEvent`'s `FlowNode.initial` chain or a lazily-mounted region's first `NavigateTo`) and never
+  updated afterward, even as `active` keeps changing with further navigation. Lets app code (e.g. a
+  tab bar that should only show at each tab's root) ask "has this region navigated away from where
+  it started" without re-deriving a root path from generated `Target` constants and comparing
+  segment names by hand.
+* Add `collectIsRegionAtRoot(service, regionId): State<Boolean>` (Compose) — reactive wrapper over
+  `isRegionAtRoot`.
+* Fix: `collectActiveNode(service, regionId)` no longer restarts its underlying transition
+  listener when `regionId` changes. Previously `regionId` was part of the `produceState` key, so
+  watching a *different* region — e.g. "whichever tab is currently focused" in a `ParallelFlowNode`
+  tab bar, where the watched id changes on every tab switch — tore down and rebuilt the
+  subscription each time, briefly resetting the exposed state to its `initial = null` value. All
+  `collectActiveNode`/`collectIsRegionAtRoot` overloads now share one per-service `NavigationState`
+  subscription (keyed only on the service, never on a region id) and derive their per-region view
+  from it, so switching which region is being watched no longer flickers.
+
 ## 0.9.9 - 2026-07-31
 
 * Add flavor-aware `.dot` file routing to `way-gradle-plugin`: a product flavor (or build type, or

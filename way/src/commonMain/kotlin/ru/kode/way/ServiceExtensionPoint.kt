@@ -2,7 +2,9 @@ package ru.kode.way
 
 interface ServiceExtensionPoint<R : Any> {
   /**
-   * Called when service receives a new event, before it builds and executes a transition
+   * Called when service receives a new event, before it builds and executes a transition. The event has already been
+   * resolved at this point (the nodes' `transition()` have been consulted), so an event dropped for a missing payload
+   * does not reach this method.
    *
    * @param service navigation service
    * @param event event which is about to trigger a transition
@@ -28,7 +30,12 @@ interface ServiceExtensionPoint<R : Any> {
   /**
    * Called when service drops [event] instead of applying its transition, after the state has been rolled
    * back and before [EventDroppedException] is thrown in [NavigationService.strictEventDropping] mode.
-   * [onPostTransition] is not called for a dropped event.
+   * Neither [onPreTransition] nor [onPostTransition] is called for a dropped event. The one exception is a payload
+   * missed by a [Schema] which does not report the node as parameterized (a hand-rolled schema): it is only detected
+   * when the node builder throws [MissingPayloadException] while building nodes, after [onPreTransition].
+   *
+   * If this method throws, the exception propagates out of [NavigationService.sendEvent]; the state stays rolled
+   * back and the events still enqueued are kept and processed by the next [NavigationService.sendEvent].
    *
    * @param service navigation service
    * @param event event which was dropped

@@ -164,5 +164,170 @@ class SchemaCompositionTest : ShouldSpec() {
       sut.sendEvent(TestEvent("P2"))
       states.single().active shouldBe "app.page2"
     }
+
+    // "L" opens the login flow for alice, "P2" leaves it for page2, "H"/"S" restore it from its deep/shallow history.
+    // In the login flow "C" re-targets credentials with another phone and "O" opens otp
+    class Nav12Fixture(val sut: NavigationService<Int>, val loginPath: Path) {
+      val states = mutableListOf<NavigationState>()
+      val lifecycle = mutableListOf<String>()
+      val dropped = mutableListOf<DropReason>()
+      val hooks = mutableListOf<String>()
+
+      init {
+        sut.addTransitionListener { states.add(it) }
+        sut.addNodeExtensionPoint(
+          TestNodeExtensionPoint(
+            preEntry = { _, path -> lifecycle.add("entry $path") },
+            preExit = { _, path -> lifecycle.add("exit $path") },
+          ),
+        )
+        sut.addServiceExtensionPoint(
+          object : ServiceExtensionPoint<Int> {
+            override fun onPreTransition(service: NavigationService<Int>, event: Event, state: NavigationState) {
+              hooks.add("pre $event")
+            }
+
+            override fun onPostTransition(service: NavigationService<Int>, event: Event, state: NavigationState) = Unit
+            override fun onEventDropped(service: NavigationService<Int>, event: Event, reason: DropReason) {
+              dropped.add(reason)
+            }
+          },
+        )
+      }
+
+      fun payloadOf(path: String): Any? = (states.last().aliveNodes[path] as TestScreenNode).payload
+    }
+
+    fun buildNav12(): Nav12Fixture {
+      val appSchema = NavService12Schema(NavService12LoginSchema())
+      val loginPath = Target.app12.login(defaultUserName = "unused").path.prepend(appSchema.rootSegment)
+      val nodeBuilder = AppNodeBuilder(
+        object : AppNodeBuilder.Factory {
+          override fun createRootNode(timeout: Int) = TestFlowNode(
+            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            transitions = listOf(
+              tr("L", Target.app12.login(defaultUserName = "alice")),
+              tr("NL", FlowTarget(Target.app12.login(defaultUserName = "unused").path)),
+              tr("P1", Target.app12.page1(Charsets.UTF_8)),
+              tr("P2", Target.app12.page2),
+              tr("H", HistoryTarget(loginPath, deep = true)),
+              tr("S", HistoryTarget(loginPath, deep = false)),
+            ),
+          )
+
+          override fun createPage2Node() = TestScreenNode()
+          override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+          override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder = LoginNodeBuilder(
+            object : LoginNodeBuilder.Factory {
+              override fun createRootNode(defaultUserName: String) = TestFlowNode(
+                initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
+                payload = defaultUserName,
+                transitions = listOf(
+                  tr("C", Target.login12.credentials(defaultPhone = "+700")),
+                  tr("O", Target.login12.otp(useAnimation = true)),
+                ),
+              )
+
+              override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
+              override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
+            },
+            NavService12LoginSchema(),
+          )
+        },
+        appSchema,
+      )
+      return Nav12Fixture(NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore }), loginPath)
+    }
+
+    should("drop an event missing the payload of a composed schema root in the pre-check, before any lifecycle call") {
+      val f = buildNav12()
+      f.sut.start(42)
+      f.states.clear()
+      f.lifecycle.clear()
+      f.hooks.clear()
+
+      f.sut.sendEvent(TestEvent("NL"))
+
+      (f.dropped.single() as DropReason.MissingPayload).path.toString() shouldBe "app.page1.login"
+      f.states.shouldBeEmpty()
+      f.lifecycle.shouldBeEmpty()
+      f.hooks.shouldBeEmpty()
+    }
+
+    fun Nav12Fixture.openOtpAndLeave() {
+      sut.sendEvent(TestEvent("L"))
+      sut.sendEvent(TestEvent("C"))
+      sut.sendEvent(TestEvent("O"))
+      states.last().active shouldBe "app.page1.login.credentials.otp"
+      sut.sendEvent(TestEvent("P2"))
+      states.last().active shouldBe "app.page2"
+    }
+
+    should("rebuild the nodes restored from a deep history with the arguments they had") {
+      val f = buildNav12()
+      f.sut.start(42)
+      f.openOtpAndLeave()
+
+      f.sut.sendEvent(TestEvent("H"))
+
+      f.dropped.shouldBeEmpty()
+      f.states.last().active shouldBe "app.page1.login.credentials.otp"
+      f.payloadOf("app.page1") shouldBe Charsets.UTF_32
+      (f.states.last().aliveNodes["app.page1.login"] as TestFlowNode).payload shouldBe "alice"
+      f.payloadOf("app.page1.login.credentials") shouldBe "+700"
+      f.payloadOf("app.page1.login.credentials.otp") shouldBe true
+    }
+
+    should("rebuild the child restored from a shallow history with the argument it had") {
+      val f = buildNav12()
+      f.sut.start(42)
+      f.openOtpAndLeave()
+
+      f.sut.sendEvent(TestEvent("S"))
+
+      f.dropped.shouldBeEmpty()
+      f.states.last().active shouldBe "app.page1.login.credentials"
+      (f.states.last().aliveNodes["app.page1.login"] as TestFlowNode).payload shouldBe "alice"
+      f.payloadOf("app.page1.login.credentials") shouldBe "+700"
+    }
+
+    should("keep the current argument of an alive ancestor when restoring a history") {
+      val f = buildNav12()
+      f.sut.start(42)
+      f.openOtpAndLeave()
+      f.sut.sendEvent(TestEvent("P1"))
+      f.payloadOf("app.page1") shouldBe Charsets.UTF_8
+
+      f.sut.sendEvent(TestEvent("H"))
+
+      f.states.last().active shouldBe "app.page1.login.credentials.otp"
+      f.payloadOf("app.page1") shouldBe Charsets.UTF_8
+      f.payloadOf("app.page1.login.credentials") shouldBe "+700"
+    }
+
+    should("replace the payloads retained by a history record on every exit instead of accumulating them") {
+      val f = buildNav12()
+      f.sut.start(42)
+      f.openOtpAndLeave()
+      val retained = f.states.last()._history.getValue(f.loginPath).payloads.keys
+      retained.map { it.toString() } shouldBe listOf(
+        "app.page1",
+        "app.page1.login",
+        "app.page1.login.credentials",
+        "app.page1.login.credentials.otp",
+      )
+      val historySize = f.states.last()._history.size
+
+      repeat(3) {
+        f.sut.sendEvent(TestEvent("H"))
+        f.sut.sendEvent(TestEvent("P2"))
+      }
+
+      f.states.last()._history.size shouldBe historySize
+      f.states.last()._history.getValue(f.loginPath).payloads.keys shouldBe retained
+      // the live payload store only keeps the payloads of alive nodes, page2 has none
+      f.states.last().payloads.keys.shouldBeEmpty()
+    }
   }
 }

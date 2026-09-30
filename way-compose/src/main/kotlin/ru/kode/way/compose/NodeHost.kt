@@ -19,6 +19,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -117,7 +118,8 @@ private fun ComposableNodeContent(
   saveableStateHolder: SaveableStateHolder,
 ) {
   val service = LocalNavigationService.current
-  val eventSink = remember(node, path) { service.eventSink(path) }
+  // keyed on the generation too: a node instance reused by its builder at the same path gets a fresh sink
+  val eventSink = remember(service, node, path, service.nodeGeneration(path)) { service.eventSink(path) }
   saveableStateHolder.SaveableStateProvider(path.toSaveableKey()) {
     CompositionLocalProvider(LocalNodePath provides path, LocalEventSink provides eventSink) {
       node.Content(modifier)
@@ -251,10 +253,13 @@ internal fun <T> NavigationService<*>.produceTransitionState(
   initial: T,
   vararg keys: Any?,
   transform: (NavigationState) -> T,
-): State<T> = produceState(initial, this, *keys) {
-  val listener = { s: NavigationState -> value = transform(s) }
-  addTransitionListener(listener)
-  awaitDispose { removeTransitionListener(listener) }
+): State<T> = key(this, *keys) {
+  // keyed outside produceState: its value survives a key change, so a new service would start from the old value
+  produceState(initial) {
+    val listener = { s: NavigationState -> value = transform(s) }
+    addTransitionListener(listener)
+    awaitDispose { removeTransitionListener(listener) }
+  }
 }
 
 private fun Region.toNodeWithPath(): NodeWithPath = NodeWithPath(active, activeNode)

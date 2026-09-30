@@ -1012,6 +1012,40 @@ class NavigationServiceTest :
       }
     }
 
+    should("not drop a short target below an alive ancestor built with a null argument") {
+      val nodeBuilder = Nav13AppNodeBuilder(
+        object : Nav13AppNodeBuilder.Factory {
+          override fun createRootNode() = TestFlowNode(
+            initialTarget = Target.app13.main,
+            transitions = listOf(
+              tr("D", Target.app13.details(id = null)),
+              tr("I", Target.app13.info),
+            ),
+          )
+
+          override fun createMainNode() = TestScreenNode()
+          override fun createDetailsNode(id: String?) = TestScreenNode(payload = id ?: "null-received")
+          override fun createInfoNode() = TestScreenNode()
+        },
+        NavService13Schema(),
+      )
+
+      val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore })
+
+      // collectTransitions turns strict dropping on: a dropped event would throw
+      sut.collectTransitions().test {
+        awaitItem()
+        sut.sendEvent(TestEvent("D"))
+        awaitItem().active shouldBe "app.main.details"
+
+        sut.sendEvent(TestEvent("I"))
+        awaitItem().apply {
+          active shouldBe "app.main.details.info"
+          (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
+        }
+      }
+    }
+
     should("pass a null start payload to a root flow with a nullable parameter") {
       val received = mutableListOf<String?>()
       val nodeBuilder = Nav14AppNodeBuilder(

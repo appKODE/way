@@ -1,0 +1,43 @@
+package ru.kode.test.app.schema
+
+import kotlin.Int
+import kotlin.String
+import ru.kode.way.FlowTarget
+import ru.kode.way.Path
+import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class Fi01appTargets(
+  private val prefix: Path? = null,
+) {
+  public fun b(bId: String): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("b@FanIn01:src/test/resources/fan-in01.dot")))), payload = bId)
+
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public fun permViaA(reason: String): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot")))), payload = reason)
+
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
+  public fun permViaA(aId: Int, reason: String): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot")))), payload = reason, ancestorPayloads = mapOf(Segment("a@FanIn01:src/test/resources/fan-in01.dot") to aId))
+
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public fun permViaB(reason: String): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("b@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot")))), payload = reason)
+
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
+  public fun permViaB(bId: String, reason: String): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("b@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot")))), payload = reason, ancestorPayloads = mapOf(Segment("b@FanIn01:src/test/resources/fan-in01.dot") to bId))
+
+  public fun a(aId: Int): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("a@FanIn01:src/test/resources/fan-in01.dot")))), payload = aId)
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.fi01app: Fi01appTargets
+  get() = Fi01appTargets()

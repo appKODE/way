@@ -1,0 +1,14 @@
+// fan-in into a parameterized imported schema: one target per parent path (`permViaA`, `permViaB`), a `targets()`
+// override, a finish request case per path and a node builder branch per path with that path's payloads
+digraph FanIn01 {
+  schemaFileName = "fan-in01-schema"
+  targetsFileName = "fan-in01-targets"
+
+  fi01app [type = flow]
+  a [parameterName = "aId", parameterType = "kotlin.Int"]
+  b [parameterName = "bId", parameterType = "kotlin.String"]
+  perm [type = schema, parameterName = "reason", parameterType = "kotlin.String", resultType = "kotlin.String"]
+
+  fi01app -> a -> perm
+  fi01app -> b -> perm
+}

@@ -1,0 +1,10 @@
+// schema root with a nullable parameter: an importing schema may declare it without a parameter
+// (`perm [type = schema]`), the root is then built with null, so isParameterized must not list it
+digraph Perm {
+  schemaFileName = "schema-nullable-imported-root"
+
+  perm [type = flow, parameterName = "x", parameterType = "kotlin.String?"]
+  details [parameterName = "id", parameterType = "kotlin.Int"]
+
+  perm -> intro -> details
+}

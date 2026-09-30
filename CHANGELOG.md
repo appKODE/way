@@ -17,22 +17,38 @@ crashing. Source compatible with 0.9.11.
   stays as it was, no node lifecycle callbacks run, no transition listeners are called, and the remaining enqueued
   events are still processed.
 * `ServiceExtensionPoint.onEventDropped(service, event, reason)` (default no-op) is called for every dropped event.
-* `NavigationService.strictEventDropping` (default `false`): when `true`, a dropped event throws
-  `EventDroppedException(event, reason)` from `sendEvent`, after the state is rolled back.
+* `NavigationService.strictEventDropping` (default `false`): when `true`, an event dropped with
+  `DropReason.MissingPayload` throws `EventDroppedException(event, reason)` from `sendEvent`, after the state is rolled
+  back; the events enqueued after it stay queued. `DropReason.StaleSource` is an expected race and never throws.
+* Drops are all-or-nothing: a multi-target `NavigateTo` or a broadcast to parallel regions is dropped entirely when
+  any target misses a payload. The event is checked before `onPreTransition`, so neither `onPreTransition` nor
+  `onPostTransition` is called for a dropped event (except for a payload missed by a hand-rolled `Schema`, caught by
+  the node builder after `onPreTransition`).
 * `NavigationService.eventSink(path): EventSink`, a sink bound to one node instance. Its events are resolved starting
   from that node (bubbling up on `Ignore`, only within its region) and are dropped with `DropReason.StaleSource(path)`
   if the node has left navigation or was recreated by the time they are dispatched.
+* `NavigationService.nodeGeneration(path)`, the generation of the node instance alive at `path`, changed whenever the
+  node is recreated.
 * `way-compose`: `LocalEventSink`, the sink of the node being rendered, provided by `NodeHost` to every node's
   `Content()`.
 * Generated `Schema.isParameterized(regionId, path, rootSegmentAlias)` (default `false` for hand-written schemas).
 * `MissingPayloadException(path)`, thrown by generated node builders when a payload is missing. `NavigationService`
   turns it into a dropped event; during `start()` it is rethrown.
+* An imported schema (`type=schema`) may be reachable from several parents (`a -> perm`, `b -> perm`), also when a
+  parent chain has parameters. Each parent path gets its own targets, `<node>Via<Parent>` (`permViaA`, `permViaB`),
+  short and full, the full one taking the payloads of its own path. Parents must be in the same region and must not be
+  a parallel node.
+* `Schema.targets(regionId, segment, rootSegmentAlias)`, every path of a segment (default: the single `target()`).
 
 ### Changed
 
 * `NodeHost(nodeBuilder, ...)`, the overload which creates the service, sets `strictEventDropping` from the app's
   `ApplicationInfo.FLAG_DEBUGGABLE`: debug builds throw on a dropped event, release builds drop it silently.
 * Generated node builders throw `MissingPayloadException` instead of a plain `IllegalStateException`.
+* `NavigateTo` an alive parameterized node with a different argument rebuilds it (exit, entry, new generation, so its
+  old sinks become stale); an equal argument keeps it.
+* `HistoryTarget` into a parameterized node which is not alive rebuilds it with the argument it had when left. The
+  history record keeps those payloads and is replaced on every exit.
 
 ### Fixed
 
@@ -40,6 +56,9 @@ crashing. Source compatible with 0.9.11.
   `no payload for "..."`.
 * A parameterized node which is a composed schema's root and misses its payload is dropped the same way (the
   generated node builder's exception is the backstop, the transition is rolled back with balanced lifecycle).
+* Generations are synchronized before nodes are entered, so a sink obtained in `onEntry` is not stale.
+* `NodeHost` caches `LocalEventSink` per service and node generation, so a recreated node gets a fresh sink.
+* A scheduler set with `setEnqueuedEventsScheduler` never receives the internal sourced wrapper of a sink event.
 
 Migration from 0.9.11:
 * Nothing is required: calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave

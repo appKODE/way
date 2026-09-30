@@ -26,6 +26,13 @@ interface Schema {
   fun target(regionId: RegionId, segment: Segment, rootSegmentAlias: Segment? = null): Path?
 
   /**
+   * Builds every path of a given [segment]. There is more than one when an imported schema (`type=schema`) is
+   * reachable from several parents, one path per parent. Parameters are the same as in [target].
+   */
+  fun targets(regionId: RegionId, segment: Segment, rootSegmentAlias: Segment? = null): List<Path> =
+    listOfNotNull(target(regionId, segment, rootSegmentAlias))
+
+  /**
    * Returns a node type for [path]. If this schema has child schemas they will be searched next when
    * the current schema has no nodes with relative path equal to [path]
    *

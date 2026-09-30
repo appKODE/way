@@ -9,7 +9,7 @@ internal fun resolveTransition(
   rootNodePath: Path? = null,
   rootFinishTransitionBuilder: ((Any) -> Transition)? = null,
   intermediateParallels: Map<Path, IntermediateParallel> = emptyMap(),
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
   source: Path? = null,
 ): ResolvedTransition {
   if (source != null) {
@@ -155,7 +155,7 @@ private fun resolveSourcedTransition(
   rootNodePath: Path?,
   rootFinishTransitionBuilder: ((Any) -> Transition)?,
   intermediateParallels: Map<Path, IntermediateParallel>,
-  history: Map<Path, List<Path>>,
+  history: Map<Path, HistoryRecord>,
 ): ResolvedTransition {
   val parallel = when {
     source == rootNodePath && rootNode is ParallelFlowNode<*> -> rootNode to rootFinishTransitionBuilder
@@ -222,7 +222,7 @@ private fun resolveParallelTransition(
   extensionPoints: List<NodeExtensionPoint>,
   nodeBuilder: NodeBuilder,
   allRegions: Map<RegionId, Region>,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition {
   val transition = buildTransition(event, parallelNode, parallelNodePath, extensionPoints)
   return resolveParallelInner(
@@ -247,7 +247,7 @@ private fun resolveParallelInner(
   extensionPoints: List<NodeExtensionPoint>,
   nodeBuilder: NodeBuilder,
   allRegions: Map<RegionId, Region>,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition = when (transition) {
   is Ignore, is Stay -> ResolvedTransition.EMPTY
 
@@ -383,7 +383,7 @@ private fun resolveTransitionInRegion(
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
   allRegions: Map<RegionId, Region>,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition = when (transition) {
   is EnqueueEvent -> ResolvedTransition(
     targetPaths = mapOf(regionId to activePath),
@@ -586,7 +586,7 @@ private fun resolveHistoryTarget(
   nodeBuilder: NodeBuilder,
   schema: Schema,
   payloads: MutableMap<Path, Any>,
-  history: Map<Path, List<Path>>,
+  history: Map<Path, HistoryRecord>,
   initializedPaths: MutableSet<Path>,
   alreadyChosen: Map<RegionId, Path>,
 ): Map<RegionId, Path> {
@@ -594,7 +594,12 @@ private fun resolveHistoryTarget(
   val targetRegionId = owningRegionId(flowPath, allRegions.keys, fallback = callingRegionId)
   val existingNodes = allRegions[targetRegionId]?.nodes ?: nodes
   target.payload?.also { payloads[flowPath] = it }
-  val recorded = history[flowPath]
+  val record = history[flowPath]
+  // an alive node keeps its current payload, only the left ones are rebuilt with the recorded ones
+  record?.payloads?.forEach { (path, payload) ->
+    if (path !in payloads && allRegions.values.none { path in it.alive }) payloads[path] = payload
+  }
+  val recorded = record?.leaves
   val resolved = when {
     recorded.isNullOrEmpty() ->
       maybeResolveInitial(flowPath, targetRegionId, nodeBuilder, existingNodes, schema, payloads)
@@ -630,7 +635,17 @@ private fun resolveHistoryTarget(
 private fun resolveAbsoluteTargetPath(schema: Schema, activePath: Path, targetPath: Path): Path {
   val (activeSchema, activeSchemaPath) = findParentSchema(schema, activePath, inclusive = true)
   val regionId = owningRegionInSchema(activeSchema, activeSchemaPath, activePath)
-  val relativeResolvedPath = activeSchema.target(regionId, targetPath.lastSegment())
+  // An imported schema reachable from several parents has one path per parent: pick the one whose tail matches
+  // the target path (e.g. `[b, perm]` selects `app.b.perm` over `app.a.perm`).
+  val candidates = activeSchema.targets(regionId, targetPath.lastSegment())
+  val relativeResolvedPath = candidates.singleOrNull()
+    ?: candidates.filter { it.segments.takeLast(targetPath.length) == targetPath.segments.takeLast(it.length) }
+      .let { matching ->
+        check(matching.size <= 1) {
+          "target \"$targetPath\" is ambiguous, it matches several paths: $matching; use a target which names the parent"
+        }
+        matching.singleOrNull()
+      }
     ?: error(
       "failed to resolve target \"$targetPath\" from path \"$activePath\": " +
         "targets from ScreenNode transitions must be siblings within the same parent flow schema",
@@ -719,7 +734,7 @@ private fun maybeResolveBackEvent(
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
   allRegions: Map<RegionId, Region>,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition? {
   if (event != Event.Back || activePath.segments.size <= 1) return null
 
@@ -800,7 +815,7 @@ private fun dispatchBackThroughParallel(
   // resolveParallelInner.
   ownerRegionId: RegionId? = null,
   ownerNodes: Map<Path, Node>? = null,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition {
   val parallelBackTransition = buildTransition(event, parallelNode, parallelNodePath, extensionPoints)
   val chosenRegionId = when (parallelBackTransition) {
@@ -864,7 +879,7 @@ private fun dispatchBackIntoRegion(
   nodeBuilder: NodeBuilder,
   event: Event,
   extensionPoints: List<NodeExtensionPoint>,
-  history: Map<Path, List<Path>> = emptyMap(),
+  history: Map<Path, HistoryRecord> = emptyMap(),
 ): ResolvedTransition {
   val chosenPath = subRegionActivePaths[chosenRegionId]
     ?: error("chosen RegionId \"${chosenRegionId.path}\" is not among active sub-regions")

@@ -32,6 +32,10 @@ sealed interface ScreenTransition : Transition
  *
  * A [List] (not a [Set]) is used precisely so this ordering is explicit and a caller cannot pass
  * an unordered collection that would make same-region resolution non-deterministic.
+ *
+ * A target to an alive parameterized node with a different argument (not `equals` to the current one) rebuilds that
+ * node together with its alive descendants: they are exited, new instances are entered and get new generations, so
+ * sinks of the old instances become stale. An equal argument keeps the alive node.
  */
 data class NavigateTo(val targets: List<Target>) :
   FlowTransition<Nothing>,

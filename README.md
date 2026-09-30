@@ -136,6 +136,19 @@ If a short target is sent after its ancestor was left (e.g. a late tap after Bac
 [Dropped events](#dropped-events). An ancestor parameter whose name clashes with another one on the path is prefixed
 with the node id (`detailsId`).
 
+An imported schema reachable from several parents (`app -> a -> perm`, `app -> b -> perm`, `perm [type = schema]`) gets
+one target per parent path, named `<node>Via<Parent>`:
+
+```kotlin
+Target.app.permViaA(reason)       // short
+Target.app.permViaB(bId, reason)  // full: payloads of the `b` path only
+```
+
+With a single parent the plain name (`perm`) is kept. The schema is built with the payloads of the path it was entered
+through, and its finish request reaches that path's parent. Targets inside the imported schema need no parent in their
+name: they are resolved relative to the alive instance of that schema. All parents must be in the same region, and
+none of them can be a parallel node.
+
 ### How source wiring works
 
 - KMP: generated dir is added to `commonMain` (and `commonTest` when present).
@@ -199,7 +212,12 @@ Core runtime types in `:way`:
   was recreated, by the time the event is dispatched.
 
 A dropped event changes nothing: state is rolled back, no node lifecycle callbacks and no transition listeners run,
-and the remaining enqueued events are still processed. Every `ServiceExtensionPoint.onEventDropped` is called:
+and the remaining enqueued events are still processed. A drop is all-or-nothing: a multi-target `NavigateTo` or an
+event broadcast to parallel regions is dropped entirely when any of its targets misses a payload. The event is resolved
+before `onPreTransition`, so neither `onPreTransition` nor `onPostTransition` is called for it (except for a payload
+missed by a hand-rolled `Schema` which does not report the node as parameterized: that one is only caught when the node
+builder throws `MissingPayloadException`, after `onPreTransition`). Every `ServiceExtensionPoint.onEventDropped` is
+called:
 
 ```kotlin
 service.addServiceExtensionPoint(object : ServiceExtensionPoint<Unit> {
@@ -212,9 +230,20 @@ service.addServiceExtensionPoint(object : ServiceExtensionPoint<Unit> {
 ```
 
 With `service.strictEventDropping = true`, `sendEvent` throws `EventDroppedException(event, reason)` after the
-rollback. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
+rollback for a `DropReason.MissingPayload` (a bug in the app's targets). A `DropReason.StaleSource` is an expected race
+(a tap on a leaving screen) and is never thrown. Events still enqueued after the thrown one stay queued for the next
+`sendEvent`. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
 enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)` sets it from the app's
-`FLAG_DEBUGGABLE`. A missing payload during `start()` is always rethrown.
+`FLAG_DEBUGGABLE`. A missing payload during `start()` is always rethrown, without calling `onEventDropped`.
+
+### Arguments of alive and restored nodes
+
+- `NavigateTo` a node which is already alive with a **different** argument rebuilds it: the node and its alive
+  descendants get `onExit`, are built again with the new argument, get `onEntry` and a new generation, so sinks
+  obtained from the old instances become stale. An **equal** argument keeps the node as it is.
+- `HistoryTarget` into a parameterized node which is not alive rebuilds it with the argument it had when it was left:
+  the history record keeps the payloads of the nodes it left and is replaced on every exit, so it holds at most one
+  configuration. A node which is still alive keeps its current argument.
 
 ### Node-bound EventSink
 
@@ -223,6 +252,11 @@ enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)`
   of region A never reaches region B's leaf);
 - are checked when dispatched, not when sent: if the node has left navigation or was recreated meanwhile, the event
   is dropped with `DropReason.StaleSource`.
+
+`service.nodeGeneration(path)` returns the generation of the node instance alive at `path` (`null` if none); it changes
+whenever the node is recreated, so it is a stable cache key for a sink (`NodeHost` keys `LocalEventSink` on it). A
+scheduler set with `setEnqueuedEventsScheduler` receives the plain event sent through a sink; the sink's source is
+kept when the scheduled event is sent back.
 
 Same threading rules as `sendEvent`. In Compose, use `LocalEventSink` (see below).
 

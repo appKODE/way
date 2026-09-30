@@ -90,7 +90,18 @@ private fun buildFlowTargets(
         when (targetNode) {
           is Node.Flow -> {
             if (isRootNode) {
-              addFlowTarget(node, targetNode, adjacencyList, buildSegmentId)
+              // An imported schema reachable from several parents gets one target per parent: `<id>Via<Parent>`.
+              val chains = adjacencyList.parentChains(targetNode)
+              chains.forEach { chain ->
+                val parent = chain[chain.lastIndex - 1]
+                addTarget(
+                  FLOW_TARGET,
+                  siblingScreenSchemaKdoc(node, targetNode, parent, adjacencyList),
+                  chain.dropWhile { it != node }.drop(1),
+                  buildSegmentId,
+                  name = if (chains.size > 1) targetNode.id + "Via" + parent.id.toPascalCase() else targetNode.id,
+                )
+              }
             }
           }
 
@@ -125,24 +136,18 @@ private fun buildFlowTargets(
     .build()
 }
 
-private fun TypeSpec.Builder.addFlowTarget(
-  node: Node.Flow,
-  targetNode: Node.Flow,
-  adjacencyList: AdjacencyList,
-  buildSegmentId: (Node) -> String,
-): TypeSpec.Builder {
-  val kdoc = siblingScreenSchemaKdoc(node, targetNode, adjacencyList)
-  return addTarget(FLOW_TARGET, kdoc, pathNodesBetween(node, targetNode, adjacencyList), buildSegmentId)
-}
-
 /**
  * Returns a KDoc string when [targetNode] is a direct child of [node] (no screen intermediary)
  * AND [node] also has screen siblings at the same level — the pattern that causes accidental screen
  * dismissal. Returns null when [targetNode] is reached through a screen (intended stacking).
  */
-private fun siblingScreenSchemaKdoc(node: Node.Flow, targetNode: Node.Flow, adjacencyList: AdjacencyList): String? {
+private fun siblingScreenSchemaKdoc(
+  node: Node.Flow,
+  targetNode: Node.Flow,
+  directParent: Node,
+  adjacencyList: AdjacencyList,
+): String? {
   if (targetNode !is Node.Flow.Imported) return null // only flag imported schemas, not local flows
-  val directParent = adjacencyList.findParent(targetNode) ?: return null
   if (directParent != node) return null // goes through a screen — intended stacking
   val screenSiblings = adjacencyList[node].orEmpty().filterIsInstance<Node.Screen>()
   if (screenSiblings.isEmpty()) return null
@@ -195,6 +200,7 @@ private fun TypeSpec.Builder.addTarget(
   kdoc: String?,
   pathNodes: List<Node>,
   buildSegmentId: (Node) -> String,
+  name: String = pathNodes.last().id,
 ): TypeSpec.Builder {
   val targetNode = pathNodes.last()
   val path = buildPathConstructorCall(nodes = pathNodes, buildSegmentId = buildSegmentId)
@@ -203,14 +209,14 @@ private fun TypeSpec.Builder.addTarget(
   val shortKdoc = if (ancestors.isEmpty()) kdoc else listOfNotNull(SHORT_TARGET_KDOC, kdoc).joinToString("\n\n")
   if (own == null) {
     addProperty(
-      PropertySpec.builder(targetNode.id, targetType)
+      PropertySpec.builder(name, targetType)
         .apply { if (shortKdoc != null) addKdoc(shortKdoc) }
         .initializer("%T(flowPath(%L))", targetType, path)
         .build(),
     )
   } else {
     addFunction(
-      FunSpec.builder(targetNode.id)
+      FunSpec.builder(name)
         .apply { if (shortKdoc != null) addKdoc(shortKdoc) }
         .addParameter(own.name, parseTypeName(own.type))
         .returns(targetType)
@@ -228,7 +234,7 @@ private fun TypeSpec.Builder.addTarget(
   }
   val finalNames = ancestorArgs.map { it.second } + listOfNotNull(own?.name)
   check(finalNames.size == finalNames.toSet().size) {
-    "target \"${targetNode.id}\" has clashing parameter names $finalNames after prefixing ancestor parameters " +
+    "target \"$name\" has clashing parameter names $finalNames after prefixing ancestor parameters " +
       "with their node ids; rename a parameter in the .dot file"
   }
   val code = CodeBlock.builder().add("return %T(flowPath(%L)", targetType, path)
@@ -236,11 +242,11 @@ private fun TypeSpec.Builder.addTarget(
   code.add(", ancestorPayloads = mapOf(")
   ancestorArgs.forEachIndexed { i, (n, name, _) ->
     if (i > 0) code.add(", ")
-    code.add("%T(%S) to %L", SEGMENT, buildSegmentId(n), name)
+    code.add("%T(%S) to %N", SEGMENT, buildSegmentId(n), name)
   }
   code.add("))")
   return addFunction(
-    FunSpec.builder(targetNode.id)
+    FunSpec.builder(name)
       .addKdoc(listOfNotNull(FULL_TARGET_KDOC, kdoc).joinToString("\n\n"))
       .apply { ancestorArgs.forEach { (_, name, type) -> addParameter(name, parseTypeName(type)) } }
       .apply { if (own != null) addParameter(own.name, parseTypeName(own.type)) }
@@ -252,9 +258,9 @@ private fun TypeSpec.Builder.addTarget(
 
 private fun CodeBlock.Builder.addOwnPayload(own: Parameter): CodeBlock.Builder =
   if (parseTypeName(own.type).isNullable) {
-    add(", payload = %L ?: %T", own.name, NULL_PAYLOAD)
+    add(", payload = %N ?: %T", own.name, NULL_PAYLOAD)
   } else {
-    add(", payload = %L", own.name)
+    add(", payload = %N", own.name)
   }
 
 private const val SHORT_TARGET_KDOC =
@@ -265,7 +271,7 @@ private const val FULL_TARGET_KDOC =
   "Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold " +
     "start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive."
 
-private val Node.parameter: Parameter?
+internal val Node.parameter: Parameter?
   get() = when (this) {
     is Node.Flow -> parameter
     is Node.Screen -> parameter

@@ -665,6 +665,79 @@ class ParallelNodeTest : ShouldSpec() {
       states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
     }
 
+    should("an event sent through an intermediate parallel's sink is handled by that parallel only") {
+      val outerEvents = mutableListOf<Event>()
+      val innerEvents = mutableListOf<Event>()
+      val sut = buildNestedRootService(
+        createOuterRoot = { TestParallelNode(onTransitionCallback = { outerEvents.add(it) }) },
+        createInnerRoot = { TestParallelNode(onTransitionCallback = { innerEvents.add(it) }) },
+        nestedAlphaTransitions = listOf(tr("I", Stay)),
+      )
+      val consulted = mutableListOf<String>()
+      sut.addNodeExtensionPoint(
+        TestNodeExtensionPoint(preTransition = { _, path, _ ->
+          consulted.add(path.toString())
+        }),
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val innerPath = states.last().regionByName("nestedAlpha")!!.alive.first().dropLast(1)
+      consulted.clear()
+
+      sut.eventSink(innerPath).send(TestEvent("I"))
+
+      innerEvents.count { it == TestEvent("I") } shouldBe 1
+      outerEvents.none { it == TestEvent("I") } shouldBe true
+      consulted shouldBe listOf(innerPath.toString())
+
+      // sent directly, the event reaches the region nodes and the outer parallel too
+      sut.sendEvent(TestEvent("I"))
+
+      outerEvents.count { it == TestEvent("I") } shouldBe 1
+      consulted.count { it.endsWith("nestedAlpha") } shouldBe 1
+    }
+
+    should("a sub-region node's sink is stale after its parallel was exited and entered again") {
+      val sut = buildPar03ServiceWithCustomApp(
+        createAppNode = {
+          TestFlowNode(
+            initialTarget = Target.par03App.par03Main,
+            transitions = listOf(tr("PAGE", Target.par03App.par03Page), tr("MAIN", Target.par03App.par03Main)),
+          )
+        },
+        alphaTransitions = listOf(tr("goToScreen2", Target.par03Alpha.par03AlphaScreen2)),
+      )
+      val dropped = mutableListOf<DropReason>()
+      sut.addServiceExtensionPoint(
+        object : ServiceExtensionPoint<Unit> {
+          override fun onPreTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+          override fun onPostTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+          override fun onEventDropped(service: NavigationService<Unit>, event: Event, reason: DropReason) {
+            dropped.add(reason)
+          }
+        },
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val alphaScreen = states.last().regionByName("par03Alpha")!!.active
+      val oldSink = sut.eventSink(alphaScreen)
+      sut.sendEvent(TestEvent("PAGE"))
+      sut.sendEvent(TestEvent("MAIN"))
+      states.last().regionByName("par03Alpha")!!.active shouldBe alphaScreen
+      val statesBefore = states.size
+
+      oldSink.send(TestEvent("goToScreen2"))
+
+      dropped shouldBe listOf(DropReason.StaleSource(alphaScreen))
+      states.size shouldBe statesBefore
+
+      sut.eventSink(alphaScreen).send(TestEvent("goToScreen2"))
+
+      states.last().regionByName("par03Alpha")!!.active.lastSegment().name shouldBe "par03AlphaScreen2"
+    }
+
     should("navigate within a sub-region does not affect sibling region") {
       val sut = buildPar02Service(
         alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),

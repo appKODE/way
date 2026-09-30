@@ -70,5 +70,25 @@ class SchemaGenerateTest :
         expectedOutputFiles = listOf("targets-test08-schema.txt"),
         testName = "isParameterized lists nodes with a parameter",
       ),
+      TestCase(
+        schemaFile = "targets-test04.dot",
+        expectedOutputFiles = listOf("targets-test04-schema.txt"),
+        testName = "isParameterized lists a parameterized schema root",
+      ),
+      TestCase(
+        schemaFile = "schema-nullable-imported-root.dot",
+        expectedOutputFiles = listOf("schema-nullable-imported-root.txt"),
+        testName = "isParameterized skips a schema root with a nullable parameter",
+      ),
+      TestCase(
+        schemaFile = "targets-test10.dot",
+        expectedOutputFiles = listOf("targets-test10-schema.txt", "TabsSchema.txt", "TabASchema.txt", "TabBSchema.txt"),
+        testName = "isParameterized inside a parallel schema and its sub-schemas",
+      ),
+      TestCase(
+        schemaFile = "fan-in01.dot",
+        expectedOutputFiles = listOf("fan-in01-schema.txt"),
+        testName = "imported schema reachable from several parents gets targets() and a finish case per path",
+      ),
     ) { runTest(it) }
   })

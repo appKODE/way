@@ -124,7 +124,7 @@ class HistoryTargetParallelTest :
           leafOf("histApp") shouldBe "histHome"
           // Recording guardrail: histMain accumulated BOTH sibling regions' atomic leaves (union),
           // not just whichever region was processed last.
-          _history[histMainPath]?.map { it.lastSegment().name }?.toSet() shouldBe setOf("histA2", "histB1")
+          _history[histMainPath]?.leaves?.map { it.lastSegment().name }?.toSet() shouldBe setOf("histA2", "histB1")
         }
 
         // Deep restore must bring BOTH regions back — tabA to its recorded histA2 AND tabB to histB1.

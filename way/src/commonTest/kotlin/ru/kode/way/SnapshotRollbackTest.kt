@@ -240,23 +240,6 @@ class SnapshotRollbackTest :
       (pathPreEntryCount[appPath] ?: 0) shouldBe 1
       (pathPreEntryCount[introPath] ?: 0) shouldBe 1
     }
-
-    should("throw inside runValidityChecks rolls back — listeners NOT called, state unchanged") {
-      // TODO: SKIPPED. runValidityChecks fires only when `region.alive.toSet() != region.nodes.keys`
-      // (NavigationService.kt:464-471). That divergence is impossible to trigger from outside the
-      // runtime: synchronizeNodes (NavigationService.kt:374) does
-      // `region._nodes.keys.retainAll(region.alive.toSet())` immediately before returning, and
-      // the subsequent loop ensures every alive path also has a built node — so by the time
-      // runValidityChecks runs (after a successful `transition()` return) the invariant holds by
-      // construction. Forcing a divergence would require either reflection into internal
-      // collections or a custom NodeBuilder that mutates Region internals from inside
-      // build/invalidateCache, neither of which has a stable test hook. The catch path is
-      // exercised indirectly by the checkSchemaValidity test above (both throw via `error(...)`
-      // and travel through the same outer-catch rollback code), so coverage of the rollback
-      // mechanics is not lost.
-      // The placeholder body below just documents the intent and runs cleanly.
-      Unit
-    }
   })
 
 // -- Internal accessors -------------------------------------------------------------------------

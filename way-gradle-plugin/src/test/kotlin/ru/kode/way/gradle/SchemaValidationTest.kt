@@ -55,6 +55,56 @@ class SchemaValidationTest :
       ex.message!! shouldContain "fan-in"
     }
 
+    should("allow fan-in into an imported schema when no parent chain has parameters") {
+      val result = parseSchemaDotFile(
+        file = File("src/test/resources/validation-fan-in-schema.dot"),
+        projectDir = File("."),
+      )
+      result.adjacencyList.keys.map { it.id } shouldContain "shared"
+    }
+
+    should("reject fan-in into an imported schema when one of the parents is a parallel node") {
+      val ex = shouldThrow<IllegalStateException> {
+        parseSchemaDotFile(
+          file = File("src/test/resources/validation-fan-in-parallel-parent.dot"),
+          projectDir = File("."),
+        )
+      }
+      ex.message!! shouldContain "one of which is the parallel node"
+    }
+
+    should("reject fan-in into an imported schema which has children in the importing graph") {
+      val ex = shouldThrow<IllegalStateException> {
+        parseSchemaDotFile(
+          file = File("src/test/resources/validation-fan-in-schema-children.dot"),
+          projectDir = File("."),
+        )
+      }
+      ex.message!! shouldContain "is reachable from several parents and has children"
+    }
+
+    should("reject fan-in into an imported schema from parents in different parallel regions") {
+      val ex = shouldThrow<IllegalStateException> {
+        parseSchemaDotFile(
+          file = File("src/test/resources/validation-fan-in-regions.dot"),
+          projectDir = File("."),
+        )
+      }
+      ex.message!! shouldContain "is reachable from parents in different parallel regions"
+    }
+
+    should("reject ancestor parameter names which still clash after prefixing") {
+      // validation-clashing-params.dot: a[id] -> b[aId] -> c[id]; prefixing a's "id" gives "aId" == b's name
+      val ex = shouldThrow<IllegalStateException> {
+        buildSpecs(
+          file = File("src/test/resources/validation-clashing-params.dot"),
+          config = CodeGenConfig(outputPackageName = "com.example", outputSchemaClassName = "AppSchema"),
+          projectDir = File("."),
+        )
+      }
+      ex.message!! shouldContain "clashing parameter names"
+    }
+
     should("reject a non-root parallel node with no children") {
       val ex = shouldThrow<IllegalStateException> {
         parseSchemaDotFile(

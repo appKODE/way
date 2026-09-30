@@ -1,0 +1,96 @@
+package ru.kode.test.app.schema
+
+import kotlin.Any
+import kotlin.Int
+import kotlin.String
+import kotlin.Suppress
+import kotlin.collections.HashMap
+import kotlin.collections.List
+import kotlin.collections.Map
+import kotlin.collections.MutableMap
+import kotlin.collections.Set
+import ru.kode.way.FlowNode
+import ru.kode.way.MissingPayloadException
+import ru.kode.way.Node
+import ru.kode.way.NodeBuilder
+import ru.kode.way.NullPayload
+import ru.kode.way.Path
+import ru.kode.way.ScreenNode
+import ru.kode.way.Segment
+import ru.kode.way.drop
+import ru.kode.way.firstSegment
+import ru.kode.way.lastSegment
+import ru.kode.way.startsWith
+
+public class Fi01appNodeBuilder(
+  private val nodeFactory: Factory,
+  override val schema: FanIn01Schema,
+) : NodeBuilder {
+  private val nodeBuilders: MutableMap<Path, NodeBuilder> = HashMap(1)
+
+  private fun permNodeBuilder(targetPath: Path, payloads: Map<Path, Any>): NodeBuilder = nodeBuilders.getOrPut(targetPath) {
+    nodeFactory.createPermNodeBuilder(payloadAtPathOrError(targetPath, payloads))
+  }
+
+  override fun build(
+    path: Path,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): Node {
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot"))
+    check(path.firstSegment().id == rootPath.firstSegment().id) {
+      """illegal path build requested for "fi01app" node: $path"""
+    }
+    return when {
+      path == rootPath -> nodeFactory.createRootNode()
+      path == targetOrError(Segment("b@FanIn01:src/test/resources/fan-in01.dot"), rootSegmentAlias) -> nodeFactory.createBNode(payloadOrError(Segment("b@FanIn01:src/test/resources/fan-in01.dot"), payloads, rootSegmentAlias))
+      targetsOrError(Segment("perm@FanIn01:src/test/resources/fan-in01.dot"), rootSegmentAlias).any { path.startsWith(it) } -> {
+        val targetPath = targetsOrError(Segment("perm@FanIn01:src/test/resources/fan-in01.dot"), rootSegmentAlias).first { path.startsWith(it) }
+        val nodeBuilder = permNodeBuilder(targetPath, payloads)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+      }
+      path == targetOrError(Segment("a@FanIn01:src/test/resources/fan-in01.dot"), rootSegmentAlias) -> nodeFactory.createANode(payloadOrError(Segment("a@FanIn01:src/test/resources/fan-in01.dot"), payloads, rootSegmentAlias))
+      else -> error("""illegal path build requested for "fi01app" node: $path""")
+    }
+  }
+
+  override fun invalidateCache(alivePaths: Set<Path>) {
+    nodeBuilders.keys.retainAll { key -> alivePaths.any { it.startsWith(key) } }
+    nodeBuilders.forEach { (builderPath, builder) ->
+      val drop = builderPath.length - 1
+      val childAlive = alivePaths.filter { it.startsWith(builderPath) && it.length > drop }.map { it.drop(drop) }.toSet()
+      builder.invalidateCache(childAlive)
+    }
+  }
+
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
+
+  public fun targetsOrError(segment: Segment, rootSegmentAlias: Segment?): List<Path> = schema.regions.firstNotNullOfOrNull { schema.targets(it, segment, rootSegmentAlias).ifEmpty { null } } ?: error("""internal error: no target generated for segment "${segment.id}"""")
+
+  @Suppress("UNCHECKED_CAST")
+  public fun <T> payloadOrError(
+    segment: Segment,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): T {
+    val targetPath = targetOrError(segment, rootSegmentAlias)
+    val payload = payloads[targetPath] ?: throw MissingPayloadException(targetPath)
+    return (if (payload === NullPayload) null else payload) as T
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  public fun <T> payloadAtPathOrError(path: Path, payloads: Map<Path, Any>): T {
+    val payload = payloads[path] ?: throw MissingPayloadException(path)
+    return (if (payload === NullPayload) null else payload) as T
+  }
+
+  public interface Factory {
+    public fun createRootNode(): FlowNode<*>
+
+    public fun createBNode(bId: String): ScreenNode
+
+    public fun createPermNodeBuilder(reason: String): NodeBuilder
+
+    public fun createANode(aId: Int): ScreenNode
+  }
+}

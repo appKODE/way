@@ -470,4 +470,58 @@ class DisposeLifecycleTest :
       sut.sendEvent(TestEvent("go")) // must not re-throw
       deliveries shouldBe listOf("app.intro", "app.intro")
     }
+
+    fun createNav01Service() = NavigationService(
+      TestNodeBuilder(
+        NavService01Schema(),
+        mapOf(
+          "app" to TestFlowNode(initialTarget = Target.app01.intro),
+          "app.intro" to TestScreenNode(),
+        ),
+      ),
+      onFinishRequest = { _: Int -> Stay },
+    )
+
+    fun NavigationService<Int>.recordDrops(): MutableList<DropReason> {
+      val dropped = mutableListOf<DropReason>()
+      addServiceExtensionPoint(
+        object : ServiceExtensionPoint<Int> {
+          override fun onPreTransition(service: NavigationService<Int>, event: Event, state: NavigationState) = Unit
+          override fun onPostTransition(service: NavigationService<Int>, event: Event, state: NavigationState) = Unit
+          override fun onEventDropped(service: NavigationService<Int>, event: Event, reason: DropReason) {
+            dropped.add(reason)
+          }
+        },
+      )
+      return dropped
+    }
+
+    should("report an event sent through a sink obtained before start() as stale, without throwing") {
+      val sut = createNav01Service()
+      val dropped = sut.recordDrops()
+      sut.strictEventDropping = true
+      val app = Path(Segment("app"))
+
+      sut.eventSink(app).send(TestEvent("go"))
+
+      dropped shouldBe listOf(DropReason.StaleSource(app))
+    }
+
+    should("ignore an event sent through a sink after dispose() or cleanDispose(), also in strict mode") {
+      listOf<(NavigationService<Int>) -> Unit>({ it.dispose() }, { it.cleanDispose() }).forEach { disposeFn ->
+        val sut = createNav01Service()
+        val dropped = sut.recordDrops()
+        val deliveries = mutableListOf<NavigationState>()
+        sut.addTransitionListener { state -> deliveries.add(state) }
+        sut.start()
+        sut.strictEventDropping = true
+        val sink = sut.eventSink(deliveries.single().regions.values.single().active)
+        disposeFn(sut)
+
+        sink.send(TestEvent("go"))
+
+        dropped shouldBe emptyList()
+        deliveries.size shouldBe 1
+      }
+    }
   })

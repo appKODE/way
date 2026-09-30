@@ -1,0 +1,8 @@
+digraph ValidationFanInParallelParent {
+  app [type = parallelFlow]
+  one [type = flow]
+  shared [type = schema]
+
+  app -> one -> shared
+  app -> shared
+}

@@ -97,6 +97,10 @@ data class AbsoluteTarget(
  * flow's default [FlowNode.initial], exactly as a [FlowTarget] to the same [path] would.
  *
  * [payload] is an optional argument passed to the flow node when it is (re)built.
+ *
+ * A restored parameterized node which is not alive is rebuilt with the argument it had when the flow was last exited:
+ * the history record keeps these arguments and is replaced on the next exit of the flow. An alive node keeps its
+ * current argument.
  */
 data class HistoryTarget(override val path: Path, val deep: Boolean = false, override val payload: Any? = null) :
   Target

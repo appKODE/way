@@ -8,7 +8,8 @@ sealed interface DropReason {
   /**
    * The event resolved to a target under the parameterized node at [path], which is not alive and has no
    * payload to be rebuilt with. Typically a short target (no ancestor arguments) sent after the user has
-   * already left its flow.
+   * already left its flow. The drop is all-or-nothing: when one target of a multi-target [NavigateTo], or one region
+   * receiving a broadcast event, misses a payload, no part of the transition is applied.
    */
   data class MissingPayload(val path: Path) : DropReason
 

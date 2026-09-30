@@ -45,6 +45,11 @@ import ru.kode.way.acmetabs.ParallelTestAcmeTabsSchema
 import ru.kode.way.acmetabs.acmeAuthFlow
 import ru.kode.way.acmetabs.acmeExploreTab
 import ru.kode.way.acmetabs.acmeHomeTab
+import ru.kode.way.nullroot.NullAppRootNodeBuilder
+import ru.kode.way.nullroot.ParallelTestNullrootSchema
+import ru.kode.way.nullroot.main.NullMainImportNodeBuilder
+import ru.kode.way.nullroot.main.ParallelTestNullrootMainSchema
+import ru.kode.way.nullroot.main.nullMainImport
 import ru.kode.way.par01.Par01AppNodeBuilder
 import ru.kode.way.par01.Parallel01Schema
 import ru.kode.way.par01.bottom.Par01BottomNodeBuilder
@@ -3098,6 +3103,42 @@ class ParallelNodeTest : ShouldSpec() {
     // start(payload) routing the SAME payload to both the parallel root and the parameterized
     // sub-region root (NavigationService.materializeRegion seeds mapOf(regionRootPath to payload) —
     // this is the "Way simultaneously routes it to mainFlow sub-region" contract AppFlowNode relies on).
+    should(
+      "start(null) on a parallelFlow root with a nullable parameter delivers null to the root and sub-region root",
+    ) {
+      val rootReceived = mutableListOf<String?>()
+      val mainReceived = mutableListOf<String?>()
+      val mainNodeBuilder = NullMainImportNodeBuilder(
+        nodeFactory = object : NullMainImportNodeBuilder.Factory {
+          override fun createRootNode(deeplink: String?): FlowNode<*> {
+            mainReceived.add(deeplink)
+            return TestFlowNode(initialTarget = Target.nullMainImport.nullMainScreen)
+          }
+
+          override fun createNullMainScreenNode(): ScreenNode = TestScreenNode()
+        },
+        schema = ParallelTestNullrootMainSchema(),
+      )
+      val rootNodeBuilder = NullAppRootNodeBuilder(
+        nodeFactory = object : NullAppRootNodeBuilder.Factory {
+          override fun createRootNode(deeplink: String?): ParallelFlowNode<*> {
+            rootReceived.add(deeplink)
+            return TestParallelNode()
+          }
+
+          override fun createNullMainImportNodeBuilder(): NodeBuilder = mainNodeBuilder
+        },
+        schema = ParallelTestNullrootSchema(nullMainImportSchema = ParallelTestNullrootMainSchema()),
+      )
+      val sut = NavigationService<Unit>(nodeBuilder = rootNodeBuilder, onFinishRequest = { Ignore })
+
+      sut.collectTransitions(rootNodePayload = null).test {
+        awaitItem()
+        rootReceived shouldBe listOf(null)
+        mainReceived shouldBe listOf(null)
+      }
+    }
+
     should(
       "acme cold-start: start(deeplink) on a parameterized parallelFlow root delivers the SAME " +
         "payload to the root parallel AND the parameterized intermediate sub-region root, then a " +

@@ -1,0 +1,9 @@
+digraph NodeBuildersTest03 {
+  schemaFileName = "node-builders-test03-schema"
+  targetsFileName = "node-builders-test03-targets"
+
+  // nullable root parameter: start(null) must build the root with a null argument
+  nb03app [type = flow, resultType = "kotlin.Int", parameterName = "id", parameterType = "kotlin.String?"]
+
+  nb03app -> nb03screen1
+}

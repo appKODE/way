@@ -1,6 +1,7 @@
 package ru.kode.way.gradle
 
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
@@ -95,13 +96,7 @@ private fun buildFlowTargets(
 
           is Node.Screen -> {
             if (adjacencyList.findParentFlow(targetNode) == node) {
-              if (targetNode.parameter != null) {
-                addFunction(
-                  buildScreenTargetFunSpec(node, targetNode, adjacencyList, targetNode.parameter, buildSegmentId),
-                )
-              } else {
-                addProperty(buildScreenTargetPropertySpec(node, targetNode, adjacencyList, buildSegmentId))
-              }
+              addTarget(SCREEN_TARGET, null, pathNodesBetween(node, targetNode, adjacencyList), buildSegmentId)
             }
           }
 
@@ -136,35 +131,8 @@ private fun TypeSpec.Builder.addFlowTarget(
   adjacencyList: AdjacencyList,
   buildSegmentId: (Node) -> String,
 ): TypeSpec.Builder {
-  val parameter = targetNode.parameter
   val kdoc = siblingScreenSchemaKdoc(node, targetNode, adjacencyList)
-  val pathNodes = pathNodesBetween(node, targetNode, adjacencyList)
-  return if (parameter != null) {
-    addFunction(
-      FunSpec.builder(targetNode.id)
-        .apply { if (kdoc != null) addKdoc(kdoc) }
-        .addParameter(parameter.name, parseTypeName(parameter.type))
-        .returns(FLOW_TARGET)
-        .addCode(
-          "return %T(flowPath(%L), payload = %L)",
-          FLOW_TARGET,
-          buildPathConstructorCall(nodes = pathNodes, buildSegmentId = buildSegmentId),
-          parameter.name,
-        )
-        .build(),
-    )
-  } else {
-    addProperty(
-      PropertySpec.builder(targetNode.id, FLOW_TARGET)
-        .apply { if (kdoc != null) addKdoc(kdoc) }
-        .initializer(
-          "%T(flowPath(%L))",
-          FLOW_TARGET,
-          buildPathConstructorCall(nodes = pathNodes, buildSegmentId = buildSegmentId),
-        )
-        .build(),
-    )
-  }
+  return addTarget(FLOW_TARGET, kdoc, pathNodesBetween(node, targetNode, adjacencyList), buildSegmentId)
 }
 
 /**
@@ -212,41 +180,75 @@ private fun buildHistoryTargetPropertySpec(
     .build()
 }
 
-private fun buildScreenTargetPropertySpec(
-  node: Node.Flow,
-  targetNode: Node.Screen,
-  adjacencyList: AdjacencyList,
+/**
+ * Emits a target accessor for the last node of [pathNodes]. It is a property when no node on the path has a
+ * parameter, otherwise a function taking the parameters of every parameterized ancestor on the path (in path
+ * order) followed by the target's own. Ancestor values go into `ancestorPayloads` so the runtime can rebuild
+ * an ancestor that is no longer alive. An ancestor parameter whose name clashes with another one is renamed
+ * to `<nodeId><ParameterName>`.
+ */
+private fun TypeSpec.Builder.addTarget(
+  targetType: ClassName,
+  kdoc: String?,
+  pathNodes: List<Node>,
   buildSegmentId: (Node) -> String,
-): PropertySpec = PropertySpec.builder(targetNode.id, SCREEN_TARGET)
-  .initializer(
-    "%T(flowPath(%L))",
-    SCREEN_TARGET,
-    buildPathConstructorCall(
-      nodes = pathNodesBetween(node, targetNode, adjacencyList),
-      buildSegmentId = buildSegmentId,
-    ),
+): TypeSpec.Builder {
+  val targetNode = pathNodes.last()
+  val path = buildPathConstructorCall(nodes = pathNodes, buildSegmentId = buildSegmentId)
+  val ancestors = pathNodes.dropLast(1).mapNotNull { n -> n.parameter?.let { n to it } }
+  val own = targetNode.parameter
+  if (ancestors.isEmpty() && own == null) {
+    return addProperty(
+      PropertySpec.builder(targetNode.id, targetType)
+        .apply { if (kdoc != null) addKdoc(kdoc) }
+        .initializer("%T(flowPath(%L))", targetType, path)
+        .build(),
+    )
+  }
+  val allNames = (ancestors.map { it.second } + listOfNotNull(own)).map { it.name }
+  val ancestorArgs = ancestors.map { (n, p) ->
+    val name = if (allNames.count { it == p.name } > 1) n.id + p.name.replaceFirstChar { it.uppercase() } else p.name
+    Triple(n, name, p.type)
+  }
+  val finalNames = ancestorArgs.map { it.second } + listOfNotNull(own?.name)
+  check(finalNames.size == finalNames.toSet().size) {
+    "target \"${targetNode.id}\" has clashing parameter names $finalNames after prefixing ancestor parameters " +
+      "with their node ids; rename a parameter in the .dot file"
+  }
+  val code = CodeBlock.builder().add("return %T(flowPath(%L)", targetType, path)
+  if (own != null) {
+    if (parseTypeName(own.type).isNullable) {
+      code.add(", payload = %L ?: %T", own.name, NULL_PAYLOAD)
+    } else {
+      code.add(", payload = %L", own.name)
+    }
+  }
+  if (ancestorArgs.isNotEmpty()) {
+    code.add(", ancestorPayloads = mapOf(")
+    ancestorArgs.forEachIndexed { i, (n, name, _) ->
+      if (i > 0) code.add(", ")
+      code.add("%T(%S) to %L", SEGMENT, buildSegmentId(n), name)
+    }
+    code.add(")")
+  }
+  code.add(")")
+  return addFunction(
+    FunSpec.builder(targetNode.id)
+      .apply { if (kdoc != null) addKdoc(kdoc) }
+      .apply { ancestorArgs.forEach { (_, name, type) -> addParameter(name, parseTypeName(type)) } }
+      .apply { if (own != null) addParameter(own.name, parseTypeName(own.type)) }
+      .returns(targetType)
+      .addCode(code.build())
+      .build(),
   )
-  .build()
+}
 
-private fun buildScreenTargetFunSpec(
-  node: Node.Flow,
-  targetNode: Node.Screen,
-  adjacencyList: AdjacencyList,
-  parameter: Parameter,
-  buildSegmentId: (Node) -> String,
-): FunSpec = FunSpec.builder(targetNode.id)
-  .addParameter(parameter.name, parseTypeName(parameter.type))
-  .returns(SCREEN_TARGET)
-  .addCode(
-    "return %T(flowPath(%L), payload = %L)",
-    SCREEN_TARGET,
-    buildPathConstructorCall(
-      nodes = pathNodesBetween(node, targetNode, adjacencyList),
-      buildSegmentId = buildSegmentId,
-    ),
-    parameter.name,
-  )
-  .build()
+private val Node.parameter: Parameter?
+  get() = when (this) {
+    is Node.Flow -> parameter
+    is Node.Screen -> parameter
+    is Node.History -> null
+  }
 
 /**
  * The chain of nodes from [flow]'s first descendant down to [targetNode] inclusive, in root-to-target

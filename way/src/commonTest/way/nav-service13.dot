@@ -1,0 +1,9 @@
+// nullable node parameters: a null argument must reach the node, also when an ancestor is rebuilt
+digraph NavService13 {
+  package = "ru.kode.way.nav13"
+
+  app [type = flow, resultType = "kotlin.Int"]
+  details [parameterName = "id", parameterType = "kotlin.String?"]
+
+  app -> main -> details -> info
+}

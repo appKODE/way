@@ -24,6 +24,13 @@ class NodeBuilderGenerateTest :
         testName = "single flow",
       ),
       TestCase(
+        schemaFile = "node-builders-nullable-root.dot",
+        expectedOutputFiles = listOf(
+          "Nb03appNodeBuilder.txt",
+        ),
+        testName = "nullable root parameter",
+      ),
+      TestCase(
         schemaFile = "node-builders-parallel01.dot",
         expectedOutputFiles = listOf(
           "Nbp01mainNodeBuilder.txt",

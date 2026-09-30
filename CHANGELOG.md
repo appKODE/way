@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+**Breaking:** generated target accessors now require the parameters of every parameterized ancestor on the
+target's path.
+
+* Fix `IllegalStateException: no payload for "..."` when a `NavigateTo` targets a node below a parameterized
+  ancestor that is no longer alive (e.g. Back already removed it). The ancestor's payload was read from the
+  persisted payload store, which is pruned to alive paths, so rebuilding the ancestor crashed.
+* `ScreenTarget` / `FlowTarget` gain `ancestorPayloads: Map<Segment, Any?>` (defaults to empty). Generated
+  accessors fill it; the runtime records a value only for an ancestor that is being rebuilt. It is honored for
+  `NavigateTo`, `FlowNode.initial` chains and the `AbsoluteTarget(rootSegment, vararg hops)` helper.
+* Target accessors of param-less nodes under a parameterized ancestor become functions instead of properties.
+  Ancestor parameters whose names clash with another parameter on the path are prefixed with the node id
+  (`detailsId`).
+
+* Fix `no payload for "..."` when a nullable node parameter gets a `null` argument. A null argument is now stored
+  as the new `NullPayload` marker (payload maps can't hold `null`), and generated node builders turn it back into
+  `null`. Generated targets pass `payload = arg ?: NullPayload` for nullable parameters, so `Target.payload` of such
+  a target is `NullPayload` rather than `null`. Hand-built `AbsoluteTarget(payloads = ...)` should put
+  `NullPayload` for a null argument. Regenerate code with the matching plugin version.
+
+* Fix `no payload for "<root>"` when a root flow (or parallel root, or parallel sub-region root) with a nullable
+  parameter is started with `start(payload = null)`: its generated node builder now reads the root payload with
+  `payloadAtPathOrNull` and passes `null` to `createRootNode`.
+
+Migration: pass the ancestor values at each call site, in path order. For
+`main -> details(eSimId) -> packageDetails(packageId)`:
+`Target.myESimFlow.packageDetails(packageId)` becomes `Target.myESimFlow.packageDetails(eSimId, packageId)`.
+Workarounds that dropped a `.dot` parameter to avoid the crash can be reverted.
+
 ## 0.9.10 - 2026-08-04
 
 Three additions to `way`/`way-compose` that remove app-side workarounds around a `ParallelFlowNode`

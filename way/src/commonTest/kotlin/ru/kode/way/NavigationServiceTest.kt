@@ -27,6 +27,8 @@ import ru.kode.way.nav12.AppNodeBuilder
 import ru.kode.way.nav12.LoginNodeBuilder
 import ru.kode.way.nav12.NavService12LoginSchema
 import ru.kode.way.nav12.NavService12Schema
+import ru.kode.way.nav13.NavService13Schema
+import ru.kode.way.nav14.NavService14Schema
 import ru.kode.way.par01.bottom.par01Bottom
 import ru.kode.way.par01.par01App
 import ru.kode.way.par01.top.par01Top
@@ -66,6 +68,10 @@ import ru.kode.way.nav11.login as login11
 import ru.kode.way.nav12.AppChildFinishRequest as Nav12AppChildFinishRequest
 import ru.kode.way.nav12.app as app12
 import ru.kode.way.nav12.login as login12
+import ru.kode.way.nav13.AppNodeBuilder as Nav13AppNodeBuilder
+import ru.kode.way.nav13.app as app13
+import ru.kode.way.nav14.AppNodeBuilder as Nav14AppNodeBuilder
+import ru.kode.way.nav14.app as app14
 
 class NavigationServiceTest :
   ShouldSpec({
@@ -795,7 +801,7 @@ class NavigationServiceTest :
             initialTarget = Target.app12.page1(Charsets.UTF_32),
             payload = timeout,
             transitions = listOf(
-              tr("A", Target.app12.login(defaultUserName = "Dima")),
+              tr("A", Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Dima")),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
             ),
           )
@@ -809,7 +815,7 @@ class NavigationServiceTest :
                 initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
                 payload = defaultUserName,
                 transitions = listOf(
-                  tr("B", Target.login12.otp(useAnimation = true)),
+                  tr("B", Target.login12.otp(defaultPhone = "+7981123456", useAnimation = true)),
                 ),
               )
 
@@ -853,6 +859,181 @@ class NavigationServiceTest :
       }
     }
 
+    should("rebuild a pruned parameterized ancestor from the target's ancestor payloads") {
+      val nodeBuilder = AppNodeBuilder(
+        object : AppNodeBuilder.Factory {
+          override fun createRootNode(timeout: Int) = TestFlowNode(
+            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            payload = timeout,
+            transitions = listOf(
+              tr("L", Target.app12.login(charset = Charsets.UTF_8, defaultUserName = "Dima")),
+              tr("P2", Target.app12.page2),
+              tr<Nav12AppChildFinishRequest.Login>(Stay),
+            ),
+          )
+
+          override fun createPage2Node() = TestScreenNode()
+          override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+          override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder = LoginNodeBuilder(
+            object : LoginNodeBuilder.Factory {
+              override fun createRootNode(defaultUserName: String) = TestFlowNode(
+                initialTarget = Target.login12.credentials(defaultPhone = "+7981123456"),
+                payload = defaultUserName,
+              )
+
+              override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
+              override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
+            },
+            NavService12LoginSchema(),
+          )
+        },
+        NavService12Schema(NavService12LoginSchema()),
+      )
+
+      val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore })
+
+      sut.collectTransitions(rootNodePayload = 42).test {
+        awaitItem()
+
+        // page1 is alive: it keeps the payload it was built with
+        sut.sendEvent(TestEvent("L"))
+        awaitItem().apply {
+          active shouldBe "app.page1.login.credentials"
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
+        }
+
+        // page1 is pruned together with its stored payload
+        sut.sendEvent(TestEvent("P2"))
+        awaitItem().active shouldBe "app.page2"
+
+        // page1 is rebuilt from the target's ancestor payload instead of crashing with "no payload"
+        sut.sendEvent(TestEvent("L"))
+        awaitItem().apply {
+          active shouldBe "app.page1.login.credentials"
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
+        }
+      }
+    }
+
+    should("pass ancestor payloads through FlowNode.initial and AbsoluteTarget hops") {
+      val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
+      val nodeBuilder = AppNodeBuilder(
+        object : AppNodeBuilder.Factory {
+          override fun createRootNode(timeout: Int) = TestFlowNode(
+            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            payload = timeout,
+            transitions = listOf(
+              tr("P2", Target.app12.page2),
+              tr(
+                "ABS",
+                NavigateTo(
+                  AbsoluteTarget(rootSegment, Target.app12.login(charset = Charsets.UTF_8, defaultUserName = "Dima")),
+                ),
+              ),
+              tr<Nav12AppChildFinishRequest.Login>(Stay),
+            ),
+          )
+
+          override fun createPage2Node() = TestScreenNode()
+          override fun createPage1Node(charset: Charset) = TestScreenNode(payload = charset)
+
+          override fun createLoginNodeBuilder(defaultUserName: String): NodeBuilder = LoginNodeBuilder(
+            object : LoginNodeBuilder.Factory {
+              // credentials is not alive when the login flow is entered: its payload comes from the initial target
+              override fun createRootNode(defaultUserName: String) = TestFlowNode(
+                initialTarget = Target.login12.otp(defaultPhone = "800", useAnimation = true),
+                payload = defaultUserName,
+              )
+
+              override fun createCredentialsNode(defaultPhone: String) = TestScreenNode(payload = defaultPhone)
+              override fun createOtpNode(useAnimation: Boolean) = TestScreenNode(payload = useAnimation)
+            },
+            NavService12LoginSchema(),
+          )
+        },
+        NavService12Schema(NavService12LoginSchema()),
+      )
+
+      val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore })
+
+      sut.collectTransitions(rootNodePayload = 42).test {
+        awaitItem()
+        sut.sendEvent(TestEvent("P2"))
+        awaitItem().active shouldBe "app.page2"
+
+        sut.sendEvent(TestEvent("ABS"))
+        awaitItem().apply {
+          active shouldBe "app.page1.login.credentials.otp"
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
+          (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "800"
+        }
+      }
+    }
+
+    should("pass a null argument of a nullable parameter to the node, also when rebuilding an ancestor") {
+      val nodeBuilder = Nav13AppNodeBuilder(
+        object : Nav13AppNodeBuilder.Factory {
+          override fun createRootNode() = TestFlowNode(
+            initialTarget = Target.app13.main,
+            transitions = listOf(
+              tr("D", Target.app13.details(id = null)),
+              tr("M", Target.app13.main),
+              tr("I", Target.app13.info(id = null)),
+            ),
+          )
+
+          override fun createMainNode() = TestScreenNode()
+          override fun createDetailsNode(id: String?) = TestScreenNode(payload = id ?: "null-received")
+          override fun createInfoNode() = TestScreenNode()
+        },
+        NavService13Schema(),
+      )
+
+      val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore })
+
+      sut.collectTransitions().test {
+        awaitItem()
+        sut.sendEvent(TestEvent("D"))
+        awaitItem().apply {
+          active shouldBe "app.main.details"
+          (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
+        }
+
+        sut.sendEvent(TestEvent("M"))
+        awaitItem().active shouldBe "app.main"
+
+        // details is rebuilt from the target's null ancestor payload
+        sut.sendEvent(TestEvent("I"))
+        awaitItem().apply {
+          active shouldBe "app.main.details.info"
+          (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
+        }
+      }
+    }
+
+    should("pass a null start payload to a root flow with a nullable parameter") {
+      val received = mutableListOf<String?>()
+      val nodeBuilder = Nav14AppNodeBuilder(
+        object : Nav14AppNodeBuilder.Factory {
+          override fun createRootNode(id: String?): FlowNode<*> {
+            received.add(id)
+            return TestFlowNode(initialTarget = Target.app14.main)
+          }
+
+          override fun createMainNode() = TestScreenNode()
+        },
+        NavService14Schema(),
+      )
+
+      val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Int -> Ignore })
+
+      sut.collectTransitions(rootNodePayload = null).test {
+        awaitItem().active shouldBe "app.main"
+        received shouldBe listOf(null)
+      }
+    }
+
     // Added persistent state.payloads (transient payloads
     // were merged into the persistent map after each transition). Explicitly
     // excluded InitEvent payloads from that store, because their length-1 keys would crash
@@ -867,7 +1048,7 @@ class NavigationServiceTest :
             initialTarget = Target.app12.page1(Charsets.UTF_32),
             payload = timeout,
             transitions = listOf(
-              tr("A", Target.app12.login(defaultUserName = "Dima")),
+              tr("A", Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Dima")),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
             ),
           )
@@ -1217,9 +1398,9 @@ class NavigationServiceTest :
     }
 
     should("correctly transition when given an absolute target") {
-      val loginFlowTarget = Target.app12.login(defaultUserName = "Gregoriy")
+      val loginFlowTarget = Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Gregoriy")
       val loginCredentialsTarget = Target.login12.credentials(defaultPhone = "800")
-      val loginOtpTarget = Target.login12.otp(useAnimation = true)
+      val loginOtpTarget = Target.login12.otp(defaultPhone = "+7981123456", useAnimation = true)
       val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
       // loginSchemaRoot is the absolute path to the login sub-schema boundary ("app/page1/login").
       // loginOtpTarget.path is relative to the login schema root and contains two segments

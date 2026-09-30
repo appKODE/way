@@ -1,0 +1,8 @@
+// nullable root flow parameter: start(payload = null) must reach createRootNode as null
+digraph NavService14 {
+  package = "ru.kode.way.nav14"
+
+  app [type = flow, resultType = "kotlin.Int", parameterName = "id", parameterType = "kotlin.String?"]
+
+  app -> main
+}

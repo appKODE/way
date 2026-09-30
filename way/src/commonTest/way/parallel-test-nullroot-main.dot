@@ -1,0 +1,8 @@
+digraph ParallelTestNullrootMain {
+  package = "ru.kode.way.nullroot.main"
+
+  nullMainImport [ type = "flow", parameterName = "deeplink", parameterType = "kotlin.String?" ]
+  nullMainScreen [ type = "screen" ]
+
+  nullMainImport -> nullMainScreen
+}

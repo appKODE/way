@@ -1,0 +1,10 @@
+digraph ParallelTestNullroot {
+  package = "ru.kode.way.nullroot"
+
+  // Parallel root with a nullable parameter; start(payload = null) must reach it and the
+  // nullable-parameterized sub-region root as null instead of failing with "no payload".
+  nullAppRoot [ type = "parallelFlow", parameterName = "deeplink", parameterType = "kotlin.String?" ]
+  nullMainImport [ type = "schema" ]
+
+  nullAppRoot -> nullMainImport
+}

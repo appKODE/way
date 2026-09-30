@@ -1,0 +1,13 @@
+// targets under parameterized ancestors: ancestor params are required, clashing names are prefixed
+digraph TargetsTest08 {
+  schemaFileName = "targets-test08-schema"
+  targetsFileName = "targets-test08-targets"
+
+  app [type = flow]
+
+  details [parameterName = "id", parameterType = "kotlin.String"]
+  packageDetails [parameterName = "id", parameterType = "kotlin.Int?"]
+
+  app -> main -> details -> packageDetails
+  details -> info
+}

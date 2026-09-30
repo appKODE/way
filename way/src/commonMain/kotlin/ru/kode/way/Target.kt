@@ -8,14 +8,28 @@ sealed interface Target {
 }
 
 /**
+ * Stands in for a `null` argument of a nullable node parameter in a payload map (whose values can't be null), so a
+ * null argument can be told apart from a missing one. Generated node builders turn it back into `null`.
+ */
+object NullPayload
+
+/**
  * A navigation target that resolves to a [ScreenNode].
  *
  * [path] is the relative segment path to the screen within its parent flow schema. The runtime
  * resolves it to an absolute path using the current navigation context.
  *
  * [payload] is an optional argument passed to the screen node when it is built.
+ *
+ * [ancestorPayloads] holds payloads of parameterized intermediate nodes on [path], keyed by that node's segment.
+ * They are used only when such an ancestor is not alive and has to be rebuilt; an alive ancestor keeps its payload.
+ * A `null` value is the argument of a nullable parameter and is stored as [NullPayload].
  */
-data class ScreenTarget(override val path: Path, override val payload: Any? = null) : Target
+data class ScreenTarget(
+  override val path: Path,
+  override val payload: Any? = null,
+  val ancestorPayloads: Map<Segment, Any?> = emptyMap(),
+) : Target
 
 /**
  * A navigation target that resolves to a [FlowNode].
@@ -25,8 +39,16 @@ data class ScreenTarget(override val path: Path, override val payload: Any? = nu
  * active [ScreenNode].
  *
  * [payload] is an optional argument passed to the flow node when it is built.
+ *
+ * [ancestorPayloads] holds payloads of parameterized intermediate nodes on [path], keyed by that node's segment.
+ * They are used only when such an ancestor is not alive and has to be rebuilt; an alive ancestor keeps its payload.
+ * A `null` value is the argument of a nullable parameter and is stored as [NullPayload].
  */
-data class FlowTarget(override val path: Path, override val payload: Any? = null) : Target
+data class FlowTarget(
+  override val path: Path,
+  override val payload: Any? = null,
+  val ancestorPayloads: Map<Segment, Any?> = emptyMap(),
+) : Target
 
 /**
  * A navigation target specified as a fully-qualified absolute path.
@@ -102,8 +124,19 @@ fun AbsoluteTarget(rootSegment: Segment, vararg hops: Target): AbsoluteTarget {
   var path = Path(rootSegment)
   val payloads = mutableMapOf<Path, Any>()
   for (hop in hops) {
+    val hopRoot = path
     path = path.append(hop.path)
     hop.payload?.let { payloads[path] = it }
+    val ancestorPayloads = when (hop) {
+      is ScreenTarget -> hop.ancestorPayloads
+      is FlowTarget -> hop.ancestorPayloads
+      else -> emptyMap()
+    }
+    ancestorPayloads.forEach { (segment, value) ->
+      val index = hop.path.segments.lastIndexOf(segment)
+      check(index >= 0) { "ancestor payload segment \"${segment.id}\" is not on hop path \"${hop.path}\"" }
+      payloads[hopRoot.append(Path(hop.path.segments.take(index + 1)))] = value ?: NullPayload
+    }
   }
   return AbsoluteTarget(path, payloads)
 }

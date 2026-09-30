@@ -1,0 +1,28 @@
+package ru.kode.test.app.schema
+
+import kotlin.Int
+import kotlin.String
+import ru.kode.way.NullPayload
+import ru.kode.way.Path
+import ru.kode.way.ScreenTarget
+import ru.kode.way.Segment
+import ru.kode.way.Target
+import ru.kode.way.append
+
+public class AppTargets(
+  private val prefix: Path? = null,
+) {
+  public val main: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot")))))
+
+  public fun details(id: String): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot")))), payload = id)
+
+  public fun info(id: String): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("info@TargetsTest08:src/test/resources/targets-test08.dot")))), ancestorPayloads = mapOf(Segment("details@TargetsTest08:src/test/resources/targets-test08.dot") to id))
+
+  public fun packageDetails(detailsId: String, id: Int?): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("packageDetails@TargetsTest08:src/test/resources/targets-test08.dot")))), payload = id ?: NullPayload, ancestorPayloads = mapOf(Segment("details@TargetsTest08:src/test/resources/targets-test08.dot") to detailsId))
+
+  private fun flowPath(path: Path): Path = prefix?.append(path) ?: path
+}
+
+public val Target.Companion.app: AppTargets
+  get() = AppTargets()

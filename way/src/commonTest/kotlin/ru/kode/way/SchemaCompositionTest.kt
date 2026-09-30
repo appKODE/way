@@ -37,7 +37,7 @@ class SchemaCompositionTest : ShouldSpec() {
               tr(on = "A", Finish(Unit)),
             ),
             mainFlowTransitions = listOf(
-              tr(on = "B", Target.mainFlow.loginFlow(section = 55)),
+              tr(on = "B", Target.mainFlow.loginFlow(count = 1, section = 55)),
               tr<MainFlowChildFinishRequest.LoginFlow>(Finish(Unit)),
             ),
             mainLoginFlowTransitions = listOf(

@@ -5,10 +5,10 @@ import ru.kode.way.sample.compose.core.ui.SampleStubScreen
 import ru.kode.way.sample.compose.permissions.ui.routing.PermissionsFlowEvent
 
 @Composable
-fun IntroScreen(sendEvent: (PermissionsFlowEvent) -> Unit) {
+fun IntroScreen(send: (PermissionsFlowEvent) -> Unit) {
   SampleStubScreen(
     title = "Permissions Intro",
-    sendEvent = sendEvent,
+    send = send,
     eventsClass = PermissionsFlowEvent::class,
     eventFilter = { it == PermissionsFlowEvent.IntroDone::class },
   )

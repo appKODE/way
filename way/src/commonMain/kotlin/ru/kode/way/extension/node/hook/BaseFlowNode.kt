@@ -37,10 +37,14 @@ abstract class BaseFlowNode<R : Any> :
 
   /**
    * This node's sink ([NavigationService.eventSink]): events are resolved from the active leaves under this flow and
-   * dropped with [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation, so it is safe to
-   * send from async work that may outlive the node. Hand it to the presenters of the flow's children if they act on
-   * behalf of the flow. Attached by the service right before every entry (usable in `onEntry` and entry hooks);
-   * reading it before the first entry throws.
+   * dropped with [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation. The service
+   * attaches a new sink right before every entry (usable in `onEntry` and entry hooks), so if the node builder
+   * returns the same instance on re-entry, reading this property later yields the sink of the new entry. For async
+   * work, and when handing it to the presenters of the flow's children, capture it first (`val sink = eventSink` in
+   * `onEntry`, or before launching the work): the captured sink goes stale when this entry ends. Events it sends from
+   * `onEntry` of a transition which is then rolled back are discarded without
+   * [ru.kode.way.ServiceExtensionPoint.onEventDropped] (that entry never happened). Reading it before the first entry
+   * throws.
    */
   val eventSink: EventSink
     get() = checkNotNull(_eventSink) {

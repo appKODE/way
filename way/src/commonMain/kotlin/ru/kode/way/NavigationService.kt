@@ -402,11 +402,16 @@ class NavigationService<R : Any>(
   /**
    * Enters [node] at [path]: a node owning a sink (see [BaseFlowNode.eventSink]) gets a fresh one bound to its
    * current generation first, so the sink is usable from `onEntry` and its hooks. Its generation must be assigned.
+   *
+   * Only forward entries go through here. The re-entry in [compensateLifecycle] after a rollback intentionally does
+   * not re-attach: the node keeps the sink of its original entry, which is live again because [TransactionSnapshot]
+   * restores `_generations`.
    */
   private fun enter(state: NavigationState, node: Node, path: Path, event: Event) {
     when (node) {
       is BaseFlowNode<*> -> node.attachEventSink(eventSink(path, state))
       is BaseScreenNode -> node.attachEventSink(eventSink(path, state))
+      is ParallelFlowNode<*> -> node.attachEventSink(eventSink(path, state))
       else -> Unit
     }
     callOnEntry(node, path, event, state._nodeExtensionPoints)
@@ -972,6 +977,8 @@ private fun compensateLifecycle(
     runCatching { callOnExit(node, path, event, extensionPoints) }
   }
   exited.reversed().forEach { (node, path) ->
+    // Not NavigationService.enter: no new sink is attached. The node's original sink becomes live again once the
+    // caller's TransactionSnapshot restores `_generations`.
     runCatching { callOnEntry(node, path, event, extensionPoints) }
   }
 }

@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import ru.kode.way.DropReason
 import ru.kode.way.EventSink
+import ru.kode.way.NavigationService
 import ru.kode.way.Path
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -135,6 +136,47 @@ class EventSinkTest {
     rule.runOnIdle { outsideSink!!.send(TestEvent("D")) }
     rule.waitForIdle()
     assertEquals(FlowFixture.detailsPath, fixture.state?.activePath)
+  }
+
+  // NodeHost(service) renders nothing of the app's outside a node's Content, so the realistic "outside any node" reader
+  // is a wrapper sharing NodeHost's LocalNavigationService, e.g. a toolbar next to it
+  @Test
+  fun `LocalEventSink in a wrapper around NodeHost stays the service while nodes change`() {
+    val fixture = FlowFixture()
+    val seen = mutableListOf<EventSink>()
+    rule.setContent {
+      CompositionLocalProvider(LocalNavigationService provides fixture.service) {
+        fixture.service.collectAsState().value // recompose on every transition
+        seen.add(LocalEventSink.current)
+        NodeHost(fixture.service)
+      }
+    }
+    rule.runOnIdle { seen.last().send(TestEvent("D")) }
+    rule.waitForIdle()
+
+    assertEquals(FlowFixture.detailsPath, fixture.state?.activePath)
+    assertTrue("wrapper did not recompose on navigation, seen=${seen.size}", seen.size >= 2)
+    seen.forEach { assertSame(fixture.service, it) }
+    assertTrue(fixture.dropped.isEmpty())
+  }
+
+  @Test
+  fun `LocalEventSink outside any node follows a replaced LocalNavigationService`() {
+    val first = FlowFixture()
+    val second = FlowFixture()
+    var service by mutableStateOf<NavigationService<*>>(first.service)
+    val seen = mutableListOf<EventSink>()
+    rule.setContent {
+      CompositionLocalProvider(LocalNavigationService provides service) {
+        seen.add(LocalEventSink.current)
+      }
+    }
+    rule.runOnIdle { assertSame(first.service, seen.last()) }
+
+    rule.runOnIdle { service = second.service }
+    rule.waitForIdle()
+
+    assertSame(second.service, seen.last())
   }
 
   @Test

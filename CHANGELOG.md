@@ -37,8 +37,10 @@ crashing, and every event goes through an `EventSink`.
   recreated by the time they are dispatched.
 * `NavigationService.nodeGeneration(path)`, the generation of the node instance alive at `path`, changed whenever the
   node is recreated.
-* `BaseScreenNode.eventSink` / `BaseFlowNode.eventSink`: the node's own sink, attached right before every
-  `onEntry`; reading it before the first entry throws. A send after the node left is dropped as `StaleSource`.
+* `BaseScreenNode.eventSink` / `BaseFlowNode.eventSink` / `ParallelFlowNode.eventSink`: the node's own sink,
+  attached right before every `onEntry`; reading it before the first entry throws. A send after the node left is
+  dropped as `StaleSource`. Every entry attaches a new sink, so capture it (`val sink = eventSink` in `onEntry`) for
+  async work that may outlive the entry.
 * `way-compose`: `LocalEventSink`, the sink of the node being rendered, provided by `NodeHost` to every node's
   `Content()`; outside any node (under `LocalNavigationService`) it is the service itself.
 * Generated `Schema.isParameterized(regionId, path, rootSegmentAlias)` (default `false` for hand-written schemas).
@@ -72,8 +74,8 @@ crashing, and every event goes through an `EventSink`.
 
 Migration from 0.9.11:
 * Replace `service.sendEvent(event)` with `service.send(event)`, or better with the nearest sink (see below).
-* Calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave
-  the same. Regenerate code with the matching plugin version.
+* Calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave the same.
+* Regenerate code with the matching plugin version.
 * Ancestor arguments cached only to satisfy 0.9.11 targets can be removed: switch to the short builder
   (`packageDetails(packageId)`) where the ancestor flow is alive.
 * Send UI events through `LocalEventSink.current.send(event)` instead of

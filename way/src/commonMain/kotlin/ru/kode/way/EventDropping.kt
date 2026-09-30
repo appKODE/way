@@ -50,8 +50,10 @@ internal class SourcedEvent(val event: Event, val source: Path, val generation: 
 class MissingPayloadException(val path: Path) : IllegalStateException("no payload for \"$path\"")
 
 /**
- * Thrown from [EventSink.send] when [NavigationService.strictEventDropping] is `true` and
- * [event] is dropped for [reason]. Navigation state is left as it was before [event].
+ * Thrown when [NavigationService.strictEventDropping] is `true` and [event] is dropped for [reason], from the
+ * [EventSink.send] which drains [event]: the outermost send (a send made during dispatch only queues its event), or
+ * the scheduler's redelivery (see [NavigationService.setEnqueuedEventsScheduler]). Navigation state is left as it
+ * was before [event].
  */
 class EventDroppedException(val event: Event, val reason: DropReason, cause: Throwable? = null) :
   IllegalStateException("event $event was dropped: $reason", cause)

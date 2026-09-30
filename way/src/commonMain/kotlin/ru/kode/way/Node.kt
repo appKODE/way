@@ -113,4 +113,24 @@ abstract class ParallelFlowNode<R : Any> : Node {
   abstract val dismissResult: R
 
   abstract fun transition(event: Event): FlowTransition<R>
+
+  private var _eventSink: EventSink? = null
+
+  /**
+   * This parallel's sink ([NavigationService.eventSink]): events are resolved from the active leaves of its regions
+   * and dropped with [DropReason.StaleSource] once this node instance has left navigation. The service attaches a
+   * new sink right before every entry (usable in `onEntry` and entry hooks), so if the node builder returns the same
+   * instance on re-entry, reading this property later yields the sink of the new entry. For async work capture it
+   * first (`val sink = eventSink` in `onEntry`, or before launching the work): the captured sink goes stale when this
+   * entry ends. Events it sends from `onEntry` of a transition which is then rolled back are discarded without
+   * [ServiceExtensionPoint.onEventDropped] (that entry never happened). Reading it before the first entry throws.
+   */
+  val eventSink: EventSink
+    get() = checkNotNull(_eventSink) {
+      "eventSink is not available before the runtime calls onEntry on this node"
+    }
+
+  internal fun attachEventSink(sink: EventSink) {
+    _eventSink = sink
+  }
 }

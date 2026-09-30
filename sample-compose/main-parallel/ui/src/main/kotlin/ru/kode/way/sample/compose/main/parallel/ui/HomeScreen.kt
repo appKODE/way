@@ -5,10 +5,10 @@ import ru.kode.way.sample.compose.core.ui.SampleStubScreen
 import ru.kode.way.sample.compose.main.parallel.ui.routing.MainParallelFlowEvent
 
 @Composable
-fun HomeScreen(sendEvent: (MainParallelFlowEvent) -> Unit) {
+fun HomeScreen(send: (MainParallelFlowEvent) -> Unit) {
   SampleStubScreen(
     title = "Main Home",
-    sendEvent = sendEvent,
+    send = send,
     eventsClass = MainParallelFlowEvent::class,
   )
 }

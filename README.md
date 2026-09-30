@@ -229,9 +229,9 @@ service.addServiceExtensionPoint(object : ServiceExtensionPoint<Unit> {
 })
 ```
 
-With `service.strictEventDropping = true`, `send` (on the service or any sink) throws `EventDroppedException(event, reason)` after the
-rollback for a `DropReason.MissingPayload` (a bug in the app's targets). A `DropReason.StaleSource` is an expected race
-(a tap on a leaving screen) and is never thrown. Events still enqueued after the thrown one stay queued for the next
+With `service.strictEventDropping = true`, `send` (on the service or any sink) throws
+`EventDroppedException(event, reason)` after the rollback for a `DropReason.MissingPayload` (a bug in the app's
+targets). A `DropReason.StaleSource` is an expected race (a tap on a leaving screen) and is never thrown. Events still enqueued after the thrown one stay queued for the next
 `send`. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
 enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)` sets it from the app's
 `FLAG_DEBUGGABLE`. A missing payload during `start()` is always rethrown, without calling `onEventDropped`.
@@ -265,15 +265,21 @@ whenever the node is recreated, so it is a stable cache key for a sink (`NodeHos
 scheduler set with `setEnqueuedEventsScheduler` receives the plain event sent through a sink; the sink's source is
 kept when the scheduled event is sent back.
 
-`BaseScreenNode` and `BaseFlowNode` expose their own sink as `eventSink`, attached right before every `onEntry`
-(usable in `onEntry` and entry hooks; reading it before the first entry throws). It is not cleared on exit: an event
-sent through it after the node left is dropped with `DropReason.StaleSource`, so it is safe to capture in async work.
+`BaseScreenNode`, `BaseFlowNode` and `ParallelFlowNode` expose their own sink as `eventSink`, attached right before
+every `onEntry` (usable in `onEntry` and entry hooks; reading it before the first entry throws). It is not cleared on
+exit: an event sent through it after the node left is dropped with `DropReason.StaleSource`. Every entry attaches a new
+sink, so if the node builder returns the same instance on re-entry, a later read of `eventSink` yields the new entry's
+live sink. For async work (and presenters) capture it first, `val sink = eventSink` in `onEntry` or before launching
+the work: the captured sink goes stale when that entry ends. Events a node sends from `onEntry` of a transition which is
+then rolled back are discarded without `onEventDropped`, since that entry never happened. A node re-entered by the
+rollback keeps (and can use again) the sink of its original entry.
 
 ### Sending events
 
 Events go into an `EventSink`; take the nearest one:
 - UI: `LocalEventSink.current` (the rendered node's sink, or the service outside any node);
-- a node: its `eventSink` (`BaseScreenNode` / `BaseFlowNode`), or `service.eventSink(path)` for a custom node;
+- a node: its `eventSink` (`BaseScreenNode` / `BaseFlowNode` / `ParallelFlowNode`), or `service.eventSink(path)` for a
+  custom node;
 - a ViewModel / presenter: its screen's sink, passed to it from the node;
 - outside navigation (Activity back, a deep link, a push): the `NavigationService` itself, which is an `EventSink`:
   `service.send(event)` is the root sink (whole tree, never stale), equivalent to the root node's sink.

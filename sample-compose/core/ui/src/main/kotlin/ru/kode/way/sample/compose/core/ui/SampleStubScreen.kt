@@ -14,7 +14,7 @@ import kotlin.reflect.full.primaryConstructor
 @Composable
 fun <E : Event> SampleStubScreen(
   title: String,
-  sendEvent: (E) -> Unit,
+  send: (E) -> Unit,
   eventsClass: KClass<E>,
   eventFilter: (KClass<out E>) -> Boolean = { true },
 ) {
@@ -32,7 +32,7 @@ fun <E : Event> SampleStubScreen(
           } else {
             kClass.primaryConstructor!!.call()
           }
-          sendEvent(event)
+          send(event)
         },
       ) {
         Text(text = kClass.simpleName!!)

@@ -1,0 +1,9 @@
+digraph ValidationFanInRegions {
+  app [type = parallelFlow]
+  one [type = flow]
+  two [type = flow]
+  shared [type = schema]
+
+  app -> one -> home -> shared
+  app -> two -> settings -> shared
+}

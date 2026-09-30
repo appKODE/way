@@ -1,5 +1,6 @@
 package ru.kode.way.compose
 
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +29,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import ru.kode.way.FlowTransition
 import ru.kode.way.NavigationService
 import ru.kode.way.NavigationState
@@ -103,7 +106,10 @@ private fun FirstRegionFallback(
   )
 }
 
-/** Renders [node]'s [ComposableNode.Content] under a [SaveableStateHolder] entry keyed by [path], with [path] exposed via [LocalNodePath]. */
+/**
+ * Renders [node]'s [ComposableNode.Content] under a [SaveableStateHolder] entry keyed by [path], with [path] exposed
+ * via [LocalNodePath] and the node's sink via [LocalEventSink]. A node animating out keeps its now stale sink.
+ */
 @Composable
 private fun ComposableNodeContent(
   node: ComposableNode,
@@ -111,8 +117,11 @@ private fun ComposableNodeContent(
   modifier: Modifier,
   saveableStateHolder: SaveableStateHolder,
 ) {
+  val service = LocalNavigationService.current
+  // keyed on the generation too: a node instance reused by its builder at the same path gets a fresh sink
+  val eventSink = remember(service, node, path, service.nodeGeneration(path)) { service.eventSink(path) }
   saveableStateHolder.SaveableStateProvider(path.toSaveableKey()) {
-    CompositionLocalProvider(LocalNodePath provides path) {
+    CompositionLocalProvider(LocalNodePath provides path, LocalEventSink provides eventSink) {
       node.Content(modifier)
     }
   }
@@ -244,10 +253,13 @@ internal fun <T> NavigationService<*>.produceTransitionState(
   initial: T,
   vararg keys: Any?,
   transform: (NavigationState) -> T,
-): State<T> = produceState(initial, this, *keys) {
-  val listener = { s: NavigationState -> value = transform(s) }
-  addTransitionListener(listener)
-  awaitDispose { removeTransitionListener(listener) }
+): State<T> = key(this, *keys) {
+  // keyed outside produceState: its value survives a key change, so a new service would start from the old value
+  produceState(initial) {
+    val listener = { s: NavigationState -> value = transform(s) }
+    addTransitionListener(listener)
+    awaitDispose { removeTransitionListener(listener) }
+  }
 }
 
 private fun Region.toNodeWithPath(): NodeWithPath = NodeWithPath(active, activeNode)
@@ -259,8 +271,11 @@ fun <R : Any> NodeHost(nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTra
   // nodeBuilder only, so a new lambda passed on recomposition (the common case for an inline
   // lambda) would otherwise be ignored and the stale callback kept forever.
   val currentOnFinishRequest by rememberUpdatedState(onFinishRequest)
+  val isDebuggable = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
   val service = remember(nodeBuilder) {
     NavigationService(nodeBuilder) { result: R -> currentOnFinishRequest(result) }
+      // debug builds throw on a dropped event so the bug surfaces, release builds drop it silently
+      .apply { strictEventDropping = isDebuggable }
   }
   // This overload OWNS the service it creates, so it must release it: cleanDispose() fires
   // onDispose() leaf-to-root on all alive nodes (freeing their DI/coroutine scopes) and clears all

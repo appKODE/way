@@ -1,0 +1,10 @@
+// short targets and dropped events: details and packageDetails need a payload to be built
+digraph NavService15 {
+  package = "ru.kode.way.nav15"
+
+  app [type = flow, resultType = "kotlin.Int"]
+  details [parameterName = "id", parameterType = "kotlin.String"]
+  packageDetails [parameterName = "pid", parameterType = "kotlin.String"]
+
+  app -> main -> details -> packageDetails
+}

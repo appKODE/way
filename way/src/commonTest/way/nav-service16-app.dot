@@ -1,0 +1,13 @@
+digraph NavService16 {
+  package = "ru.kode.way.nav16"
+
+  // `perm` is an imported schema reachable from two parameterized parents: one target per parent is generated
+  // (`permViaA`, `permViaB`), each carrying its own path's ancestor payloads.
+  app [type = flow]
+  a [parameterName = aId, parameterType = "kotlin.Int"]
+  b [parameterName = bId, parameterType = "kotlin.String"]
+  perm [type = schema, parameterName = reason, parameterType = "kotlin.String", resultType = "kotlin.String"]
+
+  app -> a -> perm
+  app -> b -> perm
+}

@@ -117,12 +117,37 @@ Typical generated types (from graph id `App`):
 - `AppChildFinishRequest` (sealed interface with nested child events, when child flows exist)
 - For parallel nodes, `<ParallelName>NodeBuilder` also emits named `val <child>RegionId: RegionId` properties for each sub-region, so callers never need to hardcode `RegionId(Path(...))` strings.
 
-Target accessors take the parameters of **every parameterized node on the path**, not just the target's own:
-with `main -> details(eSimId) -> packageDetails(packageId)` the accessor is
-`Target.myESimFlow.packageDetails(eSimId, packageId)`. The runtime uses an ancestor value only when that ancestor
-is not alive and has to be rebuilt (an alive ancestor keeps the payload it was built with), so a late
-`NavigateTo` after Back can never fail with `no payload for "..."`. An ancestor parameter whose name clashes with
-another one on the path is prefixed with the node id (`detailsId`).
+### Targets: short vs full
+
+For `main -> details(eSimId) -> packageDetails(packageId)` two builders are generated:
+
+```kotlin
+Target.myESimFlow.packageDetails(packageId)          // short: only the node's own parameter
+Target.myESimFlow.packageDetails(eSimId, packageId)  // full: every parameterized node on the path
+```
+
+- **Short** keeps the payloads of alive parameterized ancestors. Use it inside a flow which is alive, e.g. from
+  `details`'s own transitions. A param-less node gets a property (`Target.myESimFlow.info`).
+- **Full** passes a value for every parameterized ancestor. The runtime uses an ancestor value only when that ancestor
+  is not alive and has to be rebuilt (an alive ancestor keeps the payload it was built with). Use it for a cold
+  start, `FlowNode.initial`, `AbsoluteTarget` or a jump into a branch which is not alive.
+
+If a short target is sent after its ancestor was left (e.g. a late tap after Back), the event is dropped, see
+[Dropped events](#dropped-events). An ancestor parameter whose name clashes with another one on the path is prefixed
+with the node id (`detailsId`).
+
+An imported schema reachable from several parents (`app -> a -> perm`, `app -> b -> perm`, `perm [type = schema]`) gets
+one target per parent path, named `<node>Via<Parent>`:
+
+```kotlin
+Target.app.permViaA(reason)       // short
+Target.app.permViaB(bId, reason)  // full: payloads of the `b` path only
+```
+
+With a single parent the plain name (`perm`) is kept. The schema is built with the payloads of the path it was entered
+through, and its finish request reaches that path's parent. Targets inside the imported schema need no parent in their
+name: they are resolved relative to the alive instance of that schema. All parents must be in the same region, and
+none of them can be a parallel node.
 
 ### How source wiring works
 
@@ -177,6 +202,92 @@ Core runtime types in `:way`:
 - `NavigationService<R>`
 - `FlowTransition` / `ScreenTransition` (a `ParallelFlowNode` returns `FlowTransition<R>`)
 - `Target` (`FlowTarget`, `ScreenTarget`, `AbsoluteTarget`, `HistoryTarget`)
+
+### Dropped events
+
+`NavigationService` drops an event, instead of applying its transition, when:
+- `DropReason.MissingPayload(path)`: the target needs the parameterized node at `path`, which is not alive and has no
+  payload (a short target sent after its flow was left).
+- `DropReason.StaleSource(path)`: the event was sent through an `EventSink` of a node which has left navigation, or
+  was recreated, by the time the event is dispatched.
+
+A dropped event changes nothing: state is rolled back, no node lifecycle callbacks and no transition listeners run,
+and the remaining enqueued events are still processed. A drop is all-or-nothing: a multi-target `NavigateTo` or an
+event broadcast to parallel regions is dropped entirely when any of its targets misses a payload. The event is resolved
+before `onPreTransition`, so neither `onPreTransition` nor `onPostTransition` is called for it (except for a payload
+missed by a hand-rolled `Schema` which does not report the node as parameterized: that one is only caught when the node
+builder throws `MissingPayloadException`, after `onPreTransition`). Every `ServiceExtensionPoint.onEventDropped` is
+called:
+
+```kotlin
+service.addServiceExtensionPoint(object : ServiceExtensionPoint<Unit> {
+  override fun onPreTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+  override fun onPostTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+  override fun onEventDropped(service: NavigationService<Unit>, event: Event, reason: DropReason) {
+    log.w("dropped $event: $reason")
+  }
+})
+```
+
+With `service.strictEventDropping = true`, `send` (on the service or any sink) throws
+`EventDroppedException(event, reason)` after the rollback for a `DropReason.MissingPayload` (a bug in the app's
+targets). A `DropReason.StaleSource` is an expected race (a tap on a leaving screen) and is never thrown. Events still enqueued after the thrown one stay queued for the next
+`send`. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
+enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)` sets it from the app's
+`FLAG_DEBUGGABLE`. A missing payload during `start()` is always rethrown, without calling `onEventDropped`.
+
+### Arguments of alive and restored nodes
+
+- `NavigateTo` a node which is already alive with a **different** argument rebuilds it: the node and its alive
+  descendants get `onExit`, are built again with the new argument, get `onEntry` and a new generation, so sinks
+  obtained from the old instances become stale. An **equal** argument keeps the node as it is.
+- `HistoryTarget` into a parameterized node which is not alive rebuilds it with the argument it had when it was left:
+  the history record keeps the payloads of the nodes it left and is replaced on every exit, so it holds at most one
+  configuration. A node which is still alive keeps its current argument.
+
+### Node-bound EventSink
+
+`service.eventSink(path)` returns an `EventSink` bound to the node instance alive at `path`. Its events:
+- start at the node: a screen's sink at the screen itself (not at a screen stacked on it); a flow's or a parallel's
+  sink at the active leaf of every region under it, so its active children handle the event first;
+- bubble up on `Ignore` through the node to its ancestors within the region, and (except `Event.Back`) also reach
+  every parallel enclosing the node and bubble up through each parallel's ancestors, like `service.send` (same region
+  order, same merge);
+- a non-Back event which nothing handled in that scope (no target, no enqueued event) falls back to the whole tree,
+  resolved exactly as `service.send` would, so a screen in region A can send an event only a node in sibling region B
+  handles. An event handled in scope is not sent again. The scope's nodes are consulted twice on a fallback
+  (`transition` and `onPreTransition` run again), and a parallel answering `Stay` falls through as well;
+- `Event.Back` stays in the node's region (never reaching enclosing parallels or sibling regions): a parallel's sink
+  routes it through that parallel's `DispatchBackTo`, a sink of a node inside a region keeps it in that region;
+- are checked when dispatched, not when sent: if the node has left navigation or was recreated meanwhile, the event
+  is dropped with `DropReason.StaleSource`.
+
+`service.nodeGeneration(path)` returns the generation of the node instance alive at `path` (`null` if none); it changes
+whenever the node is recreated, so it is a stable cache key for a sink (`NodeHost` keys `LocalEventSink` on it). A
+scheduler set with `setEnqueuedEventsScheduler` receives the plain event sent through a sink; the sink's source is
+kept when the scheduled event is sent back.
+
+`BaseScreenNode`, `BaseFlowNode` and `ParallelFlowNode` expose their own sink as `eventSink`, attached right before
+every `onEntry` (usable in `onEntry` and entry hooks; reading it before the first entry throws). It is not cleared on
+exit: an event sent through it after the node left is dropped with `DropReason.StaleSource`. Every entry attaches a new
+sink, so if the node builder returns the same instance on re-entry, a later read of `eventSink` yields the new entry's
+live sink. For async work (and presenters) capture it first, `val sink = eventSink` in `onEntry` or before launching
+the work: the captured sink goes stale when that entry ends. Events a node sends from `onEntry` of a transition which is
+then rolled back are discarded without `onEventDropped`, since that entry never happened. A node re-entered by the
+rollback keeps (and can use again) the sink of its original entry.
+
+### Sending events
+
+Events go into an `EventSink`; take the nearest one:
+- UI: `LocalEventSink.current` (the rendered node's sink, or the service outside any node);
+- a node: its `eventSink` (`BaseScreenNode` / `BaseFlowNode` / `ParallelFlowNode`), or `service.eventSink(path)` for a
+  custom node;
+- a ViewModel / presenter: its screen's sink, passed to it from the node;
+- outside navigation (Activity back, a deep link, a push): the `NavigationService` itself, which is an `EventSink`:
+  `service.send(event)` is the root sink (whole tree, never stale), equivalent to the root node's sink. A node's sink
+  falls back to the same whole-tree resolution for non-Back events nobody handles in its scope.
+
+Same threading rules as `NavigationService` (one thread; re-entrant sends are queued).
 
 ### Relationship to statecharts / SCXML
 
@@ -373,9 +484,23 @@ also drops any intermediate screens.
 `way-compose` provides:
 - `ComposableNode` interface with `@Composable fun Content(modifier: Modifier)`
 - A `ParallelFlowNode` renders by implementing `ComposableNode` — its `Content()` lays out the parallel and calls `NodeHost(regionId)` inside it to render each sub-region's screen stack.
-- `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state or sending events.
+- `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state.
 - `NodeHost(service)` composable — auto-starts service, observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
+- `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `service.send`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. Outside any node (but under `LocalNavigationService`) it is the service itself, the root sink.
 - `NodeHost(regionId)` composable — renders the active screen in a specific sub-region. Call from a parallel node's `Content()` for each sub-region. Requires a parent `NodeHost(service)` to have provided `LocalNavigationService`.
+
+Sending screen events:
+
+```kotlin
+class DetailsNode(private val id: String) : ScreenNode, ComposableNode {
+  @Composable
+  override fun Content(modifier: Modifier) {
+    val sink = LocalEventSink.current
+    Button(onClick = { sink.send(PackageClicked(packageId = "p1")) }) { Text("Open package") }
+  }
+}
+// in the flow: is PackageClicked -> NavigateTo(Target.myESimFlow.packageDetails(event.packageId))
+```
 
 Parallel node example (tab bar with state preservation):
 

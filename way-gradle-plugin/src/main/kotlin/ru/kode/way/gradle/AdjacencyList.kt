@@ -64,6 +64,27 @@ internal fun AdjacencyList.findParent(node: Node): Node? {
 }
 
 /**
+ * All direct parents of [node]. Only an imported schema (`type=schema`) may have more than one (fan-in),
+ * every other node has at most one, see `validateNoFanIn`.
+ */
+internal fun AdjacencyList.findParents(node: Node): List<Node> =
+  entries.filter { (n, adjacent) -> n != node && node in adjacent }.map { it.key }
+
+/** True when [node] is an imported schema reachable from several parents (fan-in). */
+internal fun AdjacencyList.isFanIn(node: Node): Boolean = findParents(node).size > 1
+
+/**
+ * Every root-to-[node] chain (inclusive), one per direct parent of [node]; a single chain unless [node] is an
+ * imported schema with fan-in. Fan-in nodes are leaves of their graph and their parents have a single parent
+ * chain, so only the last hop can branch.
+ */
+internal fun AdjacencyList.parentChains(node: Node): List<List<Node>> {
+  val parents = findParents(node)
+  if (parents.size < 2) return listOf(findAllParents(node, includeThis = true).reversed())
+  return parents.map { findAllParents(it, includeThis = true).reversed() + node }
+}
+
+/**
  * Finds all parents and returns them in the closest-to-farthest order, i.e. for
  * app -> screen1 -> screen2 -> screen3
  *

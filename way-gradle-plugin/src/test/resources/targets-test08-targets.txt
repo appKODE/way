@@ -15,10 +15,27 @@ public class AppTargets(
   public val main: ScreenTarget =
       ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot")))))
 
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public val info: ScreenTarget =
+      ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("info@TargetsTest08:src/test/resources/targets-test08.dot")))))
+
   public fun details(id: String): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot")))), payload = id)
 
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
   public fun info(id: String): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("info@TargetsTest08:src/test/resources/targets-test08.dot")))), ancestorPayloads = mapOf(Segment("details@TargetsTest08:src/test/resources/targets-test08.dot") to id))
 
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public fun packageDetails(id: Int?): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("packageDetails@TargetsTest08:src/test/resources/targets-test08.dot")))), payload = id ?: NullPayload)
+
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
   public fun packageDetails(detailsId: String, id: Int?): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("main@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("details@TargetsTest08:src/test/resources/targets-test08.dot"), Segment("packageDetails@TargetsTest08:src/test/resources/targets-test08.dot")))), payload = id ?: NullPayload, ancestorPayloads = mapOf(Segment("details@TargetsTest08:src/test/resources/targets-test08.dot") to detailsId))
 
   private fun flowPath(path: Path): Path = prefix?.append(path) ?: path

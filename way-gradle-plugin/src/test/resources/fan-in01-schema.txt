@@ -1,0 +1,114 @@
+package ru.kode.test.app.schema
+
+import kotlin.Any
+import kotlin.Boolean
+import kotlin.String
+import kotlin.collections.List
+import kotlin.collections.Map
+import ru.kode.way.Event
+import ru.kode.way.Path
+import ru.kode.way.RegionId
+import ru.kode.way.Schema
+import ru.kode.way.Segment
+
+public class FanIn01Schema(
+  private val permSchema: Schema,
+) : Schema {
+  override val rootSegment: Segment = Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")
+
+  override val childSchemas: Map<Segment, Schema> =
+      mapOf(Segment("perm@FanIn01:src/test/resources/fan-in01.dot") to permSchema)
+
+  override val regions: List<RegionId> =
+      listOf(RegionId(Path(listOf(Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")))))
+
+  public val fi01appRegionId: RegionId
+    get() = regions[0]
+
+  override fun target(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): Path? = when (regionId) {
+    regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")
+      when(segment.id) {
+        "fi01app@FanIn01:src/test/resources/fan-in01.dot" -> Path(rootSegment)
+        "b@FanIn01:src/test/resources/fan-in01.dot" -> Path(listOf(rootSegment, Segment("b@FanIn01:src/test/resources/fan-in01.dot")))
+        "perm@FanIn01:src/test/resources/fan-in01.dot" -> Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot")))
+        "a@FanIn01:src/test/resources/fan-in01.dot" -> Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot")))
+        else -> null
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun targets(
+    regionId: RegionId,
+    segment: Segment,
+    rootSegmentAlias: Segment?,
+  ): List<Path> {
+    val rootSegment = rootSegmentAlias ?: Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")
+    return when (segment.id) {
+      "perm@FanIn01:src/test/resources/fan-in01.dot" -> listOf(Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))), Path(listOf(rootSegment, Segment("b@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))))
+      else -> listOfNotNull(target(regionId, segment, rootSegmentAlias))
+    }
+  }
+
+  override fun nodeType(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Schema.NodeType = when (regionId) {
+    regions[0] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("b@FanIn01:src/test/resources/fan-in01.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+
+  override fun isParameterized(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Boolean {
+    val rootSegment = rootSegmentAlias ?: Segment("fi01app@FanIn01:src/test/resources/fan-in01.dot")
+    return when {
+      path == Path(listOf(rootSegment, Segment("b@FanIn01:src/test/resources/fan-in01.dot"))) -> true
+      path == Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))) -> true
+      path == Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"))) -> true
+      else -> false
+    }
+  }
+
+  override fun createChildFlowFinishRequestEvent(
+    regionId: RegionId,
+    path: Path,
+    result: Any,
+  ): Event = when (regionId) {
+    regions[0] -> {
+      when(path) {
+        Path(listOf(rootSegment, Segment("a@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))) -> Fi01appChildFinishRequest.Perm(result as String)
+        Path(listOf(rootSegment, Segment("b@FanIn01:src/test/resources/fan-in01.dot"), Segment("perm@FanIn01:src/test/resources/fan-in01.dot"))) -> Fi01appChildFinishRequest.Perm(result as String)
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    else -> {
+      error("""unknown regionId=$regionId""")
+    }
+  }
+}

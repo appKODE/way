@@ -16,6 +16,7 @@ internal val NavigationState.aliveNodes: Map<String, Node> get() {
 
 internal fun <R : Any> NavigationService<R>.collectTransitions(rootNodePayload: Any? = null): Flow<NavigationState> {
   this.addServiceExtensionPoint(LogTransitionsExtensionPoint())
+  strictEventDropping = true
   return callbackFlow {
     val listener = { state: NavigationState ->
       trySend(state)

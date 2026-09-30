@@ -5,10 +5,10 @@ import ru.kode.way.sample.compose.core.ui.SampleStubScreen
 import ru.kode.way.sample.compose.main.ui.routing.MainFlowEvent
 
 @Composable
-fun HomeScreen(sendEvent: (MainFlowEvent) -> Unit) {
+fun HomeScreen(send: (MainFlowEvent) -> Unit) {
   SampleStubScreen(
     title = "Main Home",
-    sendEvent = sendEvent,
+    send = send,
     eventsClass = MainFlowEvent::class,
   )
 }

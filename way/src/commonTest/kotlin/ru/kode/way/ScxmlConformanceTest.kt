@@ -157,7 +157,7 @@ class ScxmlConformanceTest :
 
         // ONE navigation to the deep atomic `app.onboarding.page1`. The caller never separately
         // enters the intermediate `onboarding` compound.
-        sut.sendEvent(TestEvent("toDeep"))
+        sut.send(TestEvent("toDeep"))
         awaitItem().apply {
           active shouldBe "app.onboarding.page1"
           // The region's alive configuration now contains every ancestor of the target in
@@ -228,7 +228,7 @@ class ScxmlConformanceTest :
         computeExitSet(lcca, initial.configuration()).any { it == authActiveBefore } shouldBe false
 
         // Drive ONLY the Home tab to its top-up screen.
-        sut.sendEvent(TestEvent("openTopUp"))
+        sut.send(TestEvent("openTopUp"))
         awaitItem().apply {
           activeLeafOf("acmeHomeTab") shouldBe "acmeTopUpScreen"
           // Orthogonal sibling regions are byte-for-byte unchanged.
@@ -248,13 +248,13 @@ class ScxmlConformanceTest :
         awaitItem().active shouldBe "app.onboarding.intro"
 
         // drill to the NON-default child of onboarding, then exit (history recorded here)
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // shallow history restores page1 (the child active at last exit), NOT the default intro
-        sut.sendEvent(TestEvent("histOnboardingShallow"))
+        sut.send(TestEvent("histOnboardingShallow"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
         cancelAndIgnoreRemainingEvents()
@@ -266,12 +266,12 @@ class ScxmlConformanceTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.onboarding.intro"
 
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
-        sut.sendEvent(TestEvent("histOnboardingDeep"))
+        sut.send(TestEvent("histOnboardingDeep"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
         cancelAndIgnoreRemainingEvents()
@@ -287,7 +287,7 @@ class ScxmlConformanceTest :
 
         // login flow was never entered → no recorded history → behaves like FlowTarget(login):
         // enters login's default initial (credentials).
-        sut.sendEvent(TestEvent("histLoginShallow"))
+        sut.send(TestEvent("histLoginShallow"))
         awaitItem().active shouldBe "app.login.credentials"
 
         cancelAndIgnoreRemainingEvents()
@@ -310,7 +310,7 @@ class ScxmlConformanceTest :
 
         // login.credentials -> onboarding.page1. Domain = LCCA = app (unchanged, not re-entered):
         // exit {login.credentials, login}; enter {onboarding, page1}.
-        sut.sendEvent(TestEvent("toDeep"))
+        sut.send(TestEvent("toDeep"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
         // Exit set fires deepest-first (reverse document order): the leaf screen before its flow.

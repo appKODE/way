@@ -31,6 +31,10 @@ android {
     compose = true
     buildConfig = true
   }
+
+  testOptions {
+    unitTests.isIncludeAndroidResources = true
+  }
 }
 
 mavenPublishing {
@@ -84,4 +88,9 @@ dependencies {
   api(libs.composeAnimation)
   api(libs.composeFoundation)
   implementation(project(":way"))
+
+  testImplementation(libs.composeUiTestJunit4)
+  testImplementation(libs.composeUiTestManifest)
+  testImplementation(libs.robolectric)
+  testImplementation(libs.junit)
 }

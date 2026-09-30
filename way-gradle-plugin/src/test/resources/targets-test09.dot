@@ -1,0 +1,17 @@
+// keyword parameter name, nullable and multiple parameterized ancestors, history under a parameterized ancestor
+digraph TargetsTest09 {
+  schemaFileName = "targets-test09-schema"
+  targetsFileName = "targets-test09-targets"
+
+  app [type = flow]
+  shop [type = flow, parameterName = "shopId", parameterType = "kotlin.String?"]
+  item [parameterName = "object", parameterType = "kotlin.String"]
+  cart [type = flow]
+  promo [type = flow]
+  cartHist [type = "history"]
+
+  app -> shop -> item -> reviews
+  item -> promo -> promoScreen
+  shop -> cart -> cartScreen
+  cart -> cartHist
+}

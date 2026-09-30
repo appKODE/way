@@ -379,6 +379,38 @@ private fun validateNoFanIn(adjacencyList: AdjacencyList) {
         "nodes (note: `type=schema` imported nodes are exempt from this check).",
     )
   }
+  // An imported schema shared by several parents gets one path (and one generated target) per parent. Each
+  // parent must live in the same schema view: a parallel can't be a parent (the schema would also be a region
+  // root) and all parents must belong to the same virtual sub-schema (region), whose codegen sees every path.
+  val virtualRoots = adjacencyList.virtualSubSchemaRoots().toSet()
+  adjacencyList.keys.filterIsInstance<Node.Flow.Imported>().forEach { schema ->
+    val parents = adjacencyList.findParents(schema)
+    if (parents.size < 2) return@forEach
+    if (adjacencyList[schema].orEmpty().isNotEmpty()) {
+      error(
+        "invalid schema: imported schema \"${schema.id}\" is reachable from several parents and has children in " +
+          "this graph. Fan-in into a `type=schema` node is only supported when it has no children here; declare " +
+          "its children in its own .dot file.",
+      )
+    }
+    parents.firstOrNull { it is Node.Flow.LocalParallel }?.let { parallel ->
+      error(
+        "invalid schema: imported schema \"${schema.id}\" is reachable from several parents, one of which is the " +
+          "parallel node \"${parallel.id}\". Fan-in into a `type=schema` node is not supported when one of the " +
+          "parents is a parallel; enter the schema through a flow or a screen instead.",
+      )
+    }
+    val owners = parents.map { parent ->
+      adjacencyList.findAllParents(parent, includeThis = true).firstOrNull { it in virtualRoots }
+    }
+    if (owners.distinct().size > 1) {
+      error(
+        "invalid schema: imported schema \"${schema.id}\" is reachable from parents in different parallel " +
+          "regions (${parents.joinToString { "\"${it.id}\"" }}). Fan-in into a `type=schema` node is only " +
+          "supported when all parents are in the same region; move the parents into one region.",
+      )
+    }
+  }
 }
 
 private fun validateNoCycles(adjacencyList: AdjacencyList) {

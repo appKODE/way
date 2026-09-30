@@ -47,5 +47,10 @@ class NodeBuilderGenerateTest :
         ),
         testName = "parallel node children are imported schemas",
       ),
+      TestCase(
+        schemaFile = "fan-in01.dot",
+        expectedOutputFiles = listOf("Fi01appNodeBuilder.txt"),
+        testName = "imported schema reachable from several parents is built per path with that path's payloads",
+      ),
     ) { runTest(it) }
   })

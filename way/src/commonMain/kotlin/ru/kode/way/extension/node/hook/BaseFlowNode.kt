@@ -1,6 +1,7 @@
 package ru.kode.way.extension.node.hook
 
 import ru.kode.way.Event
+import ru.kode.way.EventSink
 import ru.kode.way.FlowNode
 import ru.kode.way.FlowTransition
 import ru.kode.way.Ignore
@@ -17,6 +18,8 @@ import ru.kode.way.Path
  * the absolute path this node was mounted at. It is set just before the first [onEntry] and
  * remains valid for the lifetime of the node. Reading it before entry throws — use only after
  * the runtime has activated the node.
+ *
+ * [eventSink] sends events on behalf of this node instance.
  */
 abstract class BaseFlowNode<R : Any> :
   FlowNode<R>,
@@ -29,6 +32,29 @@ abstract class BaseFlowNode<R : Any> :
     get() = checkNotNull(_nodePath) {
       "nodePath is not available before the runtime calls onEntry on this node"
     }
+
+  private var _eventSink: EventSink? = null
+
+  /**
+   * This node's sink ([NavigationService.eventSink]): events are resolved from the active leaves under this flow and
+   * dropped with [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation. A non-Back event
+   * nobody handles in its scope falls back to the whole tree, like `send`. The service
+   * attaches a new sink right before every entry (usable in `onEntry` and entry hooks), so if the node builder
+   * returns the same instance on re-entry, reading this property later yields the sink of the new entry. For async
+   * work, and when handing it to the presenters of the flow's children, capture it first (`val sink = eventSink` in
+   * `onEntry`, or before launching the work): the captured sink goes stale when this entry ends. Events it sends from
+   * `onEntry` of a transition which is then rolled back are discarded without
+   * [ru.kode.way.ServiceExtensionPoint.onEventDropped] (that entry never happened). Reading it before the first entry
+   * throws.
+   */
+  val eventSink: EventSink
+    get() = checkNotNull(_eventSink) {
+      "eventSink is not available before the runtime calls onEntry on this node"
+    }
+
+  internal fun attachEventSink(sink: EventSink) {
+    _eventSink = sink
+  }
 
   override fun onEntry(event: Event, path: Path) {
     _nodePath = path

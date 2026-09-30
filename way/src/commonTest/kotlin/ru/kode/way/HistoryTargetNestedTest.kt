@@ -76,16 +76,16 @@ class HistoryTargetNestedTest :
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
 
         // drill wizard to its NON-default leaf
-        sut.sendEvent(TestEvent("toStep2"))
+        sut.send(TestEvent("toStep2"))
         awaitItem().active shouldBe "app.onboarding.wizard.step2"
 
         // navigate away, exiting the whole onboarding subtree (history recorded here, with wizard@step2)
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // SHALLOW: restores which child of onboarding was active (wizard), but wizard re-enters at
         // its OWN default (step1) — the recorded step2 is intentionally forgotten.
-        sut.sendEvent(TestEvent("histShallow"))
+        sut.send(TestEvent("histShallow"))
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
       }
     }
@@ -95,14 +95,14 @@ class HistoryTargetNestedTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
 
-        sut.sendEvent(TestEvent("toStep2"))
+        sut.send(TestEvent("toStep2"))
         awaitItem().active shouldBe "app.onboarding.wizard.step2"
 
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // DEEP: restores the exact atomic leaf that was active at exit (step2).
-        sut.sendEvent(TestEvent("histDeep"))
+        sut.send(TestEvent("histDeep"))
         awaitItem().active shouldBe "app.onboarding.wizard.step2"
       }
     }
@@ -118,17 +118,17 @@ class HistoryTargetNestedTest :
         // exit onboarding while wizard is still at its DEFAULT (step1), so nothing deeper was drilled
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
 
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // both restorations agree on step1 when the recorded leaf IS the default
-        sut.sendEvent(TestEvent("histShallow"))
+        sut.send(TestEvent("histShallow"))
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
 
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
-        sut.sendEvent(TestEvent("histDeep"))
+        sut.send(TestEvent("histDeep"))
         awaitItem().active shouldBe "app.onboarding.wizard.step1"
       }
     }

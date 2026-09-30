@@ -7,6 +7,7 @@ import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.LIST
 import com.squareup.kotlinpoet.MAP
 import com.squareup.kotlinpoet.MUTABLE_MAP
 import com.squareup.kotlinpoet.MemberName
@@ -181,41 +182,45 @@ internal fun buildNodeBuilderTypeSpec(
             }
             .build(),
         )
-        val lazyPropertyBuilderFun = FunSpec
-          .builder("${node.id}NodeBuilder")
-          .addModifiers(KModifier.PRIVATE)
-          .returns(NODE_BUILDER)
-          .apply {
-            if (node.parameter != null) {
-              addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
+        val lazyPropertyBuilderFun = if (adjacencyList.isFanIn(node)) {
+          buildFanInLazyNodeBuilderFunSpec(node, flowFactoryName)
+        } else {
+          FunSpec
+            .builder("${node.id}NodeBuilder")
+            .addModifiers(KModifier.PRIVATE)
+            .returns(NODE_BUILDER)
+            .apply {
+              if (node.parameter != null) {
+                addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
+              }
             }
-          }
-          .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
-          .beginControlFlow(
-            "return %L.getOrPut(%L(%T(%S), rootSegmentAlias))",
-            NODE_BUILDER_CACHE_PROPERTY_NAME,
-            TARGET_OR_ERROR_FUN_NAME,
-            SEGMENT,
-            buildSegmentId(node),
-          )
-          .apply {
-            if (node.parameter != null) {
-              addStatement(
-                "nodeFactory.%L(%L(%T(%S), payloads, rootSegmentAlias))",
-                flowFactoryName,
-                PAYLOAD_OR_ERROR_FUN_NAME,
-                SEGMENT,
-                buildSegmentId(node),
-              )
-            } else {
-              addStatement(
-                "nodeFactory.%L()",
-                flowFactoryName,
-              )
+            .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+            .beginControlFlow(
+              "return %L.getOrPut(%L(%T(%S), rootSegmentAlias))",
+              NODE_BUILDER_CACHE_PROPERTY_NAME,
+              TARGET_OR_ERROR_FUN_NAME,
+              SEGMENT,
+              buildSegmentId(node),
+            )
+            .apply {
+              if (node.parameter != null) {
+                addStatement(
+                  "nodeFactory.%L(%L(%T(%S), payloads, rootSegmentAlias))",
+                  flowFactoryName,
+                  PAYLOAD_OR_ERROR_FUN_NAME,
+                  SEGMENT,
+                  buildSegmentId(node),
+                )
+              } else {
+                addStatement(
+                  "nodeFactory.%L()",
+                  flowFactoryName,
+                )
+              }
             }
-          }
-          .endControlFlow()
-          .build()
+            .endControlFlow()
+            .build()
+        }
         lazyNodeBuilderFactories[node] = lazyPropertyBuilderFun
       }
 
@@ -328,12 +333,18 @@ internal fun buildNodeBuilderTypeSpec(
         .build(),
     )
     .addFunction(buildTargetOrErrorFunSpec())
+    .apply {
+      if (lazyNodeBuilderFactories.keys.any { adjacencyList.isFanIn(it) }) addFunction(buildTargetsOrErrorFunSpec())
+    }
     .addFunction(buildPayloadOrErrorFunSpec())
     .apply {
-      // Only emit the path-keyed payload helper when the root flow has a parameter — that's
-      // the sole call site (the root branch of build()). Skipping it for parameter-less roots
-      // keeps the generated NodeBuilder minimal.
-      flow.parameter?.let { param -> addFunction(buildRootPayloadFunSpec(parseTypeName(param.type).isNullable)) }
+      // Only emit the path-keyed payload helpers which are called: by the root branch of build() when the root flow
+      // has a parameter, and by the lazy builder of a parameterized imported schema with several parents.
+      // Skipping them otherwise keeps the generated NodeBuilder minimal.
+      val rootPayloadNullable = flow.parameter?.let { parseTypeName(it.type).isNullable }
+      rootPayloadNullable?.let { addFunction(buildRootPayloadFunSpec(it)) }
+      val fanInPayload = lazyNodeBuilderFactories.keys.any { adjacencyList.isFanIn(it) && it.parameter != null }
+      if (fanInPayload && rootPayloadNullable != false) addFunction(buildRootPayloadFunSpec(isNullable = false))
     }
     .build()
 }
@@ -404,6 +415,34 @@ private fun createBuildFunctionBody(
                   ROOT_NODE_FACTORY_METHOD_NAME,
                 )
               }
+            } else if (adjacencyList.isFanIn(node)) {
+              // An imported schema reachable from several parents: build it on whichever of its paths is requested.
+              beginControlFlow(
+                "%L(%T(%S), rootSegmentAlias).any·{·path.%M(it)·} ->",
+                TARGETS_OR_ERROR_FUN_NAME,
+                SEGMENT,
+                buildSegmentId(node),
+                MemberName(LIBRARY_PACKAGE, "startsWith"),
+              )
+              addStatement(
+                "val targetPath = %L(%T(%S), rootSegmentAlias).first·{·path.%M(it)·}",
+                TARGETS_OR_ERROR_FUN_NAME,
+                SEGMENT,
+                buildSegmentId(node),
+                MemberName(LIBRARY_PACKAGE, "startsWith"),
+              )
+              addStatement(
+                if (node.parameter !=
+                  null
+                ) {
+                  "val nodeBuilder = %N(targetPath, payloads)"
+                } else {
+                  "val nodeBuilder = %N(targetPath)"
+                },
+                lazyNodeBuilderFactories[node] ?: error("no lazy builder property for \"${node.id}\""),
+              )
+              addNestedBuildStatement()
+              endControlFlow()
             } else {
               beginControlFlow(
                 "path.%M(%L(%T(%S), rootSegmentAlias)) ->",
@@ -429,20 +468,7 @@ private fun createBuildFunctionBody(
                   lazyNodeBuilderFactories[node] ?: error("no lazy builder property for \"${node.id}\""),
                 )
               }
-              // The `.filterKeys { it.length > targetPath.length - 1 }` before mapKeys is a drop
-              // safety guard: `Path.drop(n)` on a Path with `n` segments would yield an empty
-              // segment list and fail Path's `isNotEmpty` init check. Filter-first removes the
-              // payloads keys that can't survive the drop — by definition those keys refer to
-              // ancestors above the current cascade level, which the inner build no longer needs.
-              addStatement(
-                "nodeBuilder.build(path.%M(targetPath.length·-·1)," +
-                  " payloads·=·payloads.filterKeys·{·it.length·>·targetPath.length·-·1·}" +
-                  ".mapKeys·{·it.key.%M(targetPath.length·-·1)·}," +
-                  " rootSegmentAlias·=·targetPath.%M())",
-                MemberName(LIBRARY_PACKAGE, "drop"),
-                MemberName(LIBRARY_PACKAGE, "drop"),
-                MemberName(LIBRARY_PACKAGE, "lastSegment"),
-              )
+              addNestedBuildStatement()
               endControlFlow()
             }
           }
@@ -483,6 +509,55 @@ private fun createBuildFunctionBody(
     .build()
 }
 
+// The `.filterKeys { it.length > targetPath.length - 1 }` before mapKeys is a drop
+// safety guard: `Path.drop(n)` on a Path with `n` segments would yield an empty
+// segment list and fail Path's `isNotEmpty` init check. Filter-first removes the
+// payloads keys that can't survive the drop — by definition those keys refer to
+// ancestors above the current cascade level, which the inner build no longer needs.
+private fun CodeBlock.Builder.addNestedBuildStatement() = addStatement(
+  "nodeBuilder.build(path.%M(targetPath.length·-·1)," +
+    " payloads·=·payloads.filterKeys·{·it.length·>·targetPath.length·-·1·}" +
+    ".mapKeys·{·it.key.%M(targetPath.length·-·1)·}," +
+    " rootSegmentAlias·=·targetPath.%M())",
+  MemberName(LIBRARY_PACKAGE, "drop"),
+  MemberName(LIBRARY_PACKAGE, "drop"),
+  MemberName(LIBRARY_PACKAGE, "lastSegment"),
+)
+
+/**
+ * The lazy builder of an imported schema reachable from several parents: cached per path, the payload is looked up
+ * at that path. Takes the resolved `targetPath` instead of `rootSegmentAlias`, as the segment alone is ambiguous.
+ */
+private fun buildFanInLazyNodeBuilderFunSpec(node: Node.Flow, flowFactoryName: String): FunSpec = FunSpec
+  .builder("${node.id}NodeBuilder")
+  .addModifiers(KModifier.PRIVATE)
+  .returns(NODE_BUILDER)
+  .addParameter("targetPath", PATH)
+  .apply { if (node.parameter != null) addParameter("payloads", MAP.parameterizedBy(PATH, ANY)) }
+  .beginControlFlow("return %L.getOrPut(targetPath)", NODE_BUILDER_CACHE_PROPERTY_NAME)
+  .apply {
+    if (node.parameter != null) {
+      addStatement("nodeFactory.%L(%L(targetPath, payloads))", flowFactoryName, ROOT_PAYLOAD_OR_ERROR_FUN_NAME)
+    } else {
+      addStatement("nodeFactory.%L()", flowFactoryName)
+    }
+  }
+  .endControlFlow()
+  .build()
+
+private fun buildTargetsOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGETS_OR_ERROR_FUN_NAME)
+  .returns(LIST.parameterizedBy(PATH))
+  .addParameter("segment", SEGMENT)
+  .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+  .addCode(
+    "return %L.regions.firstNotNullOfOrNull·{·%L.targets(it,${NBSP}segment, rootSegmentAlias).ifEmpty·{·null·}·}" +
+      "·?: error(%P)",
+    SCHEMA_PARAMETER_NAME,
+    SCHEMA_PARAMETER_NAME,
+    "internal error: no target generated for segment \"\${segment.id}\"",
+  )
+  .build()
+
 private fun buildTargetOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGET_OR_ERROR_FUN_NAME)
   .returns(PATH)
   .addParameter("segment", SEGMENT)
@@ -509,10 +584,7 @@ private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_E
   .addCode(
     CodeBlock.builder()
       .addStatement("val targetPath = $TARGET_OR_ERROR_FUN_NAME(segment, rootSegmentAlias)")
-      .addStatement(
-        "val payload = payloads[targetPath] ?: error(%P)",
-        "no payload for \"\$targetPath\"",
-      )
+      .addStatement("val payload = payloads[targetPath] ?: throw %T(targetPath)", MISSING_PAYLOAD_EXCEPTION)
       .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)
       .build(),
   )
@@ -541,7 +613,7 @@ private fun buildRootPayloadFunSpec(isNullable: Boolean): FunSpec = FunSpec.buil
         if (isNullable) {
           addStatement("val payload = payloads[path]")
         } else {
-          addStatement("val payload = payloads[path] ?: error(%P)", "no payload for \"\$path\"")
+          addStatement("val payload = payloads[path] ?: throw %T(path)", MISSING_PAYLOAD_EXCEPTION)
         }
       }
       .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)
@@ -556,6 +628,7 @@ private const val NODE_FACTORY_PARAMETER_NAME = "nodeFactory"
 private const val SCHEMA_PARAMETER_NAME = "schema"
 private const val NODE_BUILDER_CACHE_PROPERTY_NAME = "nodeBuilders"
 private const val TARGET_OR_ERROR_FUN_NAME = "targetOrError"
+private const val TARGETS_OR_ERROR_FUN_NAME = "targetsOrError"
 private const val PAYLOAD_OR_ERROR_FUN_NAME = "payloadOrError"
 private const val ROOT_PAYLOAD_OR_ERROR_FUN_NAME = "payloadAtPathOrError"
 private const val ROOT_PAYLOAD_OR_NULL_FUN_NAME = "payloadAtPathOrNull"

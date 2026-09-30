@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.11 - 2026-09-30
 
 **Breaking:** generated target accessors now require the parameters of every parameterized ancestor on the
 target's path.

@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.10.0 - 2026-09-30
+
+Generated targets get a short form again, and events which can't be applied any more are dropped instead of
+crashing. Source compatible with 0.9.11.
+
+### Added
+
+* Short target builders. Every generated target has a builder taking only the node's own parameter (a property for
+  a param-less node, `fun details(id)` otherwise), which keeps the payloads of alive parameterized ancestors. When the
+  path has parameterized ancestors, the 0.9.11 full builder is emitted as an overload
+  (`fun packageDetails(detailsId, id)`). Use the short one inside an alive flow, the full one for a cold start,
+  `FlowNode.initial`, `AbsoluteTarget` or a jump into a branch which is not alive.
+* Dropped events. An event whose target needs a parameterized ancestor which is not alive and has no payload is
+  dropped with `DropReason.MissingPayload(path)` instead of crashing with `no payload for "..."`. Navigation state
+  stays as it was, no node lifecycle callbacks run, no transition listeners are called, and the remaining enqueued
+  events are still processed.
+* `ServiceExtensionPoint.onEventDropped(service, event, reason)` (default no-op) is called for every dropped event.
+* `NavigationService.strictEventDropping` (default `false`): when `true`, a dropped event throws
+  `EventDroppedException(event, reason)` from `sendEvent`, after the state is rolled back.
+* `NavigationService.eventSink(path): EventSink`, a sink bound to one node instance. Its events are resolved starting
+  from that node (bubbling up on `Ignore`, only within its region) and are dropped with `DropReason.StaleSource(path)`
+  if the node has left navigation or was recreated by the time they are dispatched.
+* `way-compose`: `LocalEventSink`, the sink of the node being rendered, provided by `NodeHost` to every node's
+  `Content()`.
+* Generated `Schema.isParameterized(regionId, path, rootSegmentAlias)` (default `false` for hand-written schemas).
+* `MissingPayloadException(path)`, thrown by generated node builders when a payload is missing. `NavigationService`
+  turns it into a dropped event; during `start()` it is rethrown.
+
+### Changed
+
+* `NodeHost(nodeBuilder, ...)`, the overload which creates the service, sets `strictEventDropping` from the app's
+  `ApplicationInfo.FLAG_DEBUGGABLE`: debug builds throw on a dropped event, release builds drop it silently.
+* Generated node builders throw `MissingPayloadException` instead of a plain `IllegalStateException`.
+
+### Fixed
+
+* A tap on a screen which is animating out after Back, or any late event with a short target, no longer crashes with
+  `no payload for "..."`.
+* A parameterized node which is a composed schema's root and misses its payload is dropped the same way (the
+  generated node builder's exception is the backstop, the transition is rolled back with balanced lifecycle).
+
+Migration from 0.9.11:
+* Nothing is required: calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave
+  the same. Regenerate code with the matching plugin version.
+* Ancestor arguments cached only to satisfy 0.9.11 targets can be removed: switch to the short builder
+  (`packageDetails(packageId)`) where the ancestor flow is alive.
+* Send screen UI events through `LocalEventSink.current.send(event)` (or `service.eventSink(path)`) instead of
+  `LocalNavigationService.current.sendEvent(event)`, so events from a leaving screen are dropped.
+* Apps constructing `NavigationService` directly are lenient by default; set `strictEventDropping = true` in debug
+  builds and tests to surface dropped events.
+
 ## 0.9.11 - 2026-09-30
 
 **Breaking:** generated target accessors now require the parameters of every parameterized ancestor on the

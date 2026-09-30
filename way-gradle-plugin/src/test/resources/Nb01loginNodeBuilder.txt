@@ -6,6 +6,7 @@ import kotlin.Unit
 import kotlin.collections.Map
 import kotlin.collections.Set
 import ru.kode.way.FlowNode
+import ru.kode.way.MissingPayloadException
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
 import ru.kode.way.NullPayload
@@ -45,7 +46,7 @@ public class Nb01loginNodeBuilder(
     rootSegmentAlias: Segment?,
   ): T {
     val targetPath = targetOrError(segment, rootSegmentAlias)
-    val payload = payloads[targetPath] ?: error("""no payload for "$targetPath"""")
+    val payload = payloads[targetPath] ?: throw MissingPayloadException(targetPath)
     return (if (payload === NullPayload) null else payload) as T
   }
 

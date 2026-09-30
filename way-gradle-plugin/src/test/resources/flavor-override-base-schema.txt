@@ -1,6 +1,7 @@
 package ru.kode.test.app.schema
 
 import kotlin.Any
+import kotlin.Boolean
 import kotlin.collections.List
 import kotlin.collections.Map
 import ru.kode.way.Event
@@ -60,6 +61,12 @@ public class FlavorBaseAppSchema : Schema {
       error("""unknown regionId=$regionId""")
     }
   }
+
+  override fun isParameterized(
+    regionId: RegionId,
+    path: Path,
+    rootSegmentAlias: Segment?,
+  ): Boolean = false
 
   override fun createChildFlowFinishRequestEvent(
     regionId: RegionId,

@@ -10,7 +10,14 @@ internal fun resolveTransition(
   rootFinishTransitionBuilder: ((Any) -> Transition)? = null,
   intermediateParallels: Map<Path, IntermediateParallel> = emptyMap(),
   history: Map<Path, List<Path>> = emptyMap(),
+  source: Path? = null,
 ): ResolvedTransition {
+  if (source != null) {
+    return resolveSourcedTransition(
+      source, regions, nodeBuilder, event, extensionPoints, rootNode, rootNodePath, rootFinishTransitionBuilder,
+      intermediateParallels, history,
+    )
+  }
   val regionsResult = regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
     // Sub-regions (regions not declared in the root schema) skip Event.Back independently;
     // back dispatch for sub-regions is routed via the parent parallel node's transition(Event.Back).
@@ -132,6 +139,72 @@ internal fun resolveTransition(
     return intermediatesResult + rootResolved
   }
   return intermediatesResult
+}
+
+/**
+ * Resolves an event sent through an [EventSink] of the alive node at [source]: a root or intermediate parallel
+ * handles it alone, any other node starts the resolution within its own region, [Ignore] bubbling up from it.
+ */
+private fun resolveSourcedTransition(
+  source: Path,
+  regions: Map<RegionId, Region>,
+  nodeBuilder: NodeBuilder,
+  event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
+  rootNode: Node?,
+  rootNodePath: Path?,
+  rootFinishTransitionBuilder: ((Any) -> Transition)?,
+  intermediateParallels: Map<Path, IntermediateParallel>,
+  history: Map<Path, List<Path>>,
+): ResolvedTransition {
+  val parallel = when {
+    source == rootNodePath && rootNode is ParallelFlowNode<*> -> rootNode to rootFinishTransitionBuilder
+    else -> intermediateParallels[source]?.let { it.node to it.finishBuilder }
+  }
+  if (parallel != null) {
+    val (parallelNode, finishBuilder) = parallel
+    return if (event == Event.Back) {
+      dispatchBackThroughParallel(
+        parallelNode = parallelNode,
+        parallelNodePath = source,
+        subRegionActivePaths = subRegionActivePaths(source, regions),
+        allRegions = regions,
+        nodeBuilder = nodeBuilder,
+        event = event,
+        extensionPoints = extensionPoints,
+        finishTransitionBuilder = finishBuilder,
+        history = history,
+      )
+    } else {
+      resolveParallelTransition(
+        parallelNode,
+        source,
+        finishBuilder,
+        event,
+        extensionPoints,
+        nodeBuilder,
+        regions,
+        history,
+      )
+    }
+  }
+  val (regionId, region) = regions.entries
+    .filter { source in it.value.alive }
+    .maxByOrNull { it.key.path.length }
+    ?: return ResolvedTransition.EMPTY
+  val node = region.nodes[source] ?: error("expected node to exist at path \"$source\"")
+  return resolveTransitionInRegion(
+    regionId = regionId,
+    transition = buildTransition(event, node, source, extensionPoints),
+    path = source,
+    activePath = region.active,
+    nodes = region.nodes,
+    nodeBuilder = nodeBuilder,
+    event = event,
+    extensionPoints = extensionPoints,
+    allRegions = regions,
+    history = history,
+  )
 }
 
 /**
@@ -1191,7 +1264,7 @@ private fun findParentFlowPathInclusive(schema: Schema, path: Path): Path =
  * would fail on the differing `@file` suffixes. Distinct from [owningRegionId], which matches against
  * already-materialized runtime regions rather than a schema's declared regions.
  */
-private fun owningRegionInSchema(schema: Schema, schemaPath: Path, path: Path): RegionId = schema.regions
+internal fun owningRegionInSchema(schema: Schema, schemaPath: Path, path: Path): RegionId = schema.regions
   .sortedByDescending { it.path.length }
   .firstOrNull { relRegionId -> path.startsWith(absoluteRegionRoot(schemaPath, relRegionId)) }
   ?: schema.regions.first()

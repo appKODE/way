@@ -1,6 +1,7 @@
 package ru.kode.way.gradle
 
 import com.squareup.kotlinpoet.ANY
+import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -68,6 +69,9 @@ internal fun buildSchemaFileSpec(
     )
     .addFunction(
       buildSchemaNodeTypeSpec(parseResult.adjacencyList, ::buildSegmentId),
+    )
+    .addFunction(
+      buildSchemaIsParameterizedSpec(parseResult.adjacencyList, ::buildSegmentId),
     )
     .addFunction(
       buildCreateChildFlowFinishEventSpec(packageName, parseResult.adjacencyList, ::buildSegmentId),
@@ -371,6 +375,57 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
         .endControlFlow() // return when (regionId) {
         .build(),
     )
+    .build()
+}
+
+/**
+ * Emits `isParameterized()` returning `true` for the path of every node which has a parameter. Paths are anchored
+ * at the schema's root the same way as in [buildSchemaNodeTypeSpec] and don't depend on the region.
+ */
+private fun buildSchemaIsParameterizedSpec(adjacencyList: AdjacencyList, buildSegmentId: (Node) -> String): FunSpec {
+  var hasCases = false
+  val cases = CodeBlock.builder().apply {
+    forEachUniqueRuntimeNode(adjacencyList, buildSegmentId) { node ->
+      val parameter = when (node) {
+        is Node.Flow -> node.parameter
+        is Node.Screen -> node.parameter
+        is Node.History -> null
+      }
+      if (parameter == null) return@forEachUniqueRuntimeNode
+      hasCases = true
+      val intermediates = descendantChainFromSchemaRoot(node, adjacencyList)
+      if (intermediates.isEmpty()) {
+        addStatement("path == %T(rootSegment) -> true", PATH)
+      } else {
+        addStatement(
+          "path == %T(listOf(rootSegment, %L)) -> true",
+          PATH,
+          buildSegmentArgumentList(intermediates, buildSegmentId),
+        )
+      }
+    }
+  }
+  val code = CodeBlock.builder()
+  if (hasCases) {
+    code.addStatement(
+      "val rootSegment = rootSegmentAlias ?: %T(%S)",
+      SEGMENT,
+      buildSegmentId(adjacencyList.findRootNode()),
+    )
+    code.beginControlFlow("return when {")
+    code.add(cases.build())
+    code.addStatement("else -> false")
+    code.endControlFlow()
+  } else {
+    code.addStatement("return false")
+  }
+  return FunSpec.builder("isParameterized")
+    .addModifiers(KModifier.OVERRIDE)
+    .addParameter("regionId", REGION_ID)
+    .addParameter("path", PATH)
+    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+    .returns(BOOLEAN)
+    .addCode(code.build())
     .build()
 }
 

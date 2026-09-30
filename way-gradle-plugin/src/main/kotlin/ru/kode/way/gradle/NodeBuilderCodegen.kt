@@ -509,10 +509,7 @@ private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_E
   .addCode(
     CodeBlock.builder()
       .addStatement("val targetPath = $TARGET_OR_ERROR_FUN_NAME(segment, rootSegmentAlias)")
-      .addStatement(
-        "val payload = payloads[targetPath] ?: error(%P)",
-        "no payload for \"\$targetPath\"",
-      )
+      .addStatement("val payload = payloads[targetPath] ?: throw %T(targetPath)", MISSING_PAYLOAD_EXCEPTION)
       .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)
       .build(),
   )
@@ -541,7 +538,7 @@ private fun buildRootPayloadFunSpec(isNullable: Boolean): FunSpec = FunSpec.buil
         if (isNullable) {
           addStatement("val payload = payloads[path]")
         } else {
-          addStatement("val payload = payloads[path] ?: error(%P)", "no payload for \"\$path\"")
+          addStatement("val payload = payloads[path] ?: throw %T(path)", MISSING_PAYLOAD_EXCEPTION)
         }
       }
       .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)

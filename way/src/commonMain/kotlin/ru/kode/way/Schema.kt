@@ -34,6 +34,13 @@ interface Schema {
    */
   fun nodeType(regionId: RegionId, path: Path, rootSegmentAlias: Segment? = null): NodeType
 
+  /**
+   * Returns `true` when the node at [path] has a parameter, i.e. it can only be built with a payload.
+   * Used to drop an event whose target needs a node which is not alive and has no payload
+   * (see [DropReason.MissingPayload]). Parameters are the same as in [nodeType].
+   */
+  fun isParameterized(regionId: RegionId, path: Path, rootSegmentAlias: Segment? = null): Boolean = false
+
   fun createChildFlowFinishRequestEvent(regionId: RegionId, path: Path, result: Any): Event
 
   /**

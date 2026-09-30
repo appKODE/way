@@ -65,5 +65,10 @@ class SchemaGenerateTest :
         expectedOutputFiles = listOf("flavor-override-google-schema.txt"),
         testName = "codegen fixture: overriding-variant graph produces different generated code than the base fixture",
       ),
+      TestCase(
+        schemaFile = "targets-test08.dot",
+        expectedOutputFiles = listOf("targets-test08-schema.txt"),
+        testName = "isParameterized lists nodes with a parameter",
+      ),
     ) { runTest(it) }
   })

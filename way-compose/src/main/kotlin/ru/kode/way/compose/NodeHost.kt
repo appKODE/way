@@ -1,5 +1,6 @@
 package ru.kode.way.compose
 
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
@@ -27,6 +28,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import ru.kode.way.FlowTransition
 import ru.kode.way.NavigationService
 import ru.kode.way.NavigationState
@@ -103,7 +105,10 @@ private fun FirstRegionFallback(
   )
 }
 
-/** Renders [node]'s [ComposableNode.Content] under a [SaveableStateHolder] entry keyed by [path], with [path] exposed via [LocalNodePath]. */
+/**
+ * Renders [node]'s [ComposableNode.Content] under a [SaveableStateHolder] entry keyed by [path], with [path] exposed
+ * via [LocalNodePath] and the node's sink via [LocalEventSink]. A node animating out keeps its now stale sink.
+ */
 @Composable
 private fun ComposableNodeContent(
   node: ComposableNode,
@@ -111,8 +116,10 @@ private fun ComposableNodeContent(
   modifier: Modifier,
   saveableStateHolder: SaveableStateHolder,
 ) {
+  val service = LocalNavigationService.current
+  val eventSink = remember(node, path) { service.eventSink(path) }
   saveableStateHolder.SaveableStateProvider(path.toSaveableKey()) {
-    CompositionLocalProvider(LocalNodePath provides path) {
+    CompositionLocalProvider(LocalNodePath provides path, LocalEventSink provides eventSink) {
       node.Content(modifier)
     }
   }
@@ -259,8 +266,11 @@ fun <R : Any> NodeHost(nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTra
   // nodeBuilder only, so a new lambda passed on recomposition (the common case for an inline
   // lambda) would otherwise be ignored and the stale callback kept forever.
   val currentOnFinishRequest by rememberUpdatedState(onFinishRequest)
+  val isDebuggable = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
   val service = remember(nodeBuilder) {
     NavigationService(nodeBuilder) { result: R -> currentOnFinishRequest(result) }
+      // debug builds throw on a dropped event so the bug surfaces, release builds drop it silently
+      .apply { strictEventDropping = isDebuggable }
   }
   // This overload OWNS the service it creates, so it must release it: cleanDispose() fires
   // onDispose() leaf-to-root on all alive nodes (freeing their DI/coroutine scopes) and clears all

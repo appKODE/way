@@ -24,4 +24,15 @@ interface ServiceExtensionPoint<R : Any> {
    * @param state a new navigation state after transition
    */
   fun onPostTransition(service: NavigationService<R>, event: Event, state: NavigationState)
+
+  /**
+   * Called when service drops [event] instead of applying its transition, after the state has been rolled
+   * back and before [EventDroppedException] is thrown in [NavigationService.strictEventDropping] mode.
+   * [onPostTransition] is not called for a dropped event.
+   *
+   * @param service navigation service
+   * @param event event which was dropped
+   * @param reason why the event was dropped
+   */
+  fun onEventDropped(service: NavigationService<R>, event: Event, reason: DropReason) {}
 }

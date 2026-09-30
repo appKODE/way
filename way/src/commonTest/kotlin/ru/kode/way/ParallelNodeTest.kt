@@ -634,6 +634,37 @@ class ParallelNodeTest : ShouldSpec() {
       }
     }
 
+    should("an event sent through a sub-region node's sink stays within that region") {
+      val parallelEvents = mutableListOf<Event>()
+      val sut = buildPar02Service(
+        alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),
+        createMainNode = { TestParallelNode(onTransitionCallback = { parallelEvents.add(it) }) },
+      )
+      val consulted = mutableListOf<String>()
+      sut.addNodeExtensionPoint(
+        TestNodeExtensionPoint(preTransition = { _, path, _ ->
+          consulted.add(path.toString())
+        }),
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val alphaRegion = states.last().regionByName("par02Alpha")!!
+      val alphaActive = alphaRegion.active
+      val betaActive = states.last().regionByName("par02Beta")!!.active
+      consulted.clear()
+
+      sut.eventSink(betaActive).send(TestEvent("goToScreen2"))
+
+      consulted shouldBe listOf(betaActive.toString(), betaActive.dropLast(1).toString())
+      parallelEvents.none { it == TestEvent("goToScreen2") } shouldBe true
+      states.last().regionByName("par02Alpha")!!.active shouldBe alphaActive
+
+      sut.eventSink(alphaActive).send(TestEvent("goToScreen2"))
+
+      states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
+    }
+
     should("navigate within a sub-region does not affect sibling region") {
       val sut = buildPar02Service(
         alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),

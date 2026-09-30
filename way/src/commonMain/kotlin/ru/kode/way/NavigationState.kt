@@ -34,6 +34,12 @@ class NavigationState internal constructor(
    * [NavigationService]'s transaction snapshot.
    */
   internal val _history: MutableMap<Path, List<Path>> = mutableMapOf(),
+  /**
+   * Generation id of every alive path (the configuration plus the root and intermediate parallels). A path gets a
+   * fresh id each time it becomes alive, so an [EventSink] which captured an older id is stale. Rolled back with
+   * every other slot on a thrown transition.
+   */
+  internal val _generations: MutableMap<Path, Long> = mutableMapOf(),
 ) {
   val regions: Map<RegionId, Region> = _regions
   val payloads: Map<Path, Any> = _payloads
@@ -87,6 +93,7 @@ class NavigationState internal constructor(
     _payloads = this._payloads.toMutableMap(),
     _intermediateParallels = this._intermediateParallels.toMutableMap(),
     _history = this._history.toMutableMap(),
+    _generations = this._generations.toMutableMap(),
   ).also {
     it.rootNode = this.rootNode
     it.rootNodePath = this.rootNodePath

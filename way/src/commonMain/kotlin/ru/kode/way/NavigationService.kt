@@ -22,6 +22,7 @@ class NavigationService<R : Any>(
   private var enqueuedEventScheduler: ((Event) -> Unit)? = null
   private var isDispatching = false
   private var isDisposed = false
+  private var nextGeneration = 0L
 
   /**
    * [onFinishRequest] with its types erased to `(Any) -> Transition`. A root/intermediate parallel-flow
@@ -45,6 +46,14 @@ class NavigationService<R : Any>(
    * transition. Enabled by default; can be disabled in production builds for performance.
    */
   var validateSchema: Boolean = true
+
+  /**
+   * When true, [sendEvent] throws [EventDroppedException] for an event it has to drop (see [DropReason]).
+   * When false (default), the event is dropped silently: navigation state stays as it was, no transition
+   * listeners are called and the remaining enqueued events are still processed. In both cases every
+   * [ServiceExtensionPoint.onEventDropped] is called first. Enable it in debug builds and tests.
+   */
+  var strictEventDropping: Boolean = false
 
   fun start(rootFlowPayload: Any? = null) {
     check(!isStarted()) { "NavigationService is already started; start() must only be called once" }
@@ -200,6 +209,7 @@ class NavigationService<R : Any>(
     private val payloads: Map<Path, Any> = state._payloads.toMap()
     private val intermediateParallels: Map<Path, IntermediateParallel> = state._intermediateParallels.toMap()
     private val history: Map<Path, List<Path>> = state._history.toMap()
+    private val generations: Map<Path, Long> = state._generations.toMap()
     private val rootNode: Node? = state.rootNode
     private val rootNodePath: Path? = state.rootNodePath
     private val rootFinishTransitionBuilder: ((Any) -> Transition)? = state._rootFinishTransitionBuilder
@@ -215,13 +225,15 @@ class NavigationService<R : Any>(
       state._intermediateParallels.putAll(intermediateParallels)
       state._history.clear()
       state._history.putAll(history)
+      state._generations.clear()
+      state._generations.putAll(generations)
       state.rootNode = rootNode
       state.rootNodePath = rootNodePath
       state._rootFinishTransitionBuilder = rootFinishTransitionBuilder
     }
   }
 
-  private fun transition(state: NavigationState, event: Event): NavigationState {
+  private fun transition(state: NavigationState, event: Event, source: Path?): NavigationState {
     check(event is InitEvent || state.isInitialized()) {
       "sendEvent() was called before start(); call NavigationService.start() first"
     }
@@ -236,7 +248,7 @@ class NavigationService<R : Any>(
     // onEntry. applyResolvedTransition tracks its own entered/exited separately.
     val initEnteredRoots = mutableListOf<Pair<Node, Path>>()
     val navigationState = try {
-      applyResolvedTransition(state, event, initEnteredRoots)
+      applyResolvedTransition(state, event, source, initEnteredRoots)
     } catch (e: Throwable) {
       // Compensate onEntry for root flow nodes entered in the InitEvent block (applyResolvedTransition
       // compensates its own nodes); then restore the snapshot so the whole dispatch is all-or-nothing.
@@ -260,6 +272,7 @@ class NavigationService<R : Any>(
   private fun applyResolvedTransition(
     state: NavigationState,
     event: Event,
+    source: Path?,
     initEnteredRoots: MutableList<Pair<Node, Path>>,
   ): NavigationState {
     if (event is InitEvent) {
@@ -278,7 +291,10 @@ class NavigationService<R : Any>(
       rootFinishTransitionBuilder = state._rootFinishTransitionBuilder,
       intermediateParallels = state._intermediateParallels,
       history = state._history,
+      source = source,
     )
+    // Checked before anything is mounted or exited, so a dropped event fires no lifecycle callbacks.
+    findMissingPayload(nodeBuilder.schema, state, resolvedTransition)?.let { throw MissingPayloadException(it) }
     // Persist this transition's payloads into the running store BEFORE synchronizeNodes —
     // any lazily-rebuilt NodeBuilder with a parameterised flow lookup hits the store, not the
     // transient transition map. This is what fixes "no payload for <path>" on subsequent
@@ -314,7 +330,27 @@ class NavigationService<R : Any>(
       compensateLifecycle(syncEntered, syncExited, event, mutatedState._nodeExtensionPoints)
       throw e
     }
+    syncGenerations(mutatedState)
     return mutatedState
+  }
+
+  /** Gives a fresh generation to every newly alive path and forgets the paths which are no longer alive. */
+  private fun syncGenerations(state: NavigationState) {
+    val alive = computeConfiguration(state) + state._intermediateParallels.keys + listOfNotNull(state.rootNodePath)
+    state._generations.keys.retainAll(alive)
+    alive.forEach { path -> state._generations.getOrPut(path) { nextGeneration++ } }
+  }
+
+  /**
+   * Returns a sink which sends events on behalf of the node currently alive at [path]. Such an event is resolved
+   * starting from that node (bubbling up to its ancestors on [Ignore]) within its own region only, instead of
+   * from the active leaf of every region. If the node is no longer alive, or has been recreated, when the event
+   * is dispatched, the event is dropped with [DropReason.StaleSource]. A sink for a path which is not alive is
+   * always stale.
+   */
+  fun eventSink(path: Path): EventSink {
+    val generation = state._generations[path] ?: -1L
+    return EventSink { sendEvent(SourcedEvent(it, path, generation)) }
   }
 
   /**
@@ -707,27 +743,45 @@ class NavigationService<R : Any>(
     while (true) {
       isDispatching = true
       try {
-        val newState = transition(state, currentEvent)
-        val validityErrors = newState.runValidityChecks()
-        if (validityErrors.isNotEmpty()) {
-          error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
-        }
-        state = newState
-        // Per-listener try/catch: one listener throwing must NOT skip subsequent listeners.
-        // Collect every throw and rethrow the first after all listeners have been called, attaching
-        // the rest as `addSuppressed` so the caller still sees them. The rethrow deliberately aborts
-        // the enqueued-events drain: a listener exception is a consumer bug and callers rely on it
-        // surfacing immediately with the queue left intact (see "listener exception propagates
-        // immediately; enqueued events are not drained").
-        val listenerThrows = mutableListOf<Throwable>()
-        listeners.toList().forEach { listener ->
+        // transition() has already rolled the state back when it throws. A missing payload drops the event
+        // and keeps draining the queue; a failed start() is never dropped.
+        // The only place a SourcedEvent is unwrapped: everything downstream sees the user's event.
+        val sourced = currentEvent as? SourcedEvent
+        val event = sourced?.event ?: currentEvent
+        val newState = if (sourced != null && state._generations[sourced.source] != sourced.generation) {
+          dropEvent(event, DropReason.StaleSource(sourced.source), cause = null)
+          null
+        } else {
           try {
-            listener(state.copy())
-          } catch (e: Throwable) {
-            listenerThrows.add(e)
+            transition(state, event, sourced?.source)
+          } catch (e: MissingPayloadException) {
+            if (event is InitEvent) throw e
+            dropEvent(event, DropReason.MissingPayload(e.path), e)
+            null
           }
         }
-        listenerThrows.rethrowAsAggregate()
+        if (newState != null) {
+          val validityErrors = newState.runValidityChecks()
+          if (validityErrors.isNotEmpty()) {
+            error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
+          }
+          state = newState
+          // Per-listener try/catch: one listener throwing must NOT skip subsequent listeners.
+          // Collect every throw and rethrow the first after all listeners have been called, attaching
+          // the rest as `addSuppressed` so the caller still sees them. The rethrow deliberately aborts
+          // the enqueued-events drain: a listener exception is a consumer bug and callers rely on it
+          // surfacing immediately with the queue left intact (see "listener exception propagates
+          // immediately; enqueued events are not drained").
+          val listenerThrows = mutableListOf<Throwable>()
+          listeners.toList().forEach { listener ->
+            try {
+              listener(state.copy())
+            } catch (e: Throwable) {
+              listenerThrows.add(e)
+            }
+          }
+          listenerThrows.rethrowAsAggregate()
+        }
       } finally {
         isDispatching = false
       }
@@ -737,6 +791,11 @@ class NavigationService<R : Any>(
         break
       }
     }
+  }
+
+  private fun dropEvent(event: Event, reason: DropReason, cause: Throwable?) {
+    serviceExtensionPoints.toList().forEach { it.onEventDropped(this, event, reason) }
+    if (strictEventDropping) throw EventDroppedException(event, reason, cause)
   }
 
   /**

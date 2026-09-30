@@ -56,7 +56,7 @@ class ServiceExtensionsTest :
         postTransition.single().first shouldBe InitEvent(payload = null)
         postTransition.single().second.active shouldBe "app.permissions.intro"
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
 
         preTransition[1].first shouldBe TestEvent("C")

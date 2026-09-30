@@ -1,6 +1,7 @@
 package ru.kode.way.compose
 
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import ru.kode.way.DropReason
+import ru.kode.way.EventSink
 import ru.kode.way.Path
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -26,7 +28,7 @@ class EventSinkTest {
   private fun FlowFixture.host(): FlowFixture = also { rule.setContent { NodeHost(service) } }
 
   private fun FlowFixture.send(name: String) {
-    rule.runOnIdle { service.sendEvent(TestEvent(name)) }
+    rule.runOnIdle { service.send(TestEvent(name)) }
     rule.waitForIdle()
   }
 
@@ -104,12 +106,35 @@ class EventSinkTest {
   }
 
   @Test
-  fun `reading LocalEventSink outside NodeHost fails with explanatory message`() {
+  fun `reading LocalEventSink without a NavigationService fails with explanatory message`() {
     val error = assertThrows(IllegalStateException::class.java) {
       rule.setContent { LocalEventSink.current }
     }
 
-    assertEquals("no EventSink provided — read LocalEventSink inside a node rendered by NodeHost", error.message)
+    assertEquals(
+      "no NavigationService provided — wrap content with LocalNavigationService.provides(service)",
+      error.message,
+    )
+  }
+
+  @Test
+  fun `LocalEventSink outside any node resolves to the service itself`() {
+    val fixture = FlowFixture()
+    var outsideSink: EventSink? = null
+    var hostSink: EventSink? = null
+    rule.setContent {
+      CompositionLocalProvider(LocalNavigationService provides fixture.service) {
+        outsideSink = LocalEventSink.current
+      }
+      NodeHost(fixture.service)
+    }
+    rule.runOnIdle { hostSink = fixture.screen("main").sinks.last() }
+
+    assertSame(fixture.service, outsideSink)
+    assertNotSame(fixture.service, hostSink)
+    rule.runOnIdle { outsideSink!!.send(TestEvent("D")) }
+    rule.waitForIdle()
+    assertEquals(FlowFixture.detailsPath, fixture.state?.activePath)
   }
 
   @Test

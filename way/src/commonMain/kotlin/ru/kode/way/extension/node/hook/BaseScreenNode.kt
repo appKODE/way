@@ -1,6 +1,7 @@
 package ru.kode.way.extension.node.hook
 
 import ru.kode.way.Event
+import ru.kode.way.EventSink
 import ru.kode.way.Ignore
 import ru.kode.way.NavigationService
 import ru.kode.way.ScreenNode
@@ -20,6 +21,23 @@ abstract class BaseScreenNode :
   HasScreenNodeHooks {
   private val _hooks = mutableListOf<ScreenNodeHook>()
   override val hooks: List<ScreenNodeHook> = _hooks
+
+  private var _eventSink: EventSink? = null
+
+  /**
+   * This screen's sink ([NavigationService.eventSink]): events are resolved from this screen and dropped with
+   * [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation, so it is safe to hand to the
+   * screen's presenter / ViewModel and send from async work. Attached by the service right before every entry
+   * (usable in `onEntry` and entry hooks); reading it before the first entry throws.
+   */
+  val eventSink: EventSink
+    get() = checkNotNull(_eventSink) {
+      "eventSink is not available before the runtime calls onEntry on this node"
+    }
+
+  internal fun attachEventSink(sink: EventSink) {
+    _eventSink = sink
+  }
 
   override fun transition(event: Event): ScreenTransition = Ignore
 

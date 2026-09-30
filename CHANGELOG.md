@@ -2,8 +2,13 @@
 
 ## 0.10.0 - 2026-09-30
 
-Generated targets get a short form again, and events which can't be applied any more are dropped instead of
-crashing. Source compatible with 0.9.11.
+Generated targets get a short form again, events which can't be applied any more are dropped instead of
+crashing, and every event goes through an `EventSink`.
+
+### Breaking
+
+* `NavigationService.sendEvent(event)` is removed: `NavigationService` implements `EventSink`, use
+  `service.send(event)` (the root sink, same behavior). Events are only sent through an `EventSink`.
 
 ### Added
 
@@ -18,7 +23,7 @@ crashing. Source compatible with 0.9.11.
   events are still processed.
 * `ServiceExtensionPoint.onEventDropped(service, event, reason)` (default no-op) is called for every dropped event.
 * `NavigationService.strictEventDropping` (default `false`): when `true`, an event dropped with
-  `DropReason.MissingPayload` throws `EventDroppedException(event, reason)` from `sendEvent`, after the state is rolled
+  `DropReason.MissingPayload` throws `EventDroppedException(event, reason)` from `send`, after the state is rolled
   back; the events enqueued after it stay queued. `DropReason.StaleSource` is an expected race and never throws.
 * Drops are all-or-nothing: a multi-target `NavigateTo` or a broadcast to parallel regions is dropped entirely when
   any target misses a payload. The event is checked before `onPreTransition`, so neither `onPreTransition` nor
@@ -27,13 +32,15 @@ crashing. Source compatible with 0.9.11.
 * `NavigationService.eventSink(path): EventSink`, a sink bound to one node instance. A screen's sink starts at the
   screen, a flow's or parallel's sink at the active leaves under it; the event bubbles up on `Ignore` through the node
   within its region and, except Back, reaches every parallel enclosing the node and bubbles up through each
-  parallel's ancestors, like `sendEvent`; Back stays in the node's region (the root sink is equivalent to
-  `sendEvent`). Its events are dropped with `DropReason.StaleSource(path)` if the node has left navigation or was
+  parallel's ancestors, like `service.send`; Back stays in the node's region (the root sink is equivalent to
+  `service.send`). Its events are dropped with `DropReason.StaleSource(path)` if the node has left navigation or was
   recreated by the time they are dispatched.
 * `NavigationService.nodeGeneration(path)`, the generation of the node instance alive at `path`, changed whenever the
   node is recreated.
+* `BaseScreenNode.eventSink` / `BaseFlowNode.eventSink`: the node's own sink, attached right before every
+  `onEntry`; reading it before the first entry throws. A send after the node left is dropped as `StaleSource`.
 * `way-compose`: `LocalEventSink`, the sink of the node being rendered, provided by `NodeHost` to every node's
-  `Content()`.
+  `Content()`; outside any node (under `LocalNavigationService`) it is the service itself.
 * Generated `Schema.isParameterized(regionId, path, rootSegmentAlias)` (default `false` for hand-written schemas).
 * `MissingPayloadException(path)`, thrown by generated node builders when a payload is missing. `NavigationService`
   turns it into a dropped event; during `start()` it is rethrown.
@@ -64,14 +71,16 @@ crashing. Source compatible with 0.9.11.
 * A scheduler set with `setEnqueuedEventsScheduler` never receives the internal sourced wrapper of a sink event.
 
 Migration from 0.9.11:
-* Nothing is required: calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave
+* Replace `service.sendEvent(event)` with `service.send(event)`, or better with the nearest sink (see below).
+* Calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave
   the same. Regenerate code with the matching plugin version.
 * Ancestor arguments cached only to satisfy 0.9.11 targets can be removed: switch to the short builder
   (`packageDetails(packageId)`) where the ancestor flow is alive.
-* Send UI events through `LocalEventSink.current.send(event)` (or `service.eventSink(path)`) instead of
-  `LocalNavigationService.current.sendEvent(event)`, so events from a leaving screen are dropped. A sink resolves from
-  the active leaves under its node, so this holds whichever node handles the event; keep `sendEvent` for callers
-  outside any node (deep links, pushes).
+* Send UI events through `LocalEventSink.current.send(event)` instead of
+  `LocalNavigationService.current.sendEvent(event)`, and events from a node or its presenter through the node's
+  `eventSink`, so events from a leaving screen are dropped. A sink resolves from the active leaves under its node, so
+  this holds whichever node handles the event; `service.send` is for callers outside navigation (Activity back, deep
+  links, pushes).
 * Apps constructing `NavigationService` directly are lenient by default; set `strictEventDropping = true` in debug
   builds and tests to surface dropped events.
 

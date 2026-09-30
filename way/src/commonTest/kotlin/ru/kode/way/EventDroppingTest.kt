@@ -93,9 +93,9 @@ class EventDroppingTest :
 
     fun NavigationService<Int>.openDetailsAndGoBack(recorder: Recorder) {
       start()
-      sendEvent(TestEvent("D"))
+      send(TestEvent("D"))
       recorder.states.last().active shouldBe "app.main.details"
-      sendEvent(TestEvent("M"))
+      send(TestEvent("M"))
       recorder.states.last().active shouldBe "app.main"
       recorder.clear()
     }
@@ -105,7 +105,7 @@ class EventDroppingTest :
       val recorder = Recorder(sut)
       sut.openDetailsAndGoBack(recorder)
 
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
 
       recorder.dropped.size shouldBe 1
       recorder.dropped.single().first shouldBe TestEvent("T")
@@ -114,7 +114,7 @@ class EventDroppingTest :
       recorder.lifecycle.shouldBeEmpty()
 
       // the service is still usable and keeps its state
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       recorder.states.last().active shouldBe "app.main.details"
     }
 
@@ -122,9 +122,9 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
 
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
 
       recorder.dropped.shouldBeEmpty()
       recorder.states.last().apply {
@@ -139,7 +139,7 @@ class EventDroppingTest :
       val recorder = Recorder(sut)
       sut.openDetailsAndGoBack(recorder)
 
-      sut.sendEvent(TestEvent("F"))
+      sut.send(TestEvent("F"))
 
       recorder.dropped.shouldBeEmpty()
       recorder.states.last().apply {
@@ -155,7 +155,7 @@ class EventDroppingTest :
       sut.openDetailsAndGoBack(recorder)
       sut.strictEventDropping = true
 
-      val e = shouldThrow<EventDroppedException> { sut.sendEvent(TestEvent("T")) }
+      val e = shouldThrow<EventDroppedException> { sut.send(TestEvent("T")) }
 
       e.event shouldBe TestEvent("T")
       (e.reason as DropReason.MissingPayload).path.toString() shouldBe "app.main.details"
@@ -164,7 +164,7 @@ class EventDroppingTest :
       recorder.lifecycle.shouldBeEmpty()
 
       sut.strictEventDropping = false
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       recorder.states.single().apply {
         active shouldBe "app.main.details"
         alive shouldBe listOf("app", "app.main", "app.main.details")
@@ -176,14 +176,14 @@ class EventDroppingTest :
       val recorder = Recorder(sut)
       sut.openDetailsAndGoBack(recorder)
 
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
 
       (recorder.dropped.single().second as DropReason.MissingPayload).path.toString() shouldBe "app.main.details"
       recorder.states.shouldBeEmpty()
       // the rollback compensates every exit with an entry
       recorder.lifecycle.count { it.startsWith("exit") } shouldBe recorder.lifecycle.count { it.startsWith("entry") }
 
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       recorder.states.single().apply {
         active shouldBe "app.main.details"
         (aliveNodes["app.main.details"] as TestScreenNode).payload shouldBe "d1"
@@ -199,13 +199,13 @@ class EventDroppingTest :
       sut.addTransitionListener {
         if (armed) {
           armed = false
-          sut.sendEvent(TestEvent("T"))
-          sut.sendEvent(TestEvent("D"))
+          sut.send(TestEvent("T"))
+          sut.send(TestEvent("D"))
         }
       }
 
       armed = true
-      sut.sendEvent(TestEvent("M"))
+      sut.send(TestEvent("M"))
 
       recorder.dropped.single().first shouldBe TestEvent("T")
       recorder.states.map { it.active } shouldBe listOf("app.main", "app.main.details")
@@ -217,10 +217,10 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
       val sink = sut.eventSink(details)
-      sut.sendEvent(TestEvent("M"))
+      sut.send(TestEvent("M"))
       recorder.clear()
 
       sink.send(TestEvent("T"))
@@ -241,14 +241,14 @@ class EventDroppingTest :
           armed = false
           details = state.activePath()
           val sink = sut.eventSink(state.activePath())
-          sut.sendEvent(TestEvent("M"))
+          sut.send(TestEvent("M"))
           sink.send(TestEvent("T"))
         }
       }
       recorder.clear()
 
       armed = true
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
 
       recorder.dropped.single() shouldBe (TestEvent("T") to DropReason.StaleSource(details!!))
       recorder.states.map { it.active } shouldBe listOf("app.main.details", "app.main")
@@ -264,9 +264,9 @@ class EventDroppingTest :
         }),
       )
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
       recorder.states.last().active shouldBe "app.main.details.packageDetails"
       consulted.clear()
 
@@ -281,11 +281,11 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
       val oldSink = sut.eventSink(details)
-      sut.sendEvent(TestEvent("M"))
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("M"))
+      sut.send(TestEvent("D"))
       val newSink = sut.eventSink(details)
       recorder.clear()
 
@@ -304,10 +304,10 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
       val sink = sut.eventSink(details)
-      sut.sendEvent(TestEvent("M"))
+      sut.send(TestEvent("M"))
       recorder.clear()
       sut.strictEventDropping = true
 
@@ -335,13 +335,13 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val sink = sut.eventSink(recorder.states.last().activePath())
-      sut.sendEvent(TestEvent("M"))
+      sut.send(TestEvent("M"))
       recorder.clear()
 
       // MissingPayload: the pre-check runs before onPreTransition
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
       // StaleSource
       sink.send(TestEvent("D"))
 
@@ -357,7 +357,7 @@ class EventDroppingTest :
       val recorder = Recorder(sut)
       sut.openDetailsAndGoBack(recorder)
 
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
 
       recorder.dropped.single().first shouldBe TestEvent("T")
       recorder.hooks shouldBe listOf("pre ${TestEvent("T")}")
@@ -394,7 +394,7 @@ class EventDroppingTest :
           if (path.toString() == "app.main.details") {
             detailsPath = path
             detailsSink = sut.eventSink(path)
-            sut.sendEvent(TestEvent("X"))
+            sut.send(TestEvent("X"))
           }
         }),
       )
@@ -402,7 +402,7 @@ class EventDroppingTest :
       recorder.clear()
 
       // details is entered (and sends "X"), then building packageDetails throws: the transition is rolled back
-      sut.sendEvent(TestEvent("N"))
+      sut.send(TestEvent("N"))
 
       recorder.dropped.single().first shouldBe TestEvent("N")
       recorder.lifecycle shouldBe listOf("entry app.main.details", "exit app.main.details")
@@ -420,12 +420,12 @@ class EventDroppingTest :
       addTransitionListener {
         if (armed) {
           armed = false
-          sendEvent(TestEvent("T"))
-          sendEvent(TestEvent("D"))
+          send(TestEvent("T"))
+          send(TestEvent("D"))
         }
       }
       armed = true
-      sendEvent(TestEvent("M"))
+      send(TestEvent("M"))
     }
 
     should("throw in strict mode for an enqueued event, keeping the events queued after it") {
@@ -440,8 +440,8 @@ class EventDroppingTest :
       recorder.states.map { it.active } shouldBe listOf("app.main")
       recorder.lifecycle.shouldBeEmpty()
 
-      // the next sendEvent processes its own event first and then drains the queued "D"
-      sut.sendEvent(TestEvent("X"))
+      // the next send processes its own event first and then drains the queued "D"
+      sut.send(TestEvent("X"))
 
       recorder.states.map { it.active } shouldBe listOf("app.main", "app.main", "app.main.details")
     }
@@ -465,7 +465,7 @@ class EventDroppingTest :
       recorder.states.map { it.active } shouldBe listOf("app.main")
       recorder.lifecycle.shouldBeEmpty()
 
-      sut.sendEvent(TestEvent("X"))
+      sut.send(TestEvent("X"))
 
       recorder.states.map { it.active } shouldBe listOf("app.main", "app.main", "app.main.details")
     }
@@ -496,13 +496,13 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
       val oldNode = recorder.states.last().aliveNodes["app.main.details"]
       val oldSink = sut.eventSink(details)
       recorder.clear()
 
-      sut.sendEvent(TestEvent("R"))
+      sut.send(TestEvent("R"))
 
       recorder.lifecycle shouldBe listOf("exit app.main.details", "entry app.main.details")
       recorder.states.single().apply {
@@ -521,7 +521,7 @@ class EventDroppingTest :
       val sut = createService()
       val recorder = Recorder(sut)
       sut.start()
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
       val sink = sut.eventSink(details)
       val node = recorder.states.last().aliveNodes["app.main.details"]
@@ -529,16 +529,16 @@ class EventDroppingTest :
       recorder.clear()
 
       // the same argument
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
 
       recorder.lifecycle.shouldBeEmpty()
       (recorder.states.single().aliveNodes["app.main.details"] === node) shouldBe true
       sut.nodeGeneration(details) shouldBe generation
 
       // packageDetails gets another argument, alive details keeps its own one ("F" carries "d2" for it)
-      sut.sendEvent(TestEvent("T"))
+      sut.send(TestEvent("T"))
       recorder.clear()
-      sut.sendEvent(TestEvent("F"))
+      sut.send(TestEvent("F"))
 
       recorder.lifecycle shouldBe
         listOf("exit app.main.details.packageDetails", "entry app.main.details.packageDetails")
@@ -565,23 +565,23 @@ class EventDroppingTest :
         }
       }
       armed = true
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val details = recorder.states.last().activePath()
 
       scheduled shouldBe listOf(TestEvent("T"))
-      sut.sendEvent(scheduled.removeAt(0))
+      sut.send(scheduled.removeAt(0))
       recorder.states.last().active shouldBe "app.main.details.packageDetails"
 
       // resent after its node has left: the same instance is still checked against its source
       sut.eventSink(details).send(TestEvent("M"))
       recorder.states.last().active shouldBe "app.main"
       armed = true
-      sut.sendEvent(TestEvent("D"))
+      sut.send(TestEvent("D"))
       val event = scheduled.single()
-      sut.sendEvent(TestEvent("M"))
+      sut.send(TestEvent("M"))
       recorder.dropped.shouldBeEmpty()
 
-      sut.sendEvent(event)
+      sut.send(event)
 
       recorder.dropped.single() shouldBe (TestEvent("T") to DropReason.StaleSource(details))
     }

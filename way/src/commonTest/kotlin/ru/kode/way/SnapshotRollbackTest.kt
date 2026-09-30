@@ -70,7 +70,7 @@ class SnapshotRollbackTest :
       val sut = NavigationService(nodeBuilder, onFinishRequest = { _: Unit -> Stay })
       sut.addNodeExtensionPoint(recorder)
 
-      // start() → sendEvent(InitEvent) → transition() → throws out of NodeBuilder.build for alpha.
+      // start() → send(InitEvent) → transition() → throws out of NodeBuilder.build for alpha.
       val ex = shouldThrow<Throwable> { sut.start() }
       ex.message shouldBe "injected throw at alpha sub-region build"
 
@@ -145,7 +145,7 @@ class SnapshotRollbackTest :
 
       callbacks.clear()
 
-      val ex = shouldThrow<Throwable> { sut.sendEvent(TestEvent("toMain")) }
+      val ex = shouldThrow<Throwable> { sut.send(TestEvent("toMain")) }
       ex.message shouldBe "injected throw at app.main build inside synchronizeNodes"
 
       // Outer-catch rollback (NavigationService.kt:283-301): regions/payloads/queue restored to

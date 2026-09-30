@@ -64,14 +64,14 @@ class SchemaCompositionTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem().active shouldBe "appFlow.loginFlow.credentials"
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "appFlow.loginFlow.credentials" // sends finish
         awaitItem().active shouldBe "appFlow.mainFlow.main" // after finish
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials.otp"
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials"
-        sut.sendEvent(TestEvent("D"))
+        sut.send(TestEvent("D"))
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials" // main.login sends finish
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials" // main sends finish
         awaitItem().active shouldBe "appFlow.mainFlow.main.loginFlow.credentials" // app sends finish
@@ -153,7 +153,7 @@ class SchemaCompositionTest : ShouldSpec() {
       states.clear()
       lifecycle.clear()
 
-      sut.sendEvent(TestEvent("C"))
+      sut.send(TestEvent("C"))
 
       (dropped.single() as DropReason.MissingPayload).path.toString() shouldBe "app.page1.login"
       states.shouldBeEmpty()
@@ -161,7 +161,7 @@ class SchemaCompositionTest : ShouldSpec() {
       lifecycle.count { it.startsWith("exit") } shouldBe lifecycle.count { it.startsWith("entry") }
 
       // the service is still usable
-      sut.sendEvent(TestEvent("P2"))
+      sut.send(TestEvent("P2"))
       states.single().active shouldBe "app.page2"
     }
 
@@ -247,7 +247,7 @@ class SchemaCompositionTest : ShouldSpec() {
       f.lifecycle.clear()
       f.hooks.clear()
 
-      f.sut.sendEvent(TestEvent("NL"))
+      f.sut.send(TestEvent("NL"))
 
       (f.dropped.single() as DropReason.MissingPayload).path.toString() shouldBe "app.page1.login"
       f.states.shouldBeEmpty()
@@ -256,11 +256,11 @@ class SchemaCompositionTest : ShouldSpec() {
     }
 
     fun Nav12Fixture.openOtpAndLeave() {
-      sut.sendEvent(TestEvent("L"))
-      sut.sendEvent(TestEvent("C"))
-      sut.sendEvent(TestEvent("O"))
+      sut.send(TestEvent("L"))
+      sut.send(TestEvent("C"))
+      sut.send(TestEvent("O"))
       states.last().active shouldBe "app.page1.login.credentials.otp"
-      sut.sendEvent(TestEvent("P2"))
+      sut.send(TestEvent("P2"))
       states.last().active shouldBe "app.page2"
     }
 
@@ -269,7 +269,7 @@ class SchemaCompositionTest : ShouldSpec() {
       f.sut.start(42)
       f.openOtpAndLeave()
 
-      f.sut.sendEvent(TestEvent("H"))
+      f.sut.send(TestEvent("H"))
 
       f.dropped.shouldBeEmpty()
       f.states.last().active shouldBe "app.page1.login.credentials.otp"
@@ -284,7 +284,7 @@ class SchemaCompositionTest : ShouldSpec() {
       f.sut.start(42)
       f.openOtpAndLeave()
 
-      f.sut.sendEvent(TestEvent("S"))
+      f.sut.send(TestEvent("S"))
 
       f.dropped.shouldBeEmpty()
       f.states.last().active shouldBe "app.page1.login.credentials"
@@ -296,10 +296,10 @@ class SchemaCompositionTest : ShouldSpec() {
       val f = buildNav12()
       f.sut.start(42)
       f.openOtpAndLeave()
-      f.sut.sendEvent(TestEvent("P1"))
+      f.sut.send(TestEvent("P1"))
       f.payloadOf("app.page1") shouldBe Charsets.UTF_8
 
-      f.sut.sendEvent(TestEvent("H"))
+      f.sut.send(TestEvent("H"))
 
       f.states.last().active shouldBe "app.page1.login.credentials.otp"
       f.payloadOf("app.page1") shouldBe Charsets.UTF_8
@@ -320,8 +320,8 @@ class SchemaCompositionTest : ShouldSpec() {
       val historySize = f.states.last()._history.size
 
       repeat(3) {
-        f.sut.sendEvent(TestEvent("H"))
-        f.sut.sendEvent(TestEvent("P2"))
+        f.sut.send(TestEvent("H"))
+        f.sut.send(TestEvent("P2"))
       }
 
       f.states.last()._history.size shouldBe historySize

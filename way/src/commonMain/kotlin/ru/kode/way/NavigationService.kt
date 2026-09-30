@@ -1,9 +1,12 @@
 package ru.kode.way
 
+import ru.kode.way.extension.node.hook.BaseFlowNode
+import ru.kode.way.extension.node.hook.BaseScreenNode
+
 /**
  * Drives navigation state for a single root flow.
  *
- * **Threading:** NavigationService is NOT thread-safe. All calls to [sendEvent], [start],
+ * **Threading:** NavigationService is NOT thread-safe. All calls to [send], [start],
  * [addTransitionListener], etc. must be made from the same thread (typically the main/UI thread).
  * The reentrancy guard ([isDispatching]) only protects against single-threaded re-entry from
  * within listener callbacks, not concurrent access from multiple threads.
@@ -11,7 +14,7 @@ package ru.kode.way
 class NavigationService<R : Any>(
   private val nodeBuilder: NodeBuilder,
   private val onFinishRequest: (R) -> FlowTransition<Unit>,
-) {
+) : EventSink {
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
     _nodeExtensionPoints = mutableListOf(),
@@ -51,7 +54,7 @@ class NavigationService<R : Any>(
   var validateSchema: Boolean = true
 
   /**
-   * When true, [sendEvent] throws [EventDroppedException] for an event dropped with [DropReason.MissingPayload].
+   * When true, [send] throws [EventDroppedException] for an event dropped with [DropReason.MissingPayload].
    * When false (default), the event is dropped silently: navigation state stays as it was, no transition
    * listeners are called and the remaining enqueued events are still processed. In both cases every
    * [ServiceExtensionPoint.onEventDropped] is called first. Enable it in debug builds and tests.
@@ -64,7 +67,7 @@ class NavigationService<R : Any>(
 
   fun start(rootFlowPayload: Any? = null) {
     check(!isStarted()) { "NavigationService is already started; start() must only be called once" }
-    sendEvent(InitEvent(rootFlowPayload))
+    dispatch(InitEvent(rootFlowPayload))
   }
 
   fun isStarted(): Boolean = state.isInitialized()
@@ -76,9 +79,9 @@ class NavigationService<R : Any>(
    * as part of registration. If that immediate-invocation throws, the listener is automatically
    * removed before the exception propagates to the caller.
    *
-   * During normal dispatch (inside [sendEvent]), listeners are notified independently — one
+   * During normal dispatch (inside [send]), listeners are notified independently — one
    * listener throwing does NOT skip subsequent listeners. The first thrown exception propagates
-   * out of [sendEvent] after every listener has been called; further exceptions thrown by later
+   * out of [send] after every listener has been called; further exceptions thrown by later
    * listeners are suppressed and attached as `Throwable.suppressed` to the first one.
    */
   fun addTransitionListener(listener: (NavigationState) -> Unit) {
@@ -122,7 +125,7 @@ class NavigationService<R : Any>(
   /**
    * Releases all listeners and extension points held by this service.
    *
-   * After calling [dispose], calls to [sendEvent] become safe no-ops: they will return immediately
+   * After calling [dispose], calls to [send] become safe no-ops: they will return immediately
    * without processing the event or delivering state to any listener. Calling [start] after [dispose]
    * is undefined behaviour and should be avoided.
    *
@@ -135,7 +138,7 @@ class NavigationService<R : Any>(
     if (isDisposed) return
     check(!isDispatching) {
       "dispose() must not be called during event dispatch (e.g. from inside a transition " +
-        "listener or extension point). Call it after sendEvent() returns. Use cleanDispose() " +
+        "listener or extension point). Call it after send() returns. Use cleanDispose() " +
         "for the same constraint with leaf-to-root onDispose firing."
     }
     isDisposed = true
@@ -162,7 +165,7 @@ class NavigationService<R : Any>(
    * does not skip the remaining steps or the remaining nodes.
    *
    * Must not be called from inside a transition listener or extension-point callback (i.e. during
-   * event dispatch). Call it only after [sendEvent] returns, typically from [android.arch.lifecycle.ViewModel.onCleared].
+   * event dispatch). Call it only after [send] returns, typically from [android.arch.lifecycle.ViewModel.onCleared].
    *
    * This method is idempotent: calling it more than once has no additional effect.
    */
@@ -170,7 +173,7 @@ class NavigationService<R : Any>(
     if (isDisposed) return
     check(!isDispatching) {
       "cleanDispose() must not be called during event dispatch (e.g. from inside a transition " +
-        "listener or extension point). Call it after sendEvent() returns."
+        "listener or extension point). Call it after send() returns."
     }
     if (state.isInitialized()) {
       state._regions.entries
@@ -243,7 +246,7 @@ class NavigationService<R : Any>(
 
   private fun transition(state: NavigationState, event: Event, source: Path?): NavigationState {
     check(event is InitEvent || state.isInitialized()) {
-      "sendEvent() was called before start(); call NavigationService.start() first"
+      "send() was called before start(); call NavigationService.start() first"
     }
     // Snapshot every mutable slot before any mutation so a throw anywhere below restores the exact
     // pre-transition state (all-or-nothing). Taken before InitEvent populates regions, so a failed
@@ -381,17 +384,32 @@ class NavigationService<R : Any>(
    * region under it, so its active children handle the event first, and the parallels under it handle it too. The
    * event then bubbles up on [Ignore] through the node to its ancestors within the region and, except for
    * [Event.Back], also reaches every parallel enclosing the node and bubbles up through each parallel's ancestors,
-   * like [sendEvent] (same region order, same merge). Sibling regions are never consulted. Back stays in the node's
+   * like [send] (same region order, same merge). Sibling regions are never consulted. Back stays in the node's
    * region, never reaching enclosing parallels or sibling regions: routed through the node's own `DispatchBackTo` if it is a
-   * parallel, kept in the node's region otherwise. The root node's sink is equivalent to [sendEvent].
+   * parallel, kept in the node's region otherwise. The root node's sink is equivalent to [send].
    *
    * If the node is no longer alive, or has been recreated, when the event is dispatched, the event is dropped with
    * [DropReason.StaleSource]. A change below the node does not make its sink stale. A sink for a path which is not
    * alive is always stale.
    */
-  fun eventSink(path: Path): EventSink {
+  fun eventSink(path: Path): EventSink = eventSink(path, state)
+
+  private fun eventSink(path: Path, state: NavigationState): EventSink {
     val generation = state._generations[path] ?: -1L
-    return EventSink { sendEvent(SourcedEvent(it, path, generation)) }
+    return EventSink { dispatch(SourcedEvent(it, path, generation)) }
+  }
+
+  /**
+   * Enters [node] at [path]: a node owning a sink (see [BaseFlowNode.eventSink]) gets a fresh one bound to its
+   * current generation first, so the sink is usable from `onEntry` and its hooks. Its generation must be assigned.
+   */
+  private fun enter(state: NavigationState, node: Node, path: Path, event: Event) {
+    when (node) {
+      is BaseFlowNode<*> -> node.attachEventSink(eventSink(path, state))
+      is BaseScreenNode -> node.attachEventSink(eventSink(path, state))
+      else -> Unit
+    }
+    callOnEntry(node, path, event, state._nodeExtensionPoints)
   }
 
   /**
@@ -434,7 +452,7 @@ class NavigationService<R : Any>(
     }
     // Entered before syncGenerations runs: give it its generation now so a sink obtained in onEntry is live.
     state._generations.getOrPut(rootSegmentPath) { nextGeneration++ }
-    callOnEntry(rootNode, rootSegmentPath, event, state._nodeExtensionPoints)
+    enter(state, rootNode, rootSegmentPath, event)
     initEnteredRoots.add(rootNode to rootSegmentPath)
     state.rootNode = rootNode
     state.rootNodePath = rootSegmentPath
@@ -539,7 +557,7 @@ class NavigationService<R : Any>(
     when (regionRoot) {
       is FlowNode<*> -> {
         state._generations.getOrPut(regionRootPath) { nextGeneration++ }
-        callOnEntry(regionRoot, regionRootPath, event, state._nodeExtensionPoints)
+        enter(state, regionRoot, regionRootPath, event)
         initEnteredRoots.add(regionRoot to regionRootPath)
         val rootFinishBuilder = finishBuilderFor(regionRootPath)
         state._regions[regionId] = Region(
@@ -621,7 +639,7 @@ class NavigationService<R : Any>(
       "expected ParallelFlowNode at $parallelPath, but builder returned ${node::class.simpleName}"
     }
     state._generations.getOrPut(parallelPath) { nextGeneration++ }
-    callOnEntry(node, parallelPath, event, state._nodeExtensionPoints)
+    enter(state, node, parallelPath, event)
     entered.add(node to parallelPath)
     val finishBuilder = finishBuilderFor(parallelPath)
     state._intermediateParallels[parallelPath] = IntermediateParallel(
@@ -757,7 +775,7 @@ class NavigationService<R : Any>(
             region._nodes[path] =
               nodeBuilder.build(path, pathPayloads, rootSegmentAlias = nodeBuilder.schema.rootSegment)
                 .also {
-                  callOnEntry(it, path, event, state._nodeExtensionPoints)
+                  enter(state, it, path, event)
                   entered.add(it to path)
                 }
           }
@@ -788,11 +806,17 @@ class NavigationService<R : Any>(
   }
 
   /**
-   * Sends [event] from outside any node (a deep link, a push): it is resolved from the active leaf of every region.
-   * Equivalent to sending it through the root node's [eventSink]. Code acting on behalf of a node uses its
-   * [eventSink] instead.
+   * The root sink: sends [event] on behalf of the whole tree, from outside any node (Activity back, a deep link, a
+   * push). It is resolved from the active leaf of every region, like the root node's [eventSink], and is never stale.
+   * Code acting on behalf of a node uses that node's sink instead (UI: `LocalEventSink`, a node: its
+   * [BaseFlowNode.eventSink] / [BaseScreenNode.eventSink], a presenter: the sink its screen passes to it).
    */
-  fun sendEvent(event: Event) {
+  override fun send(event: Event) = dispatch(event)
+
+  /**
+   * The single entry of every event: [send], node sinks ([SourcedEvent]) and [start]. Re-entrant calls are queued.
+   */
+  private fun dispatch(event: Event) {
     if (isDisposed) return
     val scheduledIndex = scheduledSourcedEvents.indexOfFirst { it.event === event }
     val sendingEvent = if (scheduledIndex >= 0) scheduledSourcedEvents.removeAt(scheduledIndex) else event
@@ -865,13 +889,13 @@ class NavigationService<R : Any>(
   /**
    * Sets a custom scheduler for enqueued events.
    *
-   * By default, enqueued events are drained immediately in an iterative loop inside [sendEvent].
+   * By default, enqueued events are drained immediately in an iterative loop inside [send].
    * If you need dispatch to be tied to a platform event loop (e.g. `Handler.post` on Android),
    * set a custom scheduler here. It will be called with the next queued event after each transition;
-   * the scheduler is responsible for delivering that event back to [sendEvent] at the right time.
+   * the scheduler is responsible for delivering that event back to [send] at the right time.
    *
    * An event sent through an [EventSink] is passed to the scheduler as the plain event the node sent. The service
-   * remembers that instance: when the scheduler passes the same instance (`===`) back to [sendEvent], it is
+   * remembers that instance: when the scheduler passes the same instance (`===`) back to [send], it is
    * dispatched as a sink event again, i.e. resolved from its node and dropped with [DropReason.StaleSource] if that
    * node has left meanwhile. So deliver the very instance you received, not a copy. An event object which is also sent
    * directly meanwhile (e.g. [BackEvent]) may swap the treatment between the two deliveries.

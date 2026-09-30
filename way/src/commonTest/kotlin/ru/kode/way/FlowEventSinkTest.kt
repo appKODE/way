@@ -80,7 +80,7 @@ class FlowEventSinkTest :
       val active get() = states.last().regions.values.single().active
 
       fun enterLogin(): Path {
-        sut.sendEvent(TestEvent("E"))
+        sut.send(TestEvent("E"))
         consulted.clear()
         return active.dropLast(1)
       }
@@ -111,7 +111,7 @@ class FlowEventSinkTest :
       val f = Fixture()
       val login = f.enterLogin()
       val sink = f.sut.eventSink(login)
-      f.sut.sendEvent(TestEvent("P"))
+      f.sut.send(TestEvent("P"))
       f.active.toString() shouldBe "app.page1.login.credentials.permissions.intro"
       f.consulted.clear()
 
@@ -132,18 +132,18 @@ class FlowEventSinkTest :
       f.active.toString() shouldBe "app.page1.login.credentials"
     }
 
-    should("resolve Back sent through a flow sink from the active leaf under the flow, like sendEvent") {
+    should("resolve Back sent through a flow sink from the active leaf under the flow, like send") {
       val viaSink = Fixture()
       val direct = Fixture()
       val login = viaSink.enterLogin()
       direct.enterLogin()
-      viaSink.sut.sendEvent(TestEvent("P"))
-      direct.sut.sendEvent(TestEvent("P"))
+      viaSink.sut.send(TestEvent("P"))
+      direct.sut.send(TestEvent("P"))
       viaSink.consulted.clear()
       direct.consulted.clear()
 
       viaSink.sut.eventSink(login).send(Event.Back)
-      direct.sut.sendEvent(Event.Back)
+      direct.sut.send(Event.Back)
 
       viaSink.dropped.shouldBeEmpty()
       viaSink.consulted.first() shouldBe "app.page1.login.credentials.permissions.intro"
@@ -151,14 +151,14 @@ class FlowEventSinkTest :
       viaSink.active shouldBe direct.active
     }
 
-    should("resolve an event sent through the root sink exactly like sendEvent") {
+    should("resolve an event sent through the root sink exactly like send") {
       val viaSink = Fixture()
       val direct = Fixture()
       viaSink.enterLogin()
       direct.enterLogin()
 
       viaSink.sut.eventSink(viaSink.active.take(1)).send(TestEvent("L"))
-      direct.sut.sendEvent(TestEvent("L"))
+      direct.sut.send(TestEvent("L"))
 
       viaSink.consulted shouldBe direct.consulted
       viaSink.states.map { it.regions.values.single().active } shouldBe

@@ -14,14 +14,14 @@ internal fun resolveTransition(
    * Path of the node whose [EventSink] sent [event]. A screen's sink starts at the screen itself; a flow's or a
    * parallel's sink at the active leaves of the regions under it (and the parallels under it). The event then bubbles
    * up on `Ignore` within the region and, except for Back, also reaches the parallels enclosing [source], like a plain
-   * `sendEvent` does. `null` means the whole tree, which is what a plain `sendEvent` does.
+   * `send` does. `null` means the whole tree, which is what a plain `send` does.
    */
   source: Path? = null,
 ): ResolvedTransition {
   // Assumes a screen path lives in exactly one region's nodes.
   val sourceScreen = source?.takeIf { s -> regions.values.any { it.nodes[s] is ScreenNode } }
   fun inScope(path: Path) = source == null || (path.startsWith(source) && (sourceScreen == null || path == source))
-  // Parallels above the scope handle what bubbles past it, the same way sendEvent consults them. Back stays in scope.
+  // Parallels above the scope handle what bubbles past it, the same way NavigationService.send consults them. Back stays in scope.
   val bubblesPastScope =
     source != null && event != Event.Back && event !is InitEvent && event !is RootFinishRequestEvent
   fun enclosesSource(path: Path) = bubblesPastScope && source?.startsWith(path) == true && path != source
@@ -88,7 +88,7 @@ internal fun resolveTransition(
   // `transition()` can observe and respond.
   //
   // Deepest-first ordering: a Finish from an intermediate produces ANOTHER EnqueueEvent that
-  // drains in a later sendEvent cycle, so within this single cycle the ordering between
+  // drains in a later dispatch cycle, so within this single cycle the ordering between
   // intermediates vs root is observationally irrelevant for non-Finish results. Deepest-first
   // is chosen as the conventional, predictable order.
   //
@@ -128,7 +128,7 @@ internal fun resolveTransition(
   // because it is already targeted at a specific region via `event.targetRegionId` and consumed there.
   if (event is InitEvent || event is RootFinishRequestEvent) return intermediatesResult
   if (event == Event.Back) {
-    // Back through the parallel owning the scope (the root parallel for sendEvent): consult its own
+    // Back through the parallel owning the scope (the root parallel for NavigationService.send): consult its own
     // transition(Event.Back) and route to exactly ONE sub-region, mirroring how nested parallels resolve Back via
     // maybeResolveBackEvent → dispatchBackThroughParallel. The fold above skipped its sub-regions for Back, so this is
     // the sole Back dispatch for them.

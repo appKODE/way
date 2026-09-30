@@ -129,8 +129,8 @@ class ParallelEventDroppingTest :
         betaHomeTransitions = openBoth.second,
       )
       f.sut.start()
-      f.sut.sendEvent(TestEvent("A"))
-      f.sut.sendEvent(TestEvent("B"))
+      f.sut.send(TestEvent("A"))
+      f.sut.send(TestEvent("B"))
       f.clear()
 
       f.sut.eventSink(rootPath).send(Event.Back)
@@ -140,7 +140,7 @@ class ParallelEventDroppingTest :
       f.activeIn(betaRegion) shouldBe "dropRoot.dropBeta.betaHome.betaItem.betaDetails"
     }
 
-    should("resolve an event sent through the root parallel sink exactly like sendEvent") {
+    should("resolve an event sent through the root parallel sink exactly like send") {
       fun fixture() = buildService(
         rootTransitions = listOf(tr("G", Stay)),
         alphaHomeTransitions = listOf(trs("G", Target.dropAlpha.alphaItem(id = "g"))),
@@ -150,7 +150,7 @@ class ParallelEventDroppingTest :
       val direct = fixture()
 
       viaSink.sut.eventSink(rootPath).send(TestEvent("G"))
-      direct.sut.sendEvent(TestEvent("G"))
+      direct.sut.send(TestEvent("G"))
 
       viaSink.dropped.shouldBeEmpty()
       viaSink.consulted shouldBe direct.consulted
@@ -165,8 +165,8 @@ class ParallelEventDroppingTest :
         betaHomeTransitions = openBoth.second,
       )
       f.sut.start()
-      f.sut.sendEvent(TestEvent("A"))
-      f.sut.sendEvent(TestEvent("B"))
+      f.sut.send(TestEvent("A"))
+      f.sut.send(TestEvent("B"))
       val alphaItem = f.pathIn(alphaRegion)
       f.clear()
 
@@ -215,7 +215,7 @@ class ParallelEventDroppingTest :
       f.sut.start()
       f.clear()
 
-      f.sut.sendEvent(TestEvent("F"))
+      f.sut.send(TestEvent("F"))
 
       f.dropped.single().first shouldBe DropRootChildFinishRequest.DropAlpha
       (f.dropped.single().second as DropReason.MissingPayload).path.toString() shouldBe
@@ -235,7 +235,7 @@ class ParallelEventDroppingTest :
       f.sut.start()
       f.clear()
 
-      f.sut.sendEvent(TestEvent("M"))
+      f.sut.send(TestEvent("M"))
 
       (f.dropped.single().second as DropReason.MissingPayload).path.toString() shouldBe
         "dropRoot.dropBeta.betaHome.betaItem"
@@ -253,7 +253,7 @@ class ParallelEventDroppingTest :
       f.sut.start()
       f.clear()
 
-      f.sut.sendEvent(TestEvent("X"))
+      f.sut.send(TestEvent("X"))
 
       f.dropped.single().first shouldBe TestEvent("X")
       (f.dropped.single().second as DropReason.MissingPayload).path.toString() shouldBe

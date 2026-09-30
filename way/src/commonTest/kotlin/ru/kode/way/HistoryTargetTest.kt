@@ -61,16 +61,16 @@ class HistoryTargetTest :
         awaitItem().active shouldBe "app.onboarding.intro"
 
         // drill to the NON-default child of onboarding
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
         // navigate away, exiting the onboarding flow (history is recorded here)
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // shallow history restores the previously-active child (page1), NOT onboarding's default
         // initial (intro)
-        sut.sendEvent(TestEvent("histOnboardingShallow"))
+        sut.send(TestEvent("histOnboardingShallow"))
         awaitItem().active shouldBe "app.onboarding.page1"
       }
     }
@@ -80,14 +80,14 @@ class HistoryTargetTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.onboarding.intro"
 
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // deep history restores the recorded atomic leaf (page1)
-        sut.sendEvent(TestEvent("histOnboardingDeep"))
+        sut.send(TestEvent("histOnboardingDeep"))
         awaitItem().active shouldBe "app.onboarding.page1"
       }
     }
@@ -100,7 +100,7 @@ class HistoryTargetTest :
 
         // HistoryTarget(app.login) with no history behaves like FlowTarget(app.login):
         // enters login's default initial (credentials)
-        sut.sendEvent(TestEvent("histLoginShallow"))
+        sut.send(TestEvent("histLoginShallow"))
         awaitItem().active shouldBe "app.login.credentials"
       }
     }
@@ -111,21 +111,21 @@ class HistoryTargetTest :
         awaitItem().active shouldBe "app.onboarding.intro"
 
         // exit onboarding while its active child is the DEFAULT (intro)
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // shallow history restores intro (the child active at the last exit)
-        sut.sendEvent(TestEvent("histOnboardingShallow"))
+        sut.send(TestEvent("histOnboardingShallow"))
         awaitItem().active shouldBe "app.onboarding.intro"
 
         // drill to page1, then exit onboarding again
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // history now reflects the newer active child (page1)
-        sut.sendEvent(TestEvent("histOnboardingShallow"))
+        sut.send(TestEvent("histOnboardingShallow"))
         awaitItem().active shouldBe "app.onboarding.page1"
       }
     }

@@ -65,27 +65,27 @@ class SchemaFanInTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.a"
 
-        sut.sendEvent(TestEvent("ViaA"))
+        sut.send(TestEvent("ViaA"))
         awaitItem().apply {
           alive shouldBe listOf("app", "app.a", "app.a.perm", "app.a.perm.permIntro")
           (aliveNodes["app.a"] as TestScreenNode).payload shouldBe 1
           permReasons[aliveNodes.getValue("app.a.perm")] shouldBe "r-a"
         }
 
-        sut.sendEvent(TestEvent("Done"))
+        sut.send(TestEvent("Done"))
         // perm finishes with a result, then its parent receives the finish request event
         awaitItem().active shouldBe "app.a.perm.permIntro"
         awaitItem().active shouldBe "app.a"
         finishedIn shouldBe listOf("a:done-r-a")
 
-        sut.sendEvent(TestEvent("ViaB"))
+        sut.send(TestEvent("ViaB"))
         awaitItem().apply {
           alive shouldBe listOf("app", "app.b", "app.b.perm", "app.b.perm.permIntro")
           (aliveNodes["app.b"] as TestScreenNode).payload shouldBe "b-1"
           permReasons[aliveNodes.getValue("app.b.perm")] shouldBe "r-b"
         }
 
-        sut.sendEvent(TestEvent("Done"))
+        sut.send(TestEvent("Done"))
         awaitItem().active shouldBe "app.b.perm.permIntro"
         awaitItem().active shouldBe "app.b"
         finishedIn shouldBe listOf("a:done-r-a", "b:done-r-b")

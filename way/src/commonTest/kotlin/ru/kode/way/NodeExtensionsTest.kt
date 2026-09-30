@@ -58,7 +58,7 @@ class NodeExtensionsTest :
 
         preEntry.map { it.second }.shouldContainExactly("app", "app.permissions", "app.permissions.intro")
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
 
         preEntry.map { it.second }.shouldContainExactly(
@@ -73,7 +73,7 @@ class NodeExtensionsTest :
           "app.permissions",
         )
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
 
         preEntry.map { it.second }.shouldContainExactly(
@@ -135,7 +135,7 @@ class NodeExtensionsTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
 
         preTransition.map { it.first to (it.second as TestEvent).name }
@@ -143,7 +143,7 @@ class NodeExtensionsTest :
         postTransition.map { it.first to (it.second as TestEvent).name }
           .shouldContainExactly("app.permissions.intro" to "C", "app.permissions" to "C", "app" to "C")
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
 
         preTransition.map { it.first to (it.second as TestEvent).name }

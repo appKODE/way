@@ -110,7 +110,7 @@ class CrossRegionEventTest :
       sut.collectTransitions().test {
         awaitItem() // initial state
 
-        sut.sendEvent(CrossRegionTestEvent("ping"))
+        sut.send(CrossRegionTestEvent("ping"))
         awaitItem()
 
         // Alpha's child flow saw the event and returned Ignore — satisfies the documented
@@ -123,7 +123,7 @@ class CrossRegionEventTest :
       }
     }
 
-    // Production code: NavigationService.sendEvent (NavigationService.kt:423-449) calls
+    // Production code: NavigationService.send (NavigationService.kt:423-449) calls
     // `transition(state, current)` FIRST (line 433) — which invokes every node's
     // `transition()` via `resolveTransition` — and only THEN notifies listeners
     // (line 439: `listeners.toList().forEach { it(state.copy()) }`). So every node
@@ -201,7 +201,7 @@ class CrossRegionEventTest :
       // Drop any "listener" entry produced by the InitEvent (none — order is still empty
       // for cross-region tags here). Now send the cross-region event.
       order.clear()
-      sut.sendEvent(CrossRegionTestEvent("once"))
+      sut.send(CrossRegionTestEvent("once"))
 
       // Both node transition() calls must precede the listener invocation. The relative
       // order between alpha.transition and parallel.transition is whatever
@@ -249,7 +249,7 @@ class CrossRegionEventTest :
         // No throw, no crash — the event is silently absorbed. The runtime still notifies
         // listeners after every transition (NavigationService.kt:439 fires unconditionally),
         // so an emission follows; the assertion below pins that the active path is unchanged.
-        sut.sendEvent(CrossRegionTestEvent("orphan"))
+        sut.send(CrossRegionTestEvent("orphan"))
         val afterOrphan = awaitItem()
         afterOrphan.regions.values.first().active shouldBe initialActive
 

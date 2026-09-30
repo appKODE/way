@@ -146,15 +146,15 @@ class NavigationServiceTest :
       sut.collectTransitions()
         .test {
           awaitItem().active shouldBe "app.intro"
-          sut.sendEvent(TestEvent("A"))
+          sut.send(TestEvent("A"))
           awaitItem().active shouldBe "app.intro"
           enqueuedEvent?.also {
-            sut.sendEvent(it)
+            sut.send(it)
             enqueuedEvent = null
           }
           awaitItem().active shouldBe "app.main"
           enqueuedEvent?.also {
-            sut.sendEvent(it)
+            sut.send(it)
             enqueuedEvent = null
           }
         }
@@ -215,7 +215,7 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
 
         // nothing should happen
         awaitItem().active shouldBe "app.permissions.intro"
@@ -259,13 +259,13 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.permissions.request"
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe "app.permissions.intro"
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem().active shouldBe "app.profile.main"
       }
     }
@@ -297,18 +297,18 @@ class NavigationServiceTest :
           active shouldBe "app.intro"
         }
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.main")
           active shouldBe "app.main"
         }
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.test")
           active shouldBe "app.test"
         }
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.main")
           active shouldBe "app.main"
@@ -342,13 +342,13 @@ class NavigationServiceTest :
           active shouldBe "app.intro"
         }
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.intro", "app.intro.main")
           active shouldBe "app.intro.main"
         }
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
           active shouldBe "app.intro.main.test"
@@ -381,7 +381,7 @@ class NavigationServiceTest :
           active shouldBe "app.intro"
         }
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           alive.shouldContainInOrder("app", "app.intro", "app.intro.main", "app.intro.main.test")
           active shouldBe "app.intro.main.test"
@@ -431,7 +431,7 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
 
         awaitItem().active shouldBe "app.onboarding.intro" // after A, "finish" is sent
         awaitItem().active shouldBe "app.login.credentials" // after "finish"
@@ -482,10 +482,10 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe "app.onboarding.page1" // received B, sends "finish"
         awaitItem().active shouldBe "app.login.credentials" // after "finish"
       }
@@ -528,13 +528,13 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1.login.credentials"
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe
           "app.page1.login.credentials.permissions.intro" // permissions flow receives B, sends "permissions finish"
         // login flow receives "permissions finish" sends "login finish"
@@ -565,11 +565,11 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           active shouldBe "app.intro.main.test"
         }
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().apply {
           active shouldBe "app.intro.main.test"
         }
@@ -600,11 +600,11 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           active shouldBe "app.intro.main.test"
         }
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().apply {
           active shouldBe "app.intro.main.test"
         }
@@ -639,11 +639,11 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           active shouldBe "app.page1.permissions.intro"
         }
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           active shouldBe "app.page1.permissions.intro.request"
         }
@@ -681,18 +681,18 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro.main.test.login.credentials.otp"
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem().active shouldBe "app.intro.main.test.login.credentials"
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem().active shouldBe "app.intro.main.test.login.credentials" // back sends "finish"
         awaitItem().active shouldBe "app.intro.main" // after "finish"
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem().active shouldBe "app.intro"
 
         isFinished shouldBe false
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem().active shouldBe "app.intro" // back sends "finish"
         awaitItem().active shouldBe "app.intro" // after "finish"
         isFinished shouldBe true
@@ -725,7 +725,7 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.intro" // back sends "finish"
         awaitItem().active shouldBe "app.intro" // after "finish"
         isFinished shouldBe true
@@ -776,14 +776,14 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("Enter"))
+        sut.send(TestEvent("Enter"))
         awaitItem()
         loginNodeBuilderConstructions shouldBe 1
 
-        sut.sendEvent(TestEvent("FinishLogin"))
+        sut.send(TestEvent("FinishLogin"))
         awaitItem()
 
-        sut.sendEvent(TestEvent("Enter"))
+        sut.send(TestEvent("Enter"))
         awaitItem()
         // Factory called TWICE — proves the first NodeBuilder was evicted on Finish
         // (union-retain saw no alive path starting with the login key) and the second
@@ -841,7 +841,7 @@ class NavigationServiceTest :
           (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
         }
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
 
         awaitItem().apply {
           // sub flow node should receive an argument
@@ -850,7 +850,7 @@ class NavigationServiceTest :
           (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "+7981123456"
         }
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
 
         awaitItem().apply {
           // screen node should receive an argument
@@ -897,18 +897,18 @@ class NavigationServiceTest :
         awaitItem()
 
         // page1 is alive: it keeps the payload it was built with
-        sut.sendEvent(TestEvent("L"))
+        sut.send(TestEvent("L"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials"
           (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
         }
 
         // page1 is pruned together with its stored payload
-        sut.sendEvent(TestEvent("P2"))
+        sut.send(TestEvent("P2"))
         awaitItem().active shouldBe "app.page2"
 
         // page1 is rebuilt from the target's ancestor payload instead of crashing with "no payload"
-        sut.sendEvent(TestEvent("L"))
+        sut.send(TestEvent("L"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials"
           (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
@@ -959,10 +959,10 @@ class NavigationServiceTest :
 
       sut.collectTransitions(rootNodePayload = 42).test {
         awaitItem()
-        sut.sendEvent(TestEvent("P2"))
+        sut.send(TestEvent("P2"))
         awaitItem().active shouldBe "app.page2"
 
-        sut.sendEvent(TestEvent("ABS"))
+        sut.send(TestEvent("ABS"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials.otp"
           (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
@@ -994,17 +994,17 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("D"))
+        sut.send(TestEvent("D"))
         awaitItem().apply {
           active shouldBe "app.main.details"
           (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
         }
 
-        sut.sendEvent(TestEvent("M"))
+        sut.send(TestEvent("M"))
         awaitItem().active shouldBe "app.main"
 
         // details is rebuilt from the target's null ancestor payload
-        sut.sendEvent(TestEvent("I"))
+        sut.send(TestEvent("I"))
         awaitItem().apply {
           active shouldBe "app.main.details.info"
           (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
@@ -1035,10 +1035,10 @@ class NavigationServiceTest :
       // collectTransitions turns strict dropping on: a dropped event would throw
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("D"))
+        sut.send(TestEvent("D"))
         awaitItem().active shouldBe "app.main.details"
 
-        sut.sendEvent(TestEvent("I"))
+        sut.send(TestEvent("I"))
         awaitItem().apply {
           active shouldBe "app.main.details.info"
           (aliveNodes["app.main.details"] as TestScreenNode?)?.payload shouldBe "null-received"
@@ -1117,7 +1117,7 @@ class NavigationServiceTest :
           payloads.keys.map { it.toString() }.shouldNotContainAnyOf(listOf("app"))
         }
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().apply {
           // After NavigateTo Target.app12.login("Dima"), the login flow's payload IS
           // persisted (NavigateTo payloads are intentionally durable so a later rebuild of
@@ -1219,7 +1219,7 @@ class NavigationServiceTest :
         )
         exitCounts.shouldBeEmpty()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1.login.credentials"
         entryCounts.shouldContainExactly(
           mapOf(
@@ -1231,7 +1231,7 @@ class NavigationServiceTest :
         )
         exitCounts.shouldBeEmpty()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro"
         entryCounts.shouldContainExactly(
           mapOf(
@@ -1245,7 +1245,7 @@ class NavigationServiceTest :
         )
         exitCounts.shouldBeEmpty()
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe "app.page1.login.credentials.permissions.intro" // sends "permissions finish"
         awaitItem().active shouldBe
           "app.page1.login.credentials.permissions.intro" // after "permissions finish" -> sends "login finish"
@@ -1269,7 +1269,7 @@ class NavigationServiceTest :
           ),
         )
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem().active shouldBe "app.page2"
         entryCounts.shouldContainExactly(
           mapOf(
@@ -1292,7 +1292,7 @@ class NavigationServiceTest :
           ),
         )
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1.login.credentials"
         entryCounts.shouldContainExactly(
           mapOf(
@@ -1407,22 +1407,22 @@ class NavigationServiceTest :
         state.active shouldBe "app.page1.permissions.intro.request"
         val permissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.page1"
 
         // PermissionsNodeBuilder should be released inside AppNodeBuilder at this point and on "B"-event it should
         // be reconstructed again
 
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         state = awaitItem()
         state.active shouldBe "app.page1.permissions.intro.request"
         val newPermissionNodes = state.aliveNodes.filter { it.key.contains("permissions") }.values
         newPermissionNodes.shouldNotContainAnyOf(permissionNodes)
         val requestNode = state.aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
-        sut.sendEvent(TestEvent("C"))
+        sut.send(TestEvent("C"))
         awaitItem()
-        sut.sendEvent(TestEvent("D"))
+        sut.send(TestEvent("D"))
         val newRequestNode = awaitItem().aliveNodes.entries.find { it.key.endsWith("request") }!!.value
 
         requestNode shouldNotBe newRequestNode
@@ -1487,7 +1487,7 @@ class NavigationServiceTest :
       sut.collectTransitions(rootNodePayload = 42).test {
         awaitItem()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
 
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials.otp"
@@ -1560,12 +1560,12 @@ class NavigationServiceTest :
       sut.start() // → "app.intro"
 
       sut.removeTransitionListener(listener)
-      sut.sendEvent(TestEvent("A")) // should NOT be delivered
+      sut.send(TestEvent("A")) // should NOT be delivered
 
       deliveries shouldBe listOf("app.intro")
     }
 
-    should("listener calling sendEvent during dispatch queues event and processes it after current dispatch") {
+    should("listener calling send during dispatch queues event and processes it after current dispatch") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService05Schema(),
@@ -1589,11 +1589,11 @@ class NavigationServiceTest :
       sut.addTransitionListener { state ->
         states.add(state.active)
         if (state.active == "app.main") {
-          sut.sendEvent(TestEvent("B")) // reentrant call — must be queued, not immediate
+          sut.send(TestEvent("B")) // reentrant call — must be queued, not immediate
         }
       }
       sut.start() // emits "app.intro"
-      sut.sendEvent(TestEvent("A")) // emits "app.main", queues B, then drains: emits "app.test"
+      sut.send(TestEvent("A")) // emits "app.main", queues B, then drains: emits "app.test"
 
       states shouldBe listOf("app.intro", "app.main", "app.test")
     }
@@ -1624,7 +1624,7 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
 
-        sut.sendEvent(TestEvent("enqueue"))
+        sut.send(TestEvent("enqueue"))
         // First: screen returns EnqueueEvent — state stays at app.intro, "navigate" is queued
         awaitItem().active shouldBe "app.intro"
         // Second: queued "navigate" is dispatched — navigates to app.main
@@ -1672,7 +1672,7 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         // Back triggers Finish(42), which sends RootFinishRequestEvent; Stay keeps app.intro.
         // Two emissions: one for Back transition, one for RootFinishRequestEvent + Stay.
         awaitItem().active shouldBe "app.intro"
@@ -1702,13 +1702,13 @@ class NavigationServiceTest :
 
       sut.dispose()
 
-      // After dispose, sendEvent must not deliver to listener
-      sut.sendEvent(TestEvent("anything"))
+      // After dispose, send must not deliver to listener
+      sut.send(TestEvent("anything"))
 
       deliveries shouldBe listOf("app.intro")
     }
 
-    should("sendEvent after dispose does not throw") {
+    should("send after dispose does not throw") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService01Schema(),
@@ -1723,8 +1723,8 @@ class NavigationServiceTest :
       sut.dispose()
 
       // Must not throw
-      sut.sendEvent(TestEvent("anything"))
-      sut.sendEvent(TestEvent("more"))
+      sut.send(TestEvent("anything"))
+      sut.send(TestEvent("more"))
     }
 
     should("state is rolled back when NodeBuilder throws during a transition") {
@@ -1744,8 +1744,8 @@ class NavigationServiceTest :
       )
       sut.start()
 
-      // The failing transition throws out of sendEvent
-      val ex = runCatching { sut.sendEvent(TestEvent("A")) }.exceptionOrNull()
+      // The failing transition throws out of send
+      val ex = runCatching { sut.send(TestEvent("A")) }.exceptionOrNull()
       ex shouldNotBe null
 
       // C3 rollback: state must reflect the pre-transition snapshot, not a partial mutation
@@ -1755,7 +1755,7 @@ class NavigationServiceTest :
       capturedState!!.active shouldBe "app.intro"
       capturedState!!._enqueuedEvents.isEmpty() shouldBe true
       // alive list and nodes must be fully restored — partial mutation of alive would surface
-      // as a runValidityChecks failure on the very next sendEvent
+      // as a runValidityChecks failure on the very next send
       val region = capturedState!!.regions.values.first()
       region.alive.map { it.toString() } shouldBe listOf("app", "app.intro")
       region.nodes.keys.map { it.toString() }.toSet() shouldBe setOf("app", "app.intro")
@@ -1785,7 +1785,7 @@ class NavigationServiceTest :
       )
       sut.start()
 
-      val ex = runCatching { sut.sendEvent(TestEvent("A")) }.exceptionOrNull()
+      val ex = runCatching { sut.send(TestEvent("A")) }.exceptionOrNull()
       ex shouldNotBe null
 
       var capturedState: NavigationState? = null
@@ -1829,14 +1829,14 @@ class NavigationServiceTest :
       sut.start()
       shouldThrow = true
 
-      val ex = runCatching { sut.sendEvent(TestEvent("A")) }.exceptionOrNull()
+      val ex = runCatching { sut.send(TestEvent("A")) }.exceptionOrNull()
       // The listener exception propagates to the caller
       ex?.message shouldBe "listener error"
       // B was NOT drained — state is still at app.intro (capturedState from start(), not updated)
       capturedState!!.active shouldBe "app.intro"
     }
 
-    should("sendEvent before start throws IllegalStateException") {
+    should("send before start throws IllegalStateException") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService01Schema(),
@@ -1849,7 +1849,7 @@ class NavigationServiceTest :
       )
 
       io.kotest.assertions.throwables.shouldThrow<IllegalStateException> {
-        sut.sendEvent(TestEvent("anything"))
+        sut.send(TestEvent("anything"))
       }
     }
 
@@ -1878,7 +1878,7 @@ class NavigationServiceTest :
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem().active shouldBe "app.intro" // A -> EnqueueEvent(B), state stays
         awaitItem().active shouldBe "app.intro" // B -> EnqueueEvent(C), state stays
         awaitItem().active shouldBe "app.test" // C -> NavigateTo(test)
@@ -1939,7 +1939,7 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        sut.sendEvent(TestEvent("go"))
+        sut.send(TestEvent("go"))
         awaitItem().active shouldBe "app.test"
         cancelAndIgnoreRemainingEvents()
       }
@@ -1972,7 +1972,7 @@ class NavigationServiceTest :
 
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        sut.sendEvent(TestEvent("go"))
+        sut.send(TestEvent("go"))
         awaitItem().active shouldBe "app.main" // last occurrence in the list, not `test`
         cancelAndIgnoreRemainingEvents()
       }
@@ -2022,7 +2022,7 @@ class NavigationServiceTest :
       )
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        sut.sendEvent(TestEvent("go"))
+        sut.send(TestEvent("go"))
         awaitItem().active shouldBe "app.main"
         cancelAndIgnoreRemainingEvents()
       }
@@ -2162,7 +2162,7 @@ class NavigationServiceTest :
       disposeCount.size shouldBe 2
     }
 
-    should("sendEvent after cleanDispose is a no-op") {
+    should("send after cleanDispose is a no-op") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService05Schema(),
@@ -2181,7 +2181,7 @@ class NavigationServiceTest :
       sut.start()
       sut.cleanDispose()
 
-      sut.sendEvent(TestEvent("go")) // must not throw
+      sut.send(TestEvent("go")) // must not throw
     }
 
     should("cleanDispose fires onPreDispose and onPostDispose extension-point hooks") {
@@ -2219,11 +2219,11 @@ class NavigationServiceTest :
 
     should("queued events that survived prior successful iterations remain after a later transition fails") {
       // core-4: snapshot _enqueuedEvents on rollback so events appended by earlier iterations of
-      // the same sendEvent drain are NOT discarded when a later transition fails.
+      // the same send drain are NOT discarded when a later transition fails.
       // Scenario:
-      //  - sendEvent("A") with a transition that navigates to "main".
+      //  - send("A") with a transition that navigates to "main".
       //  - A listener observes the "main" state and, while still inside dispatch
-      //    (isDispatching == true), recursively calls sendEvent("B") and sendEvent("C").
+      //    (isDispatching == true), recursively calls send("B") and send("C").
       //    Both are appended to _enqueuedEvents.
       //  - The drain pops "B" first; B's transition tries NavigateTo(app.missing) and fails.
       //  - Without the snapshot fix, the catch would clear() the whole queue, losing C.
@@ -2255,15 +2255,15 @@ class NavigationServiceTest :
       sut.addTransitionListener { state ->
         if (listenerArmed && state.active == "app.main") {
           listenerArmed = false
-          sut.sendEvent(TestEvent("B"))
-          sut.sendEvent(TestEvent("C"))
+          sut.send(TestEvent("B"))
+          sut.send(TestEvent("C"))
         }
       }
       sut.start()
 
       listenerArmed = true
-      val ex = runCatching { sut.sendEvent(TestEvent("A")) }.exceptionOrNull()
-      ex shouldNotBe null // B's failure propagated out of sendEvent
+      val ex = runCatching { sut.send(TestEvent("A")) }.exceptionOrNull()
+      ex shouldNotBe null // B's failure propagated out of send
 
       // C must still be queued — the snapshot rollback preserved events queued before B failed.
       var capturedState: NavigationState? = null
@@ -2335,7 +2335,7 @@ class NavigationServiceTest :
       sut.start()
 
       preTransitionLog.clear()
-      sut.sendEvent(TestEvent("finishAlpha"))
+      sut.send(TestEvent("finishAlpha"))
 
       // The internal RootFinishRequestEvent must NOT have been delivered to any node in the
       // non-target (beta) region or in the app region. The only "regions" entitled to process it
@@ -2347,7 +2347,7 @@ class NavigationServiceTest :
       rootFinishLeaks shouldBe emptyList()
     }
 
-    should("addTransitionListener whose replay throws is removed before sendEvent") {
+    should("addTransitionListener whose replay throws is removed before send") {
       // test-13: when a listener throws during the immediate-replay performed at registration
       // time, the listener must be removed so it is NOT invoked again on subsequent transitions.
       val sut = NavigationService(
@@ -2378,7 +2378,7 @@ class NavigationServiceTest :
 
       // The listener should have been removed at replay time — a subsequent transition must
       // NOT invoke it a second time.
-      sut.sendEvent(TestEvent("go"))
+      sut.send(TestEvent("go"))
       invocationCount shouldBe 1
     }
 
@@ -2411,9 +2411,9 @@ class NavigationServiceTest :
       (ex!!.message?.contains("AbsoluteTarget is not supported as FlowNode.initial") == true) shouldBe true
     }
 
-    should("re-entrant sendEvent from inside a listener with no scheduler set drains in-loop preserving FIFO order") {
-      // A3-1: re-entrant sendEvent calls while isDispatching == true must be appended to
-      // _enqueuedEvents (sendEvent at NavigationService.kt:425-428) and then drained by the same
+    should("re-entrant send from inside a listener with no scheduler set drains in-loop preserving FIFO order") {
+      // A3-1: re-entrant send calls while isDispatching == true must be appended to
+      // _enqueuedEvents (send at NavigationService.kt:425-428) and then drained by the same
       // outer while-loop (lines 429-448). With no scheduler set, the drain happens in-loop and
       // listeners observe transitions in FIFO order — A first, then B, then C.
       val sut = NavigationService(
@@ -2442,12 +2442,12 @@ class NavigationServiceTest :
         // On the first transition for A → "app.main", re-enter twice — both must queue and drain
         // in FIFO order (B before C) so the final sequence is main → test → intro.
         if (state.active == "app.main") {
-          sut.sendEvent(TestEvent("B"))
-          sut.sendEvent(TestEvent("C"))
+          sut.send(TestEvent("B"))
+          sut.send(TestEvent("C"))
         }
       }
       sut.start() // delivers "app.intro" via initial listener replay
-      sut.sendEvent(TestEvent("A")) // → "app.main", queues B, C; drains: → "app.test", → "app.intro"
+      sut.send(TestEvent("A")) // → "app.main", queues B, C; drains: → "app.test", → "app.intro"
 
       // All three transitions observed in FIFO order, payloads/state intact (active path
       // reflects the actual final node).
@@ -2460,7 +2460,7 @@ class NavigationServiceTest :
       // A3-2: when a scheduler is set mid-listener, the outer drain loop at
       // NavigationService.kt:444-447 hands off the NEXT queued event to the scheduler and breaks
       // the loop, so no event is dropped. The user-supplied scheduler captures the event; manually
-      // re-invoking sendEvent(captured) resumes processing — and because isDispatching has been
+      // re-invoking send(captured) resumes processing — and because isDispatching has been
       // reset to false in the finally block, the re-entry now drains normally.
       val sut = NavigationService(
         TestNodeBuilder(
@@ -2488,18 +2488,18 @@ class NavigationServiceTest :
         states.add(state.active)
         if (state.active == "app.main") {
           // Two re-entrant calls queued behind the current dispatch
-          sut.sendEvent(TestEvent("B"))
-          sut.sendEvent(TestEvent("C"))
+          sut.send(TestEvent("B"))
+          sut.send(TestEvent("C"))
           // Install scheduler AFTER first re-entrant landed — so the drain loop's
           // enqueuedEventScheduler?.let branch fires when popping the first queued event (B).
           sut.setEnqueuedEventsScheduler { evt -> scheduled.add(evt) }
         }
       }
       sut.start() // → "app.intro"
-      sut.sendEvent(TestEvent("A")) // → "app.main"; queues B, C; scheduler captures B, breaks loop
+      sut.send(TestEvent("A")) // → "app.main"; queues B, C; scheduler captures B, breaks loop
 
       // After A: we observed intro + main. The scheduler captured B (the first queued event); C is
-      // still sitting in _enqueuedEvents waiting to be drained when sendEvent re-runs.
+      // still sitting in _enqueuedEvents waiting to be drained when send re-runs.
       states shouldBe listOf("app.intro", "app.main")
       scheduled.size shouldBe 1
       (scheduled[0] is TestEvent && (scheduled[0] as TestEvent).name == "B") shouldBe true
@@ -2507,19 +2507,19 @@ class NavigationServiceTest :
       // Manually dispatch the captured event — this is the contract the scheduler must uphold.
       // The remaining queued event (C) is drained in the same outer loop after B's transition,
       // but again hits the scheduler and is captured.
-      sut.sendEvent(scheduled[0])
+      sut.send(scheduled[0])
 
       states shouldBe listOf("app.intro", "app.main", "app.test")
       scheduled.size shouldBe 2
       (scheduled[1] is TestEvent && (scheduled[1] as TestEvent).name == "C") shouldBe true
 
       // Dispatch the third captured event to finish the chain — no event was dropped.
-      sut.sendEvent(scheduled[1])
+      sut.send(scheduled[1])
       states shouldBe listOf("app.intro", "app.main", "app.test", "app.intro")
     }
 
-    should("chain of N>=3 nested re-entrant sendEvent calls drains in FIFO with payloads intact") {
-      // A3-3: a listener that re-enters sendEvent on every transition produces a chain of N
+    should("chain of N>=3 nested re-entrant send calls drains in FIFO with payloads intact") {
+      // A3-3: a listener that re-enters send on every transition produces a chain of N
       // re-entrant calls. The single outer while-loop must drain them all in FIFO order (B then C
       // then D), each producing the expected destination — proving the queue is preserved across
       // the chain and no event is lost.
@@ -2548,7 +2548,7 @@ class NavigationServiceTest :
       var reentryCount = 0
       // The follow-up sequence: after A (main), enqueue B → test; after B (test), enqueue C →
       // intro; after C (intro), enqueue D → main. Total: 4 transitions chained from a single
-      // top-level sendEvent(A), each one re-entered from inside the listener.
+      // top-level send(A), each one re-entered from inside the listener.
       val followUp = mapOf(
         "app.main" to "B",
         "app.test" to "C",
@@ -2560,12 +2560,12 @@ class NavigationServiceTest :
         followUp[state.active]?.let { next ->
           if (reentryCount < 3) {
             reentryCount += 1
-            sut.sendEvent(TestEvent(next))
+            sut.send(TestEvent(next))
           }
         }
       }
       sut.start() // → "app.intro" (counted as initial replay, no re-entry)
-      sut.sendEvent(TestEvent("A"))
+      sut.send(TestEvent("A"))
       // Chain: A → main → (B re-entered) → test → (C re-entered) → intro → (D re-entered) → main
       // All three re-entries happened inside the same outer drain-loop, FIFO-preserved.
 
@@ -2581,7 +2581,7 @@ class NavigationServiceTest :
       // exception propagates after all listeners ran.
       //
       // Listeners are registered BEFORE start() so the throwing branch exercised here is the
-      // sendEvent dispatch loop (NavigationService.kt:674) — NOT the addTransitionListener
+      // send dispatch loop (NavigationService.kt:674) — NOT the addTransitionListener
       // immediate-invoke path which is asserted by a separate existing test.
       val sut = NavigationService(
         TestNodeBuilder(
@@ -2691,11 +2691,11 @@ class NavigationServiceTest :
       var thrown: Throwable? = null
       sut.collectTransitions().test {
         awaitItem() // intro alive
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem() // main alive
-        sut.sendEvent(TestEvent("B"))
+        sut.send(TestEvent("B"))
         awaitItem() // test alive (stack: intro, main, test)
-        thrown = runCatching { sut.sendEvent(TestEvent("POP")) }.exceptionOrNull()
+        thrown = runCatching { sut.send(TestEvent("POP")) }.exceptionOrNull()
         cancelAndIgnoreRemainingEvents()
       }
 
@@ -2703,7 +2703,7 @@ class NavigationServiceTest :
       // first via previousAlive.reversed()) threw. Without R9 the throw would stop the loop
       // immediately after the test entry, leaving main without an onExit call.
       exitedPaths.shouldContainInOrder("test", "main")
-      // The throw from test.onExit propagates out of sendEvent.
+      // The throw from test.onExit propagates out of send.
       (thrown is IllegalStateException) shouldBe true
       (thrown?.message?.contains("test onExit throws") == true) shouldBe true
     }

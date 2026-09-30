@@ -461,7 +461,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(TestEvent("trigger"))
+        sut.send(TestEvent("trigger"))
         // Drain transitions until all follow-ups have been delivered. Each event in the chain
         // produces at least one transition emission; awaitItem() repeatedly until quiet.
         repeat(followUps.size + 1) { runCatching { awaitItem() } }
@@ -502,7 +502,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("trigger"))
+        sut.send(TestEvent("trigger"))
         awaitItem()
         // After the navigation resolved, the runtime drained the queued TestEvent("followUp")
         // and it reached beta's transition.
@@ -554,12 +554,12 @@ class ParallelNodeTest : ShouldSpec() {
         betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par02Beta" }
 
         // Make alpha deeper than beta
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
         }
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back → beta chosen → Finish(Unit) → EnqueueEvent(Par02MainChildFinishRequest.Par02Beta)
         awaitItem().apply {
           // child-finish event → parallel Ignore → app Stay
@@ -593,7 +593,7 @@ class ParallelNodeTest : ShouldSpec() {
         val bottomRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par01Bottom" }
         val initialBottomActive = initial.regions[bottomRegionId]!!.active
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back → Finish(Unit) → EnqueueEvent(Par01MainChildFinishRequest.Par01Top)
         awaitItem().apply {
           // child-finish event → parallel Stay
@@ -622,7 +622,7 @@ class ParallelNodeTest : ShouldSpec() {
       sut.collectTransitions().test {
         awaitItem() // initial
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem() // A processed: par01Main returned EnqueueEvent(B); state unchanged
         val afterB = awaitItem() // B drained: all Ignore; state unchanged
 
@@ -659,7 +659,7 @@ class ParallelNodeTest : ShouldSpec() {
       sut.eventSink(betaActive).send(TestEvent("goToScreen2"))
 
       val mainPath = betaActive.dropLast(2)
-      // Regions are folded in sendEvent's order; each node is consulted once.
+      // Regions are folded in send's order; each node is consulted once.
       consulted.shouldContainExactlyInAnyOrder(
         betaActive.toString(),
         betaActive.dropLast(1).toString(),
@@ -674,7 +674,7 @@ class ParallelNodeTest : ShouldSpec() {
       states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
     }
 
-    should("the root sink enqueues follow-up events in the same order as sendEvent") {
+    should("the root sink enqueues follow-up events in the same order as send") {
       fun run(send: (NavigationService<Unit>, Path) -> Unit): List<Event> {
         val sut = buildPar02Service(
           betaTransitions = listOf(tr("X", EnqueueEvent(TestEvent("fromBeta")))),
@@ -703,7 +703,7 @@ class ParallelNodeTest : ShouldSpec() {
         return events
       }
 
-      val direct = run { sut, _ -> sut.sendEvent(TestEvent("X")) }
+      val direct = run { sut, _ -> sut.send(TestEvent("X")) }
       val viaRootSink = run { sut, root -> sut.eventSink(root).send(TestEvent("X")) }
 
       direct shouldBe listOf(TestEvent("X"), TestEvent("fromMain"), TestEvent("fromBeta"))
@@ -761,7 +761,7 @@ class ParallelNodeTest : ShouldSpec() {
       sut.addTransitionListener { states.add(it) }
       sut.start()
       betaRegionId = states.last().regions.keys.first { it.path.lastSegment().name == "par02Beta" }
-      sut.sendEvent(TestEvent("goToScreen2"))
+      sut.send(TestEvent("goToScreen2"))
       val mainPath = states.last().regionByName("par02Beta")!!.active.dropLast(2)
 
       sut.eventSink(mainPath).send(Event.Back)
@@ -806,7 +806,7 @@ class ParallelNodeTest : ShouldSpec() {
       consulted.takeLast(2) shouldBe listOf(innerPath.toString(), innerPath.take(1).toString())
       consulted.clear()
 
-      sut.sendEvent(TestEvent("I"))
+      sut.send(TestEvent("I"))
 
       outerEvents.count { it == TestEvent("I") } shouldBe 2
       consulted.count { it.endsWith("nestedAlpha") } shouldBe 1
@@ -837,8 +837,8 @@ class ParallelNodeTest : ShouldSpec() {
       sut.start()
       val alphaScreen = states.last().regionByName("par03Alpha")!!.active
       val oldSink = sut.eventSink(alphaScreen)
-      sut.sendEvent(TestEvent("PAGE"))
-      sut.sendEvent(TestEvent("MAIN"))
+      sut.send(TestEvent("PAGE"))
+      sut.send(TestEvent("MAIN"))
       states.last().regionByName("par03Alpha")!!.active shouldBe alphaScreen
       val statesBefore = states.size
 
@@ -864,7 +864,7 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Beta" }!!
         val initialBetaActive = initial.regions[betaRegionId]!!.active
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
 
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
@@ -928,10 +928,10 @@ class ParallelNodeTest : ShouldSpec() {
       sut.collectTransitions().test {
         val initial = awaitItem()
         alphaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par02Alpha" }
-        sut.sendEvent(TestEvent("driveAlpha"))
+        sut.send(TestEvent("driveAlpha"))
         awaitItem()
 
-        sut.sendEvent(ru.kode.way.Event.Back)
+        sut.send(ru.kode.way.Event.Back)
         awaitItem()
 
         // Back was routed to alpha only. If Back were broadcast to every sub-region (the bug this
@@ -962,7 +962,7 @@ class ParallelNodeTest : ShouldSpec() {
         alphaCreateCalls shouldBe 1
         betaCreateCalls shouldBe 1
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem()
 
         // After the cross-region invalidateCache sweep neither sibling NodeBuilder was
@@ -995,7 +995,7 @@ class ParallelNodeTest : ShouldSpec() {
         val bottomRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par01Bottom" }!!
         val initialBottomActive = initial.regions[bottomRegionId]!!.active
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
 
         // Back at par01TopIntro (only screen, direct child of par01Top flow root):
         // With L1 fix → Finish(Unit) → RootFinishRequestEvent → Par01MainChildFinishRequest.Par01Top
@@ -1048,7 +1048,7 @@ class ParallelNodeTest : ShouldSpec() {
         val initialTopActive = initial.regions[topRegionId]!!.active
         val initialBottomActive = initial.regions[bottomRegionId]!!.active
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
 
         awaitItem() // Back → EnqueueEvent(Par01MainChildFinishRequest.Par01Top)
         awaitItem().apply {
@@ -1139,7 +1139,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("exit"))
+        sut.send(TestEvent("exit"))
         cancelAndIgnoreRemainingEvents()
       }
 
@@ -1177,13 +1177,13 @@ class ParallelNodeTest : ShouldSpec() {
         val initialBetaActive = initial.regions[betaRegionId]!!.active
 
         // Navigate alpha to screen2 so it is no longer at the initial screen
-        sut.sendEvent(TestEvent("screen2"))
+        sut.send(TestEvent("screen2"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
         }
 
         // Navigate via AbsoluteTarget to the alpha flow root (a FlowNode)
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         // With L2 fix: follows initial chain → par02AlphaScreen1
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par02AlphaScreen1"
@@ -1224,7 +1224,7 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.find { it.path.lastSegment().name == "par02Beta" }!!
         val rootPathBeforeNavigating = initial.regions[alphaRegionId]!!.rootPath
 
-        sut.sendEvent(TestEvent("screen2"))
+        sut.send(TestEvent("screen2"))
         awaitItem().apply {
           isRegionAtRoot(alphaRegionId) shouldBe false
           // Sibling region, untouched by the alpha-only navigation, stays at its root.
@@ -1233,7 +1233,7 @@ class ParallelNodeTest : ShouldSpec() {
 
         // Back to the flow's root screen — via an ordinary NavigateTo, not the AbsoluteTarget
         // chain-resolution path exercised by the test above.
-        sut.sendEvent(TestEvent("back-to-screen1"))
+        sut.send(TestEvent("back-to-screen1"))
         awaitItem().apply {
           isRegionAtRoot(alphaRegionId) shouldBe true
           // rootPath itself never changes across this round trip — only `active` moved.
@@ -1294,7 +1294,7 @@ class ParallelNodeTest : ShouldSpec() {
         mainEntryCount shouldBe 1
         mainExitCount shouldBe 0
 
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem()
         mainEntryCount shouldBe 1
         mainExitCount shouldBe 1
@@ -1316,7 +1316,7 @@ class ParallelNodeTest : ShouldSpec() {
         initial.regions.keys.map { it.path.lastSegment().name }
           .shouldContainOnly("par03App", "par03Alpha", "par03Beta")
 
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
 
         awaitItem().apply {
           regions.keys.size shouldBe 1
@@ -1348,10 +1348,10 @@ class ParallelNodeTest : ShouldSpec() {
         alphaEntryCount shouldBe 1
         betaEntryCount shouldBe 1
 
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem()
 
-        sut.sendEvent(TestEvent("goToMain"))
+        sut.send(TestEvent("goToMain"))
         awaitItem()
         alphaEntryCount shouldBe 2
         betaEntryCount shouldBe 2
@@ -1371,7 +1371,7 @@ class ParallelNodeTest : ShouldSpec() {
         val topActive = initial.regions[topRegionId]!!.active
         val bottomActive = initial.regions[bottomRegionId]!!.active
 
-        sut.sendEvent(TestEvent("anything"))
+        sut.send(TestEvent("anything"))
 
         awaitItem().apply {
           regions[topRegionId]!!.active shouldBe topActive
@@ -1409,7 +1409,7 @@ class ParallelNodeTest : ShouldSpec() {
         // innerA starts at screen2 (the initial target)
         initial.regions[innerARegionId]!!.active.lastSegment().name shouldBe "par04InnerAScreen2"
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
 
         // Back should navigate within innerA from screen2 → screen1
         // (not finish the alpha sub-region, which is what happened before the ParallelFlowNode<Unit> active fix)
@@ -1444,7 +1444,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.eventSink(alphaPath).send(TestEvent("X"))
 
-      // par04Beta's leaves are never consulted; regions are folded in sendEvent's order, each node once.
+      // par04Beta's leaves are never consulted; regions are folded in send's order, each node once.
       consulted.shouldContainExactlyInAnyOrder(
         "par04InnerAScreen2",
         "par04InnerAScreen1",
@@ -1510,7 +1510,7 @@ class ParallelNodeTest : ShouldSpec() {
         val alphaRegionId = initial.regions.keys.first { "par02Alpha" in it.path.toString() }
         val betaRegionId = initial.regions.keys.first { "par02Beta" in it.path.toString() }
 
-        sut.sendEvent(TestEvent("nav"))
+        sut.send(TestEvent("nav"))
         val after = awaitItem()
 
         // Alpha sub-region navigated independently
@@ -1557,14 +1557,14 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par03Beta" }
 
         // Navigate alpha to screen2, then capture the absolute path
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           alphaScreen2AbsPath = regions[alphaRegionId]!!.active
           alphaScreen2AbsPath!!.lastSegment().name shouldBe "par03AlphaScreen2"
         }
 
         // Leave the parallel — both alpha and beta sub-regions are pruned
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem().apply {
           regions.keys.size shouldBe 1
           regions.keys.first().path.lastSegment().name shouldBe "par03App"
@@ -1572,7 +1572,7 @@ class ParallelNodeTest : ShouldSpec() {
         }
 
         // AbsoluteTarget deeplink back into alpha screen2 (sub-regions don't exist yet)
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         awaitItem().apply {
           // Sub-regions must be recreated
           regions.keys.map { it.path.lastSegment().name }.shouldContainOnly("par03App", "par03Alpha", "par03Beta")
@@ -1620,7 +1620,7 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par05Beta" }
         val initialBetaActive = initial.regions[betaRegionId]!!.active
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par05AlphaScreen2"
           regions[betaRegionId]!!.active shouldBe initialBetaActive
@@ -1641,7 +1641,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back at par05AlphaScreen1 → Finish → EnqueueEvent(Par05Alpha)
         awaitItem() // child-finish drained → parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -1686,7 +1686,7 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "parfmBeta" }
         val initialBetaActive = initial.regions[betaRegionId]!!.active
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "parfmAlphaScreen2"
           regions[betaRegionId]!!.active shouldBe initialBetaActive
@@ -1711,7 +1711,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back at parfmBetaScreen → Finish → EnqueueEvent(ParfmBeta)
         awaitItem() // child-finish drained → parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -1736,7 +1736,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back at parfmAlphaScreen1 → Finish → EnqueueEvent(ParfmAlpha)
         awaitItem() // child-finish drained → parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -1781,7 +1781,7 @@ class ParallelNodeTest : ShouldSpec() {
           val innerARegion = regions.entries.find { it.key.path.lastSegment().name == "par06InnerA" }!!.value
           innerARegion.active.lastSegment().name shouldBe "par06InnerAScreen2"
         }
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem().apply {
           val innerARegion = regions.entries.find { it.key.path.lastSegment().name == "par06InnerA" }!!.value
           innerARegion.active.lastSegment().name shouldBe "par06InnerAScreen1"
@@ -1809,7 +1809,7 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par06Beta" }
         val initialBetaActive = initial.regions[betaRegionId]!!.active
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           regions[innerARegionId]!!.active.lastSegment().name shouldBe "par06InnerAScreen2"
           regions[betaRegionId]!!.active shouldBe initialBetaActive
@@ -1861,7 +1861,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back at par06mInnerAScreen → Finish → EnqueueEvent(Par06mInnerA)
         awaitItem() // child-finish drained → alpha parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -1886,7 +1886,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back at par06mBetaScreen → Finish → EnqueueEvent(Par06mBeta)
         awaitItem() // child-finish drained → outer parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -1959,7 +1959,7 @@ class ParallelNodeTest : ShouldSpec() {
         val topRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par01Top" }
         val bottomRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par01Bottom" }
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
 
         // par01TopIntro screen returns Ignore → chain bubbles to flow root → flow root returns Stay
         awaitItem().apply {
@@ -2015,21 +2015,21 @@ class ParallelNodeTest : ShouldSpec() {
         betaScreenAbs = initial.regions[betaRegionId]!!.active
         betaScreenAbs!!.lastSegment().name shouldBe "par03BetaScreen"
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply {
           alphaScreen2Abs = regions[alphaRegionId]!!.active
           alphaScreen2Abs!!.lastSegment().name shouldBe "par03AlphaScreen2"
         }
 
         // Leave the parallel — both alpha and beta sub-regions are pruned.
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem().apply {
           regions.keys.size shouldBe 1
           regions.keys.first().path.lastSegment().name shouldBe "par03App"
         }
 
         // Single NavigateTo with two AbsoluteTargets into different sub-regions of the cold parallel.
-        sut.sendEvent(TestEvent("deeplinkBoth"))
+        sut.send(TestEvent("deeplinkBoth"))
         awaitItem().apply {
           // Sub-regions recreated.
           regions.keys.map { it.path.lastSegment().name }.shouldContainOnly(
@@ -2087,15 +2087,15 @@ class ParallelNodeTest : ShouldSpec() {
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "par03Beta" }
         betaScreenAbs = initial.regions[betaRegionId]!!.active
 
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().apply { alphaScreen2Abs = regions[alphaRegionId]!!.active }
 
         // Leave the parallel — both sub-regions pruned (cold).
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem().apply { regions.keys.size shouldBe 1 }
 
         // Reverse-order deeplink into the cold parallel: same landing as the forward-order test.
-        sut.sendEvent(TestEvent("deeplinkReversed"))
+        sut.send(TestEvent("deeplinkReversed"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par03AlphaScreen2"
           regions[betaRegionId]!!.active.lastSegment().name shouldBe "par03BetaScreen"
@@ -2143,11 +2143,11 @@ class ParallelNodeTest : ShouldSpec() {
         betaScreenAbs = initial.regions[betaRegionId]!!.active
 
         // Move alpha to Screen2 so the deeplink back to Screen is a real change; parallel stays warm.
-        sut.sendEvent(TestEvent("goToScreen2"))
+        sut.send(TestEvent("goToScreen2"))
         awaitItem().regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par03AlphaScreen2"
 
         // One NavigateTo, two AbsoluteTargets, both regions already alive → both routed.
-        sut.sendEvent(TestEvent("deeplinkBothWarm"))
+        sut.send(TestEvent("deeplinkBothWarm"))
         awaitItem().apply {
           regions[alphaRegionId]!!.active.lastSegment().name shouldBe "par03AlphaScreen" // moved back
           regions[betaRegionId]!!.active.lastSegment().name shouldBe "par03BetaScreen" // still there
@@ -2235,7 +2235,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem()
         cancelAndIgnoreRemainingEvents()
       }
@@ -2336,7 +2336,7 @@ class ParallelNodeTest : ShouldSpec() {
     // `NavigateTo(homeRoot) thenEnqueue <hop2>` where hop 2 switches the tab back to Explore AND
     // drives it to a target. The two hops are required: NavigateTo(homeRoot) must resolve while Home
     // is still current, so the tab switch is sequenced into a later dispatch via thenEnqueue. This locks the
-    // recipe as library-verified end-to-end. Emissions: sendEvent drains its enqueued follow-ups
+    // recipe as library-verified end-to-end. Emissions: send drains its enqueued follow-ups
     // synchronously (default scheduler), each producing a listener notification, so
     // expectMostRecentItem() returns the final drained state.
     should("cross-tab: Back from a top-up jump pops it AND switches the app's tab to Explore, navigating to a target") {
@@ -2399,7 +2399,7 @@ class ParallelNodeTest : ShouldSpec() {
         initial.acmeActiveLeaf("acmeExploreTab") shouldBe "acmeExploreScreen"
 
         // Forward: Explore → top-up (tab moves to Home, Home navigates onto top-up).
-        sut.sendEvent(TestEvent("openTopUp"))
+        sut.send(TestEvent("openTopUp"))
         expectMostRecentItem().apply {
           tabsNode.currentTab shouldBe homeRegionId
           acmeActiveLeaf("acmeHomeTab") shouldBe "acmeTopUpScreen"
@@ -2407,7 +2407,7 @@ class ParallelNodeTest : ShouldSpec() {
         }
 
         // Back: pop top-up in Home AND return the tab to Explore, navigating it to detail.
-        sut.sendEvent(TestEvent("backFromTopUp"))
+        sut.send(TestEvent("backFromTopUp"))
         expectMostRecentItem().apply {
           acmeActiveLeaf("acmeHomeTab") shouldBe "acmeHomeScreen" // top-up popped
           tabsNode.currentTab shouldBe exploreRegionId // tab back on Explore
@@ -2470,10 +2470,10 @@ class ParallelNodeTest : ShouldSpec() {
         tabsNode.exploreTabRegionId = exploreRegionId
         tabsNode.currentTab = exploreRegionId
 
-        sut.sendEvent(TestEvent("openTopUp"))
+        sut.send(TestEvent("openTopUp"))
         expectMostRecentItem().acmeActiveLeaf("acmeHomeTab") shouldBe "acmeTopUpScreen"
 
-        sut.sendEvent(TestEvent("backFromTopUp"))
+        sut.send(TestEvent("backFromTopUp"))
         expectMostRecentItem().apply {
           acmeActiveLeaf("acmeHomeTab") shouldBe "acmeHomeScreen" // top-up popped
           tabsNode.currentTab shouldBe exploreRegionId // tab restored
@@ -2638,7 +2638,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(TestEvent("finishMe"))
+        sut.send(TestEvent("finishMe"))
         // Finish → computeSubRegionFinishBuilder → EnqueueEvent(RootParallelChildFinishRequest.ChildFinish(42))
         awaitItem()
         awaitItem() // child-finish drained → parallel Ignore
@@ -2684,7 +2684,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(TestEvent("finishAlpha"))
+        sut.send(TestEvent("finishAlpha"))
         // Drain: (1) leaf Finish emits EnqueueEvent(NestedInnerChildFinishRequest.NestedAlpha)
         // (2) the child-finish event is dispatched to the inner parallel via the intermediates
         //     walk in resolveTransition (new Fix 2 behaviour).
@@ -2742,7 +2742,7 @@ class ParallelNodeTest : ShouldSpec() {
           .first { it.key.path.lastSegment().name == "beta" }.value
         initialBeta.active.lastSegment().name shouldBe "betaScreen"
 
-        sut.sendEvent(triggerEvent)
+        sut.send(triggerEvent)
         // The NavigateTo dispatch from the root parallel must NOT throw, and the beta region's
         // active path must include the betaScreen. (We use the region's initial screen as the
         // navigation target since this fixture only has a single screen per region — the
@@ -2829,7 +2829,7 @@ class ParallelNodeTest : ShouldSpec() {
           listOf(outerSchema.rootSegment, intermediateSegment, leftTabSegment, leftScreenSegment),
         )
 
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         val afterMount = awaitItem()
 
         // The intermediate parallel was mounted at runtime: now in _intermediateParallels and
@@ -2854,7 +2854,7 @@ class ParallelNodeTest : ShouldSpec() {
         // Navigate back: the pre-unmount step in transition() must drop the intermediate and
         // fire its onExit. retainAll then prunes leftTab/rightTab because their parallelParent
         // is no longer in _intermediateParallels.
-        sut.sendEvent(TestEvent("back"))
+        sut.send(TestEvent("back"))
         val afterBack = awaitItem()
         afterBack._intermediateParallels.isEmpty() shouldBe true
         intermediateOnExitCount.size shouldBe 1
@@ -2925,7 +2925,7 @@ class ParallelNodeTest : ShouldSpec() {
           listOf(outerSchema.rootSegment, intermediateSegment, leftTabSegment, leftScreenSegment),
         )
 
-        shouldThrow<Throwable> { sut.sendEvent(TestEvent("deeplink")) }
+        shouldThrow<Throwable> { sut.send(TestEvent("deeplink")) }
 
         // The state-after-throw should be UNCHANGED: only outerApp region with outerScreen,
         // and _intermediateParallels empty (restored from snapshot by the outer catch).
@@ -2976,7 +2976,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(triggerEvent)
+        sut.send(triggerEvent)
         val next = awaitItem()
         val nextAlpha = next.regions.entries.first { it.key.path.lastSegment().name == "parrelfAlpha" }.value
         // Navigation landed inside alpha's tree at the inner flow's initial screen.
@@ -3014,7 +3014,7 @@ class ParallelNodeTest : ShouldSpec() {
         val initial = awaitItem()
         val betaRegionId = initial.regions.keys.first { it.path.lastSegment().name == "parrelfBeta" }
         betaDetailAbsPath = betaRegionId.path.append(Path(betaDetailSegment))
-        sut.sendEvent(triggerEvent)
+        sut.send(triggerEvent)
         val next = awaitItem()
         val nextBeta = next.regions.entries.first { it.key.path.lastSegment().name == "parrelfBeta" }.value
         nextBeta.active.toString() shouldBe "parrelfRoot.parrelfBeta.parrelfBetaDetail"
@@ -3049,7 +3049,7 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(triggerEvent)
+        sut.send(triggerEvent)
         val next = awaitItem()
         val nextAlpha = next.regions.entries.first { it.key.path.lastSegment().name == "parrelfAlpha" }.value
         nextAlpha.active.toString() shouldBe
@@ -3116,7 +3116,7 @@ class ParallelNodeTest : ShouldSpec() {
         initial._intermediateParallels.isEmpty() shouldBe true
         intermediateOnEntry.isEmpty() shouldBe true
 
-        sut.sendEvent(deeplinkEvent)
+        sut.send(deeplinkEvent)
         val after = awaitItem()
 
         // Source region alpha is unchanged.
@@ -3168,11 +3168,11 @@ class ParallelNodeTest : ShouldSpec() {
         val states = mutableListOf<NavigationState>()
         sut.addTransitionListener { states.add(it) }
         sut.start()
-        sut.sendEvent(deeplink)
+        sut.send(deeplink)
         states.last().regionByName("parcriBeta")!!.active shouldBe importedPath
         states.clear()
 
-        if (viaSink) sut.eventSink(importedPath).send(Event.Back) else sut.sendEvent(Event.Back)
+        if (viaSink) sut.eventSink(importedPath).send(Event.Back) else sut.send(Event.Back)
         return backs to states
       }
 
@@ -3301,7 +3301,7 @@ class ParallelNodeTest : ShouldSpec() {
           listOf(rootSegment, mainImportSegment, homeImportSegment, tabASegment, tabAScreenSegment),
         )
 
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         val afterMount = awaitItem()
 
         // Intermediate parallel mounted at runtime; its onEntry fired exactly once; the
@@ -3329,7 +3329,7 @@ class ParallelNodeTest : ShouldSpec() {
         // HomeImportChildFinishRequest.TabA into the inner parallel's transition().
         homeImportReceivedEvents.clear()
         val mainFlowEventCountBefore = mainFlowReceivedEvents.size
-        sut.sendEvent(TestEvent("finishTabA"))
+        sut.send(TestEvent("finishTabA"))
         awaitItem() // tabA flow returns Finish → emits RootFinishRequestEvent
         awaitItem() // RootFinishRequestEvent → emits EnqueueEvent(HomeImportChildFinishRequest.TabA)
         awaitItem() // typed child-finish event delivered to homeImport.transition (Stay)
@@ -3348,7 +3348,7 @@ class ParallelNodeTest : ShouldSpec() {
         // and unmounted homeImport prematurely (extra onExit). With the post-alive-update
         // unmount rule + initMounted flag, the intermediate stays through the Stay cycle
         // and unmounts exactly once on the back-nav.
-        sut.sendEvent(TestEvent("back"))
+        sut.send(TestEvent("back"))
         val afterBack = awaitItem()
         afterBack._intermediateParallels.isEmpty() shouldBe true
         // Exactly one onExit total across Init → deeplink → finishTabA-Stay → back.
@@ -3499,7 +3499,7 @@ class ParallelNodeTest : ShouldSpec() {
 
         // G-B: NavigateTo into the imported inner parallel mounts the intermediate parallel and
         // materialises both tabs — proving parameters and intermediate-parallel mounting coexist.
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         val afterMount = awaitItem()
 
         afterMount._intermediateParallels.keys.map { it.toString() }.toSet().shouldContainOnly(
@@ -3576,7 +3576,7 @@ class ParallelNodeTest : ShouldSpec() {
         sheetActive(initial) shouldBe "sheetScreen"
 
         // sheetScreen -> installationImport: the imported schema replaces the placeholder screen.
-        sut.sendEvent(TestEvent("openInstall"))
+        sut.send(TestEvent("openInstall"))
         val afterOpen = awaitItem()
         sheetActive(afterOpen) shouldBe "installScreen"
         // The mainFlowImport sibling region is untouched by sheet navigation.
@@ -3584,7 +3584,7 @@ class ParallelNodeTest : ShouldSpec() {
           .value.active.lastSegment().name shouldBe "mainScreen"
 
         // installationImport Finish -> typed child-finish to siblingSheet -> navigate back to screen.
-        sut.sendEvent(TestEvent("finishInstall"))
+        sut.send(TestEvent("finishInstall"))
         var afterFinish = awaitItem()
         while (sheetActive(afterFinish) != "sheetScreen") {
           afterFinish = awaitItem()
@@ -3682,13 +3682,13 @@ class ParallelNodeTest : ShouldSpec() {
         val sheetRegionId = initial.regions.keys.first { it.path.lastSegment().name == "siblingSheet" }
 
         // App opens the sheet → the app marks the sheet as its foreground.
-        sut.sendEvent(TestEvent("openInstall"))
+        sut.send(TestEvent("openInstall"))
         awaitItem() // sheet -> installScreen (content visible)
         rootParallel.foreground = sheetRegionId
 
         // Foreground = sheet → Back routes ONLY into the sheet region, which closes it and returns to
         // the placeholder. The head region must NOT receive this Back.
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         var afterFirstBack = awaitItem()
         while (sheetActive(afterFirstBack) != "sheetScreen") {
           afterFirstBack = awaitItem()
@@ -3697,7 +3697,7 @@ class ParallelNodeTest : ShouldSpec() {
 
         // Sheet closed → the app marks the head as its foreground; Back now routes ONLY to head.
         rootParallel.foreground = headRegionId
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem()
         backReceivedBy shouldBe listOf("sheet", "head")
 
@@ -3725,7 +3725,7 @@ class ParallelNodeTest : ShouldSpec() {
       sut.collectTransitions().test {
         awaitItem() // initial
         // Back is swallowed by the root parallel's Stay — it must NOT finish the parallel.
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         onFinishCalled shouldBe false
         cancelAndIgnoreRemainingEvents()
       }
@@ -3746,7 +3746,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem() // initial
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         cancelAndIgnoreRemainingEvents()
       }
       // Finish from transition(Back) bubbles to the service's onFinishRequest.
@@ -3768,7 +3768,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         cancelAndIgnoreRemainingEvents()
       }
       onFinishCalled shouldBe true
@@ -3791,7 +3791,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         cancelAndIgnoreRemainingEvents()
       }
       onFinishCalled shouldBe true
@@ -3808,7 +3808,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem() // Back → deepest(top) → Finish → EnqueueEvent(Par01Top)
         awaitItem() // child-finish drained → parallel Stay
         cancelAndIgnoreRemainingEvents()
@@ -3829,7 +3829,7 @@ class ParallelNodeTest : ShouldSpec() {
       )
       sut.collectTransitions().test {
         awaitItem()
-        sut.sendEvent(Event.Back) // must not throw
+        sut.send(Event.Back) // must not throw
         awaitItem()
         awaitItem()
         cancelAndIgnoreRemainingEvents()
@@ -3908,7 +3908,7 @@ class ParallelNodeTest : ShouldSpec() {
       var thrown: Throwable? = null
       sut.collectTransitions().test {
         awaitItem() // initial
-        thrown = runCatching { sut.sendEvent(TestEvent("navigateToParallelRoot")) }.exceptionOrNull()
+        thrown = runCatching { sut.send(TestEvent("navigateToParallelRoot")) }.exceptionOrNull()
         cancelAndIgnoreRemainingEvents()
       }
 
@@ -3987,10 +3987,10 @@ class ParallelNodeTest : ShouldSpec() {
         val leftScreenSeg = Target.leftTab.leftScreen.path.firstSegment()
         leftScreenAbsPath = Path(listOf(outerRootSeg, importedSeg, leftTabSeg, leftScreenSeg))
 
-        sut.sendEvent(TestEvent("deeplink"))
+        sut.send(TestEvent("deeplink"))
         awaitItem() // intermediate mounted + tab regions alive
 
-        thrown = runCatching { sut.sendEvent(TestEvent("back")) }.exceptionOrNull()
+        thrown = runCatching { sut.send(TestEvent("back")) }.exceptionOrNull()
         cancelAndIgnoreRemainingEvents()
       }
 
@@ -4059,7 +4059,7 @@ private fun buildLazyIntermediateService(
 
 // Test-only accessor mirroring the pattern in SnapshotRollbackTest.kt — captures the current
 // NavigationState via the transition listener trick so the test can introspect `_regions` and
-// `_intermediateParallels` after a failed sendEvent.
+// `_intermediateParallels` after a failed send.
 private fun NavigationService<*>.snapshotForTest(): NavigationState {
   var captured: NavigationState? = null
   val listener: (NavigationState) -> Unit = { captured = it }

@@ -229,10 +229,10 @@ service.addServiceExtensionPoint(object : ServiceExtensionPoint<Unit> {
 })
 ```
 
-With `service.strictEventDropping = true`, `sendEvent` throws `EventDroppedException(event, reason)` after the
+With `service.strictEventDropping = true`, `send` (on the service or any sink) throws `EventDroppedException(event, reason)` after the
 rollback for a `DropReason.MissingPayload` (a bug in the app's targets). A `DropReason.StaleSource` is an expected race
 (a tap on a leaving screen) and is never thrown. Events still enqueued after the thrown one stay queued for the next
-`sendEvent`. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
+`send`. The default is `false`, so **apps which construct `NavigationService` directly are lenient** unless they
 enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)` sets it from the app's
 `FLAG_DEBUGGABLE`. A missing payload during `start()` is always rethrown, without calling `onEventDropped`.
 
@@ -251,7 +251,7 @@ enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)`
 - start at the node: a screen's sink at the screen itself (not at a screen stacked on it); a flow's or a parallel's
   sink at the active leaf of every region under it, so its active children handle the event first;
 - bubble up on `Ignore` through the node to its ancestors within the region, and (except `Event.Back`) also reach
-  every parallel enclosing the node and bubble up through each parallel's ancestors, like `sendEvent` (same region
+  every parallel enclosing the node and bubble up through each parallel's ancestors, like `service.send` (same region
   order, same merge). Sibling regions are never consulted: a
   sink of region A never reaches region B's leaf, but an event region A's screen sends which the parallel handles
   (e.g. a cross-region event) is handled by the parallel;
@@ -265,9 +265,20 @@ whenever the node is recreated, so it is a stable cache key for a sink (`NodeHos
 scheduler set with `setEnqueuedEventsScheduler` receives the plain event sent through a sink; the sink's source is
 kept when the scheduled event is sent back.
 
-The root node's sink is equivalent to `sendEvent`. Code acting on behalf of a node (its UI, its ViewModel) always
-uses the node's sink; `sendEvent` is for callers outside any node (deep links, pushes). Same threading rules as
-`sendEvent`. In Compose, use `LocalEventSink` (see below).
+`BaseScreenNode` and `BaseFlowNode` expose their own sink as `eventSink`, attached right before every `onEntry`
+(usable in `onEntry` and entry hooks; reading it before the first entry throws). It is not cleared on exit: an event
+sent through it after the node left is dropped with `DropReason.StaleSource`, so it is safe to capture in async work.
+
+### Sending events
+
+Events go into an `EventSink`; take the nearest one:
+- UI: `LocalEventSink.current` (the rendered node's sink, or the service outside any node);
+- a node: its `eventSink` (`BaseScreenNode` / `BaseFlowNode`), or `service.eventSink(path)` for a custom node;
+- a ViewModel / presenter: its screen's sink, passed to it from the node;
+- outside navigation (Activity back, a deep link, a push): the `NavigationService` itself, which is an `EventSink`:
+  `service.send(event)` is the root sink (whole tree, never stale), equivalent to the root node's sink.
+
+Same threading rules as `NavigationService` (one thread; re-entrant sends are queued).
 
 ### Relationship to statecharts / SCXML
 
@@ -464,9 +475,9 @@ also drops any intermediate screens.
 `way-compose` provides:
 - `ComposableNode` interface with `@Composable fun Content(modifier: Modifier)`
 - A `ParallelFlowNode` renders by implementing `ComposableNode` — its `Content()` lays out the parallel and calls `NodeHost(regionId)` inside it to render each sub-region's screen stack.
-- `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state or sending events.
+- `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state.
 - `NodeHost(service)` composable — auto-starts service, observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
-- `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `sendEvent`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. `LocalNavigationService.current.sendEvent(...)` is for callers outside any node.
+- `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `service.send`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. Outside any node (but under `LocalNavigationService`) it is the service itself, the root sink.
 - `NodeHost(regionId)` composable — renders the active screen in a specific sub-region. Call from a parallel node's `Content()` for each sub-region. Requires a parent `NodeHost(service)` to have provided `LocalNavigationService`.
 
 Sending screen events:

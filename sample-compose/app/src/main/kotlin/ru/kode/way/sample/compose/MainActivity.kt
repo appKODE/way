@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
       }
     }
     onBackPressedDispatcher.addCallback {
-      service.sendEvent(Event.Back)
+      service.send(Event.Back)
     }
   }
 }

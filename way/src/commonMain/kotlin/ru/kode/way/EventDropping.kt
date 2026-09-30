@@ -21,17 +21,23 @@ sealed interface DropReason {
 }
 
 /**
- * Sends events on behalf of one node instance: a screen's sink starts at the screen, a flow's or parallel's at the
- * active leaves under it; the event bubbles up through the node, reaches every parallel enclosing the node and bubbles
- * up through each parallel's ancestors, like [NavigationService.sendEvent]; see [NavigationService.eventSink]. Same threading rules as [NavigationService.sendEvent].
+ * The only way to send events. Take the nearest sink: in UI `LocalEventSink` (way-compose), in a node its
+ * [ru.kode.way.extension.node.hook.BaseFlowNode.eventSink] / [ru.kode.way.extension.node.hook.BaseScreenNode.eventSink],
+ * in a presenter the sink of its screen passed from the node, outside navigation (Activity back, a deep link, a push)
+ * the [NavigationService] itself, which is the root sink.
+ *
+ * A node's sink (see [NavigationService.eventSink]) sends on behalf of one node instance: a screen's sink starts at
+ * the screen, a flow's or parallel's at the active leaves under it; the event bubbles up through the node, reaches
+ * every parallel enclosing the node and bubbles up through each parallel's ancestors, like [NavigationService.send].
+ * Same threading rules as [NavigationService].
  */
 fun interface EventSink {
   fun send(event: Event)
 }
 
 /**
- * An event sent through an [EventSink]. Only [NavigationService.sendEvent] unwraps it, so it never reaches nodes,
- * extension points or listeners.
+ * An event sent through a node's [EventSink]. Only the service's internal dispatch unwraps it, so it never reaches
+ * nodes, extension points or listeners.
  */
 internal class SourcedEvent(val event: Event, val source: Path, val generation: Long) : Event {
   override fun toString(): String = "SourcedEvent($event, source=$source)"
@@ -44,7 +50,7 @@ internal class SourcedEvent(val event: Event, val source: Path, val generation: 
 class MissingPayloadException(val path: Path) : IllegalStateException("no payload for \"$path\"")
 
 /**
- * Thrown from [NavigationService.sendEvent] when [NavigationService.strictEventDropping] is `true` and
+ * Thrown from [EventSink.send] when [NavigationService.strictEventDropping] is `true` and
  * [event] is dropped for [reason]. Navigation state is left as it was before [event].
  */
 class EventDroppedException(val event: Event, val reason: DropReason, cause: Throwable? = null) :

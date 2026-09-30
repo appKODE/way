@@ -17,7 +17,7 @@ interface ServiceExtensionPoint<R : Any> {
    * The transition is fully committed before this method is called — navigation state,
    * alive stacks, and node lifecycle calls ([Node.onEntry]/[Node.onExit]) are all final.
    *
-   * If this method throws, the exception propagates to the caller of [NavigationService.sendEvent]
+   * If this method throws, the exception propagates to the caller of [NavigationService.send]
    * but navigation state is **not** rolled back. Guard any error-prone work with `try/catch`
    * inside your implementation.
    *
@@ -34,8 +34,8 @@ interface ServiceExtensionPoint<R : Any> {
    * missed by a [Schema] which does not report the node as parameterized (a hand-rolled schema): it is only detected
    * when the node builder throws [MissingPayloadException] while building nodes, after [onPreTransition].
    *
-   * If this method throws, the exception propagates out of [NavigationService.sendEvent]; the state stays rolled
-   * back and the events still enqueued are kept and processed by the next [NavigationService.sendEvent].
+   * If this method throws, the exception propagates out of [NavigationService.send]; the state stays rolled
+   * back and the events still enqueued are kept and processed by the next [NavigationService.send].
    *
    * @param service navigation service
    * @param event event which was dropped

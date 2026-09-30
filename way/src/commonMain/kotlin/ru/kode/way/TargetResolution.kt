@@ -10,25 +10,47 @@ internal fun resolveTransition(
   rootFinishTransitionBuilder: ((Any) -> Transition)? = null,
   intermediateParallels: Map<Path, IntermediateParallel> = emptyMap(),
   history: Map<Path, HistoryRecord> = emptyMap(),
+  /**
+   * Path of the node whose [EventSink] sent [event]. A screen's sink starts at the screen itself; a flow's or a
+   * parallel's sink at the active leaves of the regions under it (and the parallels under it). The event then bubbles
+   * up on `Ignore` within the region and, except for Back, also reaches the parallels enclosing [source], like a plain
+   * `sendEvent` does. `null` means the whole tree, which is what a plain `sendEvent` does.
+   */
   source: Path? = null,
 ): ResolvedTransition {
-  if (source != null) {
-    return resolveSourcedTransition(
-      source, regions, nodeBuilder, event, extensionPoints, rootNode, rootNodePath, rootFinishTransitionBuilder,
-      intermediateParallels, history,
-    )
+  // Assumes a screen path lives in exactly one region's nodes.
+  val sourceScreen = source?.takeIf { s -> regions.values.any { it.nodes[s] is ScreenNode } }
+  fun inScope(path: Path) = source == null || (path.startsWith(source) && (sourceScreen == null || path == source))
+  // Parallels above the scope handle what bubbles past it, the same way sendEvent consults them. Back stays in scope.
+  val bubblesPastScope =
+    source != null && event != Event.Back && event !is InitEvent && event !is RootFinishRequestEvent
+  fun enclosesSource(path: Path) = bubblesPastScope && source?.startsWith(path) == true && path != source
+  // An intermediate parallel is also a region's active entry after a cross-region NavigateTo: the region fold then
+  // consults it on non-Back events, while Back goes through its own dispatch below, once.
+  val sourceIsRegionActive = source != null && regions.values.any { it.active == source }
+  // The root or intermediate parallel owning the scope; it handles an event bubbling past its sub-regions.
+  val scopeParallelPath = source ?: rootNodePath
+  val scopeParallel = when {
+    scopeParallelPath == null -> null
+    scopeParallelPath == rootNodePath -> (rootNode as? ParallelFlowNode<*>)?.let { it to rootFinishTransitionBuilder }
+    else -> intermediateParallels[scopeParallelPath]?.let { it.node to it.finishBuilder }
   }
   val regionsResult = regions.entries.fold(ResolvedTransition.EMPTY) { acc, (regionId, region) ->
+    val start = if (sourceScreen != null && sourceScreen in region.nodes) sourceScreen else region.active
+    if (!inScope(start) && !enclosesSource(start)) return@fold acc
+    if (event == Event.Back && scopeParallel != null && region.active == source) return@fold acc
     // Sub-regions (regions not declared in the root schema) skip Event.Back independently;
     // back dispatch for sub-regions is routed via the parent parallel node's transition(Event.Back).
     // Sub-regions of a parallel-flow ROOT ARE declared in the root schema, yet they must
     // ALSO be skipped here: Back for a root parallel is routed through its transition(Event.Back) in
-    // the root-parallel dispatch block below, exactly like a nested parallel. Without this, a single Back
+    // the scope-parallel Back dispatch below, exactly like a nested parallel. Without this, a single Back
     // is delivered to EVERY root sub-region at once, bypassing the strategy entirely.
     if (event == Event.Back) {
       val isRootParallelSubRegion = rootNode is ParallelFlowNode<*> && rootNodePath != null &&
         regionId.path != rootNodePath && regionId.path.startsWith(rootNodePath)
-      if (!nodeBuilder.schema.regions.contains(regionId) || isRootParallelSubRegion) {
+      // A sink under the parallel (not the parallel itself) keeps Back in its own sub-region.
+      val isSubRegion = !nodeBuilder.schema.regions.contains(regionId) || isRootParallelSubRegion
+      if (isSubRegion && inScope(regionId.path.dropLast(1))) {
         return@fold acc
       }
     }
@@ -38,16 +60,16 @@ internal fun resolveTransition(
     if (event is RootFinishRequestEvent && event.targetRegionId != null && event.targetRegionId != regionId) {
       return@fold acc
     }
-    val node = region.nodes[region.active] ?: error("expected node to exist at path \"${region.active}\"")
+    val node = region.nodes[start] ?: error("expected node to exist at path \"$start\"")
     val transition = if (event is RootFinishRequestEvent) {
       region._rootFinishTransitionBuilder(event.result)
     } else {
-      buildTransition(event, node, region.active, extensionPoints)
+      buildTransition(event, node, start, extensionPoints)
     }
     val resolved = resolveTransitionInRegion(
       regionId = regionId,
       transition,
-      path = region.active,
+      path = start,
       activePath = region.active,
       nodes = region.nodes,
       nodeBuilder = nodeBuilder,
@@ -70,7 +92,7 @@ internal fun resolveTransition(
   // intermediates vs root is observationally irrelevant for non-Finish results. Deepest-first
   // is chosen as the conventional, predictable order.
   //
-  // Same skip guards as the root-parallel dispatch below: InitEvent is consumed during the
+  // Same skip guards as the parallel dispatch below: InitEvent is consumed during the
   // parallel-root init branch in NavigationService.kt; RootFinishRequestEvent is targeted at a
   // specific region via `event.targetRegionId` and consumed there. Event.Back is ALSO skipped: Back
   // routing through every parallel (root, intermediate, or nested) flows uniformly through
@@ -82,6 +104,7 @@ internal fun resolveTransition(
     regionsResult
   } else {
     intermediateParallels.entries
+      .filter { (inScope(it.key) && !(it.key == source && sourceIsRegionActive)) || enclosesSource(it.key) }
       .sortedByDescending { it.key.length }
       .fold(regionsResult) { acc, (path, intermediate) ->
         val resolved = resolveParallelTransition(
@@ -97,111 +120,42 @@ internal fun resolveTransition(
         acc + resolved
       }
   }
-  // Top-level parallel-rooted schema: when the root is a ParallelFlowNode it owns no runtime region
-  // (sub-regions live ONE segment deeper), so events that bubble past every sub-region — most
-  // notably the ChildFinishRequest enqueued by computeSubRegionFinishBuilder when a sub-region
-  // emits Finish — never reach the parent parallel's `transition()` via the fold above. Dispatch
-  // them here so the parent parallel-flow can observe and react to its own sub-regions' lifecycle.
-  // InitEvent is excluded (the root parallel's InitEvent fires during the parallel-root init
-  // branch in NavigationService.kt). RootFinishRequestEvent is excluded because it is already
-  // targeted at a specific region via `event.targetRegionId` and consumed there.
-  if (rootNode is ParallelFlowNode<*> && rootNodePath != null && event !is InitEvent &&
-    event !is RootFinishRequestEvent
-  ) {
-    val rootResolved = if (event == Event.Back) {
-      // Root parallel Back: consult the root's own transition(Event.Back) and route to exactly ONE
-      // sub-region, mirroring how nested/intermediate parallels resolve Back via
-      // maybeResolveBackEvent → dispatchBackThroughParallel. The fold above skipped every root
-      // sub-region for Back, so this is the sole Back dispatch for a parallel-rooted schema.
-      dispatchBackThroughParallel(
-        parallelNode = rootNode,
-        parallelNodePath = rootNodePath,
-        subRegionActivePaths = subRegionActivePaths(rootNodePath, regions),
-        allRegions = regions,
-        nodeBuilder = nodeBuilder,
-        event = event,
-        extensionPoints = extensionPoints,
-        finishTransitionBuilder = rootFinishTransitionBuilder,
-        history = history,
-      )
-    } else {
-      resolveParallelTransition(
-        parallelNode = rootNode,
-        parallelNodePath = rootNodePath,
-        finishTransitionBuilder = rootFinishTransitionBuilder,
-        event = event,
-        extensionPoints = extensionPoints,
-        nodeBuilder = nodeBuilder,
-        allRegions = regions,
-        history = history,
-      )
-    }
-    return intermediatesResult + rootResolved
+  // The root and the intermediate parallels own no runtime region (their sub-regions live ONE segment deeper), so
+  // events that bubble past every sub-region — most notably the ChildFinishRequest enqueued by
+  // computeSubRegionFinishBuilder when a sub-region emits Finish — never reach their `transition()` via the region
+  // fold. The intermediates are dispatched above, the root parallel here. InitEvent is excluded (the root parallel's
+  // InitEvent fires during the parallel-root init branch in NavigationService.kt). RootFinishRequestEvent is excluded
+  // because it is already targeted at a specific region via `event.targetRegionId` and consumed there.
+  if (event is InitEvent || event is RootFinishRequestEvent) return intermediatesResult
+  if (event == Event.Back) {
+    // Back through the parallel owning the scope (the root parallel for sendEvent): consult its own
+    // transition(Event.Back) and route to exactly ONE sub-region, mirroring how nested parallels resolve Back via
+    // maybeResolveBackEvent → dispatchBackThroughParallel. The fold above skipped its sub-regions for Back, so this is
+    // the sole Back dispatch for them.
+    val (parallelNode, finishTransitionBuilder) = scopeParallel ?: return intermediatesResult
+    return intermediatesResult + dispatchBackThroughParallel(
+      parallelNode = parallelNode,
+      parallelNodePath = scopeParallelPath!!,
+      subRegionActivePaths = subRegionActivePaths(scopeParallelPath, regions),
+      allRegions = regions,
+      nodeBuilder = nodeBuilder,
+      event = event,
+      extensionPoints = extensionPoints,
+      finishTransitionBuilder = finishTransitionBuilder,
+      history = history,
+    )
   }
-  return intermediatesResult
-}
-
-/**
- * Resolves an event sent through an [EventSink] of the alive node at [source]: a root or intermediate parallel
- * handles it alone, any other node starts the resolution within its own region, [Ignore] bubbling up from it.
- */
-private fun resolveSourcedTransition(
-  source: Path,
-  regions: Map<RegionId, Region>,
-  nodeBuilder: NodeBuilder,
-  event: Event,
-  extensionPoints: List<NodeExtensionPoint>,
-  rootNode: Node?,
-  rootNodePath: Path?,
-  rootFinishTransitionBuilder: ((Any) -> Transition)?,
-  intermediateParallels: Map<Path, IntermediateParallel>,
-  history: Map<Path, HistoryRecord>,
-): ResolvedTransition {
-  val parallel = when {
-    source == rootNodePath && rootNode is ParallelFlowNode<*> -> rootNode to rootFinishTransitionBuilder
-    else -> intermediateParallels[source]?.let { it.node to it.finishBuilder }
+  val rootParallel = rootNode as? ParallelFlowNode<*>
+  if (rootParallel == null || rootNodePath == null || (!inScope(rootNodePath) && !enclosesSource(rootNodePath))) {
+    return intermediatesResult
   }
-  if (parallel != null) {
-    val (parallelNode, finishBuilder) = parallel
-    return if (event == Event.Back) {
-      dispatchBackThroughParallel(
-        parallelNode = parallelNode,
-        parallelNodePath = source,
-        subRegionActivePaths = subRegionActivePaths(source, regions),
-        allRegions = regions,
-        nodeBuilder = nodeBuilder,
-        event = event,
-        extensionPoints = extensionPoints,
-        finishTransitionBuilder = finishBuilder,
-        history = history,
-      )
-    } else {
-      resolveParallelTransition(
-        parallelNode,
-        source,
-        finishBuilder,
-        event,
-        extensionPoints,
-        nodeBuilder,
-        regions,
-        history,
-      )
-    }
-  }
-  val (regionId, region) = regions.entries
-    .filter { source in it.value.alive }
-    .maxByOrNull { it.key.path.length }
-    ?: return ResolvedTransition.EMPTY
-  val node = region.nodes[source] ?: error("expected node to exist at path \"$source\"")
-  return resolveTransitionInRegion(
-    regionId = regionId,
-    transition = buildTransition(event, node, source, extensionPoints),
-    path = source,
-    activePath = region.active,
-    nodes = region.nodes,
-    nodeBuilder = nodeBuilder,
+  return intermediatesResult + resolveParallelTransition(
+    parallelNode = rootParallel,
+    parallelNodePath = rootNodePath,
+    finishTransitionBuilder = rootFinishTransitionBuilder,
     event = event,
     extensionPoints = extensionPoints,
+    nodeBuilder = nodeBuilder,
     allRegions = regions,
     history = history,
   )

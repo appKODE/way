@@ -248,8 +248,15 @@ enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)`
 ### Node-bound EventSink
 
 `service.eventSink(path)` returns an `EventSink` bound to the node instance alive at `path`. Its events:
-- are resolved starting from that node, bubbling up to its ancestors on `Ignore`, within its own region only (a sink
-  of region A never reaches region B's leaf);
+- start at the node: a screen's sink at the screen itself (not at a screen stacked on it); a flow's or a parallel's
+  sink at the active leaf of every region under it, so its active children handle the event first;
+- bubble up on `Ignore` through the node to its ancestors within the region, and (except `Event.Back`) also reach
+  every parallel enclosing the node and bubble up through each parallel's ancestors, like `sendEvent` (same region
+  order, same merge). Sibling regions are never consulted: a
+  sink of region A never reaches region B's leaf, but an event region A's screen sends which the parallel handles
+  (e.g. a cross-region event) is handled by the parallel;
+- `Event.Back` stays in the node's region (never reaching enclosing parallels or sibling regions): a parallel's sink
+  routes it through that parallel's `DispatchBackTo`, a sink of a node inside a region keeps it in that region;
 - are checked when dispatched, not when sent: if the node has left navigation or was recreated meanwhile, the event
   is dropped with `DropReason.StaleSource`.
 
@@ -258,7 +265,9 @@ whenever the node is recreated, so it is a stable cache key for a sink (`NodeHos
 scheduler set with `setEnqueuedEventsScheduler` receives the plain event sent through a sink; the sink's source is
 kept when the scheduled event is sent back.
 
-Same threading rules as `sendEvent`. In Compose, use `LocalEventSink` (see below).
+The root node's sink is equivalent to `sendEvent`. Code acting on behalf of a node (its UI, its ViewModel) always
+uses the node's sink; `sendEvent` is for callers outside any node (deep links, pushes). Same threading rules as
+`sendEvent`. In Compose, use `LocalEventSink` (see below).
 
 ### Relationship to statecharts / SCXML
 
@@ -457,7 +466,7 @@ also drops any intermediate screens.
 - A `ParallelFlowNode` renders by implementing `ComposableNode` — its `Content()` lays out the parallel and calls `NodeHost(regionId)` inside it to render each sub-region's screen stack.
 - `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state or sending events.
 - `NodeHost(service)` composable — auto-starts service, observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
-- `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Prefer it over `LocalNavigationService.current.sendEvent(...)` for UI events: a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen.
+- `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `sendEvent`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. `LocalNavigationService.current.sendEvent(...)` is for callers outside any node.
 - `NodeHost(regionId)` composable — renders the active screen in a specific sub-region. Call from a parallel node's `Content()` for each sub-region. Requires a parent `NodeHost(service)` to have provided `LocalNavigationService`.
 
 Sending screen events:

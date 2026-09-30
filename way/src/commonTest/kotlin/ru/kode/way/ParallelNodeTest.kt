@@ -3,7 +3,9 @@ package ru.kode.way
 import app.cash.turbine.test
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.ShouldSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.collections.shouldContainOnly
 import io.kotest.matchers.comparables.shouldBeLessThan
@@ -634,7 +636,7 @@ class ParallelNodeTest : ShouldSpec() {
       }
     }
 
-    should("an event sent through a sub-region node's sink stays within that region") {
+    should("an event sent through a sub-region node's sink stays out of the sibling region and reaches the parallel") {
       val parallelEvents = mutableListOf<Event>()
       val sut = buildPar02Service(
         alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),
@@ -656,8 +658,15 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.eventSink(betaActive).send(TestEvent("goToScreen2"))
 
-      consulted shouldBe listOf(betaActive.toString(), betaActive.dropLast(1).toString())
-      parallelEvents.none { it == TestEvent("goToScreen2") } shouldBe true
+      val mainPath = betaActive.dropLast(2)
+      // Regions are folded in sendEvent's order; each node is consulted once.
+      consulted.shouldContainExactlyInAnyOrder(
+        betaActive.toString(),
+        betaActive.dropLast(1).toString(),
+        mainPath.toString(),
+        mainPath.dropLast(1).toString(),
+      )
+      parallelEvents.count { it == TestEvent("goToScreen2") } shouldBe 1
       states.last().regionByName("par02Alpha")!!.active shouldBe alphaActive
 
       sut.eventSink(alphaActive).send(TestEvent("goToScreen2"))
@@ -665,7 +674,106 @@ class ParallelNodeTest : ShouldSpec() {
       states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
     }
 
-    should("an event sent through an intermediate parallel's sink is handled by that parallel only") {
+    should("the root sink enqueues follow-up events in the same order as sendEvent") {
+      fun run(send: (NavigationService<Unit>, Path) -> Unit): List<Event> {
+        val sut = buildPar02Service(
+          betaTransitions = listOf(tr("X", EnqueueEvent(TestEvent("fromBeta")))),
+          createMainNode = {
+            TestParallelNode(
+              parallelTransitions = listOf(
+                TestParallelTransitionSpec({ it == TestEvent("X") }, EnqueueEvent(TestEvent("fromMain"))),
+              ),
+            )
+          },
+        )
+        val events = mutableListOf<Event>()
+        sut.addServiceExtensionPoint(
+          object : ServiceExtensionPoint<Unit> {
+            override fun onPreTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) {
+              events.add(event)
+            }
+            override fun onPostTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+          },
+        )
+        val states = mutableListOf<NavigationState>()
+        sut.addTransitionListener { states.add(it) }
+        sut.start()
+        events.clear()
+        send(sut, states.last().regionByName("par02Beta")!!.active.take(1))
+        return events
+      }
+
+      val direct = run { sut, _ -> sut.sendEvent(TestEvent("X")) }
+      val viaRootSink = run { sut, root -> sut.eventSink(root).send(TestEvent("X")) }
+
+      direct shouldBe listOf(TestEvent("X"), TestEvent("fromMain"), TestEvent("fromBeta"))
+      viaRootSink shouldBe direct
+    }
+
+    should("an event sent through a region screen's sink is handled by the enclosing parallel") {
+      val sut = buildPar02Service(
+        alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),
+        createMainNode = {
+          TestParallelNode(
+            parallelTransitions = listOf(
+              TestParallelTransitionSpec({ it == TestEvent("P") }, EnqueueEvent(TestEvent("goToScreen2"))),
+            ),
+          )
+        },
+      )
+      val dropped = mutableListOf<DropReason>()
+      sut.addServiceExtensionPoint(
+        object : ServiceExtensionPoint<Unit> {
+          override fun onPreTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+          override fun onPostTransition(service: NavigationService<Unit>, event: Event, state: NavigationState) = Unit
+          override fun onEventDropped(service: NavigationService<Unit>, event: Event, reason: DropReason) {
+            dropped.add(reason)
+          }
+        },
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val betaActive = states.last().regionByName("par02Beta")!!.active
+
+      sut.eventSink(betaActive).send(TestEvent("P"))
+
+      dropped.shouldBeEmpty()
+      states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
+    }
+
+    should("Back sent through a nested parallel's sink is routed by its DispatchBackTo, once") {
+      val backs = mutableListOf<Event>()
+      var betaRegionId: RegionId? = null
+      val mainNode = object : ParallelFlowNode<Unit>() {
+        override val dismissResult = Unit
+        override fun transition(event: Event): FlowTransition<Unit> {
+          if (event == Event.Back) backs.add(event)
+          return if (event == Event.Back) DispatchBackTo(betaRegionId!!) else Ignore
+        }
+      }
+      val sut = buildPar02Service(
+        alphaTransitions = listOf(tr("goToScreen2", Target.par02Alpha.par02AlphaScreen2)),
+        createMainNode = { mainNode },
+        appTransitions = listOf(tr<Par02MainChildFinishRequest.Par02Beta>(Stay)),
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      betaRegionId = states.last().regions.keys.first { it.path.lastSegment().name == "par02Beta" }
+      sut.sendEvent(TestEvent("goToScreen2"))
+      val mainPath = states.last().regionByName("par02Beta")!!.active.dropLast(2)
+
+      sut.eventSink(mainPath).send(Event.Back)
+
+      // DispatchBackTo(beta) finished beta's flow; alpha, the deeper region, kept its screen
+      backs.size shouldBe 1
+      states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
+    }
+
+    should(
+      "an event sent through an intermediate parallel's sink reaches its regions, then it, then the outer parallel",
+    ) {
       val outerEvents = mutableListOf<Event>()
       val innerEvents = mutableListOf<Event>()
       val sut = buildNestedRootService(
@@ -688,13 +796,19 @@ class ParallelNodeTest : ShouldSpec() {
       sut.eventSink(innerPath).send(TestEvent("I"))
 
       innerEvents.count { it == TestEvent("I") } shouldBe 1
-      outerEvents.none { it == TestEvent("I") } shouldBe true
-      consulted shouldBe listOf(innerPath.toString())
+      outerEvents.count { it == TestEvent("I") } shouldBe 1
+      consulted.dropLast(2).map { it.substringAfterLast('.') }.shouldContainExactlyInAnyOrder(
+        "nestedAlphaScreen",
+        "nestedAlpha",
+        "nestedBetaScreen",
+        "nestedBeta",
+      )
+      consulted.takeLast(2) shouldBe listOf(innerPath.toString(), innerPath.take(1).toString())
+      consulted.clear()
 
-      // sent directly, the event reaches the region nodes and the outer parallel too
       sut.sendEvent(TestEvent("I"))
 
-      outerEvents.count { it == TestEvent("I") } shouldBe 1
+      outerEvents.count { it == TestEvent("I") } shouldBe 2
       consulted.count { it.endsWith("nestedAlpha") } shouldBe 1
     }
 
@@ -1312,6 +1426,35 @@ class ParallelNodeTest : ShouldSpec() {
         }
         cancelAndIgnoreRemainingEvents()
       }
+    }
+
+    should(
+      "an event sent through a nested parallel's sink reaches the leaves of its regions and the enclosing ones",
+    ) {
+      val sut = buildPar04Service()
+      val consulted = mutableListOf<String>()
+      sut.addNodeExtensionPoint(
+        TestNodeExtensionPoint(preTransition = { _, path, _ -> consulted.add(path.lastSegment().name) }),
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val alphaPath = states.last().regionByName("par04Alpha")!!.active
+      alphaPath.lastSegment().name shouldBe "par04Alpha"
+
+      sut.eventSink(alphaPath).send(TestEvent("X"))
+
+      // par04Beta's leaves are never consulted; regions are folded in sendEvent's order, each node once.
+      consulted.shouldContainExactlyInAnyOrder(
+        "par04InnerAScreen2",
+        "par04InnerAScreen1",
+        "par04InnerA",
+        "par04InnerBScreen",
+        "par04InnerB",
+        "par04Alpha",
+        "par04Main",
+        "par04App",
+      )
     }
 
     should("same event dispatched to two active sub-regions is handled independently by each") {
@@ -2993,6 +3136,53 @@ class ParallelNodeTest : ShouldSpec() {
 
         cancelAndIgnoreRemainingEvents()
       }
+    }
+
+    should(
+      "Back sent through the sink of an intermediate parallel which is a region's active entry is dispatched once",
+    ) {
+      fun run(viaSink: Boolean): Pair<Int, List<NavigationState>> {
+        val deeplink = TestEvent("deeplink")
+        var backs = 0
+        val outerSchema = ParallelTestCrossRegionIntermediateSchema(
+          parcriBetaImportedSchema = ParallelTestCrossRegionIntermediateInnerSchema(),
+        )
+        val innerSchema = ParallelTestCrossRegionIntermediateInnerSchema()
+        val importedPath = Path(
+          listOf(
+            outerSchema.rootSegment,
+            outerSchema.regions.first { it.path.lastSegment().name == "parcriBeta" }.path.lastSegment(),
+            outerSchema.childSchemas.keys.first { it.name == "parcriBetaImported" },
+          ),
+        )
+        val leftScreenAbs = Path(
+          importedPath.segments + innerSchema.childSchemas.keys.first { it.name == "parcriBetaLeft" } +
+            Target.parcriBetaLeft.parcriBetaLeftScreen.path.firstSegment(),
+        )
+        val sut = buildCrossRegionIntermediateService(
+          createImported = { TestParallelNode(onTransitionCallback = { if (it == Event.Back) backs++ }) },
+          alphaScreenTransitions = listOf(
+            TestScreenTransitionSpec({ it == deeplink }, NavigateTo(AbsoluteTarget(leftScreenAbs))),
+          ),
+        )
+        val states = mutableListOf<NavigationState>()
+        sut.addTransitionListener { states.add(it) }
+        sut.start()
+        sut.sendEvent(deeplink)
+        states.last().regionByName("parcriBeta")!!.active shouldBe importedPath
+        states.clear()
+
+        if (viaSink) sut.eventSink(importedPath).send(Event.Back) else sut.sendEvent(Event.Back)
+        return backs to states
+      }
+
+      val (sinkBacks, sinkStates) = run(viaSink = true)
+      val (directBacks, directStates) = run(viaSink = false)
+
+      sinkBacks shouldBe 1
+      sinkStates.map { it.regions.mapValues { (_, r) -> r.active } } shouldBe
+        directStates.map { it.regions.mapValues { (_, r) -> r.active } }
+      directBacks shouldBe 1
     }
 
     // Mirrors a real-world app's exact appFlow [parallelFlow] → mainFlowImport [flow] → homeImport [parallelFlow]

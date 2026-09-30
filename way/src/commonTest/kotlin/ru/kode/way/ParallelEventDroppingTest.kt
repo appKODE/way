@@ -140,23 +140,23 @@ class ParallelEventDroppingTest :
       f.activeIn(betaRegion) shouldBe "dropRoot.dropBeta.betaHome.betaItem.betaDetails"
     }
 
-    should("let only the root parallel handle a non-Back event sent through its sink") {
-      val f = buildService(
+    should("resolve an event sent through the root parallel sink exactly like sendEvent") {
+      fun fixture() = buildService(
         rootTransitions = listOf(tr("G", Stay)),
         alphaHomeTransitions = listOf(trs("G", Target.dropAlpha.alphaItem(id = "g"))),
-      )
-      f.sut.start()
-      f.clear()
+        betaHomeTransitions = listOf(trs("G", Target.dropBeta.betaItem(id = "g"))),
+      ).apply { sut.start() }
+      val viaSink = fixture()
+      val direct = fixture()
 
-      f.sut.eventSink(rootPath).send(TestEvent("G"))
+      viaSink.sut.eventSink(rootPath).send(TestEvent("G"))
+      direct.sut.sendEvent(TestEvent("G"))
 
-      f.consulted shouldBe listOf("dropRoot")
-      f.activeIn(alphaRegion) shouldBe "dropRoot.dropAlpha.alphaHome"
-
-      // sent directly, the event is broadcast to the regions
-      f.sut.sendEvent(TestEvent("G"))
-
-      f.activeIn(alphaRegion) shouldBe "dropRoot.dropAlpha.alphaHome.alphaItem"
+      viaSink.dropped.shouldBeEmpty()
+      viaSink.consulted shouldBe direct.consulted
+      viaSink.states shouldBe direct.states
+      viaSink.activeIn(alphaRegion) shouldBe "dropRoot.dropAlpha.alphaHome.alphaItem"
+      viaSink.activeIn(betaRegion) shouldBe "dropRoot.dropBeta.betaHome.betaItem"
     }
 
     should("keep a Back sent through a sub-region leaf sink in that region") {

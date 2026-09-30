@@ -21,8 +21,9 @@ sealed interface DropReason {
 }
 
 /**
- * Sends events on behalf of one node instance, see [NavigationService.eventSink]. Same threading rules as
- * [NavigationService.sendEvent].
+ * Sends events on behalf of one node instance: a screen's sink starts at the screen, a flow's or parallel's at the
+ * active leaves under it; the event bubbles up through the node, reaches every parallel enclosing the node and bubbles
+ * up through each parallel's ancestors, like [NavigationService.sendEvent]; see [NavigationService.eventSink]. Same threading rules as [NavigationService.sendEvent].
  */
 fun interface EventSink {
   fun send(event: Event)

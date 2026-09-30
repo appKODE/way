@@ -178,10 +178,12 @@ class ParallelFixture :
       },
     ),
   ) {
+  lateinit var tabs: TabsNode
+
   override fun buildNode(path: String, payload: Any?): Node {
     val segments = path.split('.')
     return when (segments.size) {
-      1 -> TabsNode()
+      1 -> TabsNode().also { tabs = it }
 
       2 -> TestFlowNode(
         initial = screenTarget("${segments[1]}Screen"),
@@ -195,12 +197,15 @@ class ParallelFixture :
   class TabsNode :
     ParallelFlowNode<Unit>(),
     ComposableNode {
+    val sinks = mutableListOf<EventSink>()
     override val dismissResult = Unit
     override fun transition(event: Event): FlowTransition<Unit> = Ignore
 
     @OptIn(ExperimentalAnimationApi::class)
     @Composable
     override fun Content(modifier: Modifier) {
+      val sink = LocalEventSink.current
+      SideEffect { sinks += sink }
       Column(modifier) {
         REGIONS.forEach { NodeHost(RegionId(Path("tabs", it))) }
       }

@@ -139,6 +139,20 @@ class EventSinkTest {
   }
 
   @Test
+  fun `event sent through parallel node sink is handled by the active children of its regions`() {
+    val fixture = ParallelFixture()
+    rule.setContent { NodeHost(fixture.service) }
+    val tabsSink = rule.runOnIdle { fixture.tabs.sinks.last() }
+
+    rule.runOnIdle { tabsSink.send(TestEvent("next")) }
+    rule.waitForIdle()
+
+    val activePaths = fixture.state!!.regions.values.map { it.active }
+    assertEquals(listOf(Path("tabs", "alpha", "alphaNext"), Path("tabs", "beta", "betaNext")), activePaths)
+    assertTrue(fixture.dropped.isEmpty())
+  }
+
+  @Test
   fun `event sent through screen sink is delivered and navigates`() {
     val fixture = FlowFixture().host()
     val mainSink = rule.runOnIdle { fixture.screen("main").sinks.last() }

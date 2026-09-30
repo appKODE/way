@@ -376,11 +376,18 @@ class NavigationService<R : Any>(
   }
 
   /**
-   * Returns a sink which sends events on behalf of the node currently alive at [path]. Such an event is resolved
-   * starting from that node (bubbling up to its ancestors on [Ignore]) within its own region only, instead of
-   * from the active leaf of every region. If the node is no longer alive, or has been recreated, when the event
-   * is dispatched, the event is dropped with [DropReason.StaleSource]. A sink for a path which is not alive is
-   * always stale.
+   * Returns a sink which sends events on behalf of the node currently alive at [path]. A screen's sink starts at the
+   * screen itself (never at a screen stacked on it); a flow's or a parallel's sink starts at the active leaf of every
+   * region under it, so its active children handle the event first, and the parallels under it handle it too. The
+   * event then bubbles up on [Ignore] through the node to its ancestors within the region and, except for
+   * [Event.Back], also reaches every parallel enclosing the node and bubbles up through each parallel's ancestors,
+   * like [sendEvent] (same region order, same merge). Sibling regions are never consulted. Back stays in the node's
+   * region, never reaching enclosing parallels or sibling regions: routed through the node's own `DispatchBackTo` if it is a
+   * parallel, kept in the node's region otherwise. The root node's sink is equivalent to [sendEvent].
+   *
+   * If the node is no longer alive, or has been recreated, when the event is dispatched, the event is dropped with
+   * [DropReason.StaleSource]. A change below the node does not make its sink stale. A sink for a path which is not
+   * alive is always stale.
    */
   fun eventSink(path: Path): EventSink {
     val generation = state._generations[path] ?: -1L
@@ -780,6 +787,11 @@ class NavigationService<R : Any>(
     }
   }
 
+  /**
+   * Sends [event] from outside any node (a deep link, a push): it is resolved from the active leaf of every region.
+   * Equivalent to sending it through the root node's [eventSink]. Code acting on behalf of a node uses its
+   * [eventSink] instead.
+   */
   fun sendEvent(event: Event) {
     if (isDisposed) return
     val scheduledIndex = scheduledSourcedEvents.indexOfFirst { it.event === event }

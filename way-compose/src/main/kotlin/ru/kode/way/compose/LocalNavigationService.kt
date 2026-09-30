@@ -27,8 +27,11 @@ val LocalNodePath: ProvidableCompositionLocal<Path?> = compositionLocalOf { null
 
 /**
  * [NavigationService.eventSink] of the node currently being rendered by the enclosing [NodeHost]. Send the node's
- * UI events through it: they are resolved starting from this node, and dropped once the node has left navigation
- * (e.g. a tap on a screen which is still animating out).
+ * UI events through it, always (`LocalNavigationService.current.sendEvent` is for callers outside any node): they are
+ * resolved from this screen (or from the active leaves under this flow or parallel), bubbling up through the node to
+ * its ancestors, reaching every parallel enclosing the node and bubbling up through each parallel's ancestors, like
+ * `sendEvent`, and dropped once the node has left navigation (e.g. a tap on a screen which
+ * is still animating out).
  */
 val LocalEventSink: ProvidableCompositionLocal<EventSink> =
   compositionLocalOf { error("no EventSink provided — read LocalEventSink inside a node rendered by NodeHost") }

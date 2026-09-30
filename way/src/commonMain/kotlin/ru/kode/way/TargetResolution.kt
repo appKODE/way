@@ -366,7 +366,7 @@ private fun resolveTransitionInRegion(
 
         is FlowTarget, is ScreenTarget -> {
           val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
-          target.payload?.also { payloads[targetPathAbs] = it }
+          recordTargetPayloads(target, targetPathAbs, regionId, nodes, payloads)
           maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads, regionId)
         }
 
@@ -917,6 +917,34 @@ internal fun maybeResolveInitial(
   }
 }
 
+/**
+ * Records [target]'s own payload at [targetPathAbs] and its [ScreenTarget.ancestorPayloads] /
+ * [FlowTarget.ancestorPayloads] at their ancestors' absolute paths. An ancestor that is alive (in [nodes], or at or
+ * above the root of [regionId], which is alive by definition) keeps the payload it was built with.
+ */
+private fun recordTargetPayloads(
+  target: Target,
+  targetPathAbs: Path,
+  regionId: RegionId,
+  nodes: Map<Path, Node>,
+  payloads: MutableMap<Path, Any>,
+) {
+  target.payload?.also { payloads[targetPathAbs] = it }
+  val ancestorPayloads = when (target) {
+    is ScreenTarget -> target.ancestorPayloads
+    is FlowTarget -> target.ancestorPayloads
+    else -> emptyMap()
+  }
+  ancestorPayloads.forEach { (segment, value) ->
+    val index = targetPathAbs.segments.lastIndexOf(segment)
+    check(index >= 0) { "ancestor payload segment \"${segment.id}\" is not on target path \"$targetPathAbs\"" }
+    val ancestorPath = Path(targetPathAbs.segments.take(index + 1))
+    if (ancestorPath !in nodes && !regionId.path.startsWith(ancestorPath)) {
+      payloads[ancestorPath] = value ?: NullPayload
+    }
+  }
+}
+
 private fun maybeResolveInitial(
   targetPathAbs: Path,
   callingRegionId: RegionId,
@@ -938,7 +966,7 @@ private fun maybeResolveInitial(
   return when (targetNode) {
     is FlowNode<*> -> {
       val nextTargetPathAbs = targetPathAbs.append(targetNode.initial.path)
-      targetNode.initial.payload?.also { payloads[nextTargetPathAbs] = it }
+      recordTargetPayloads(targetNode.initial, nextTargetPathAbs, callingRegionId, nodes, payloads)
       maybeResolveInitial(
         targetNode.initial,
         nextTargetPathAbs,

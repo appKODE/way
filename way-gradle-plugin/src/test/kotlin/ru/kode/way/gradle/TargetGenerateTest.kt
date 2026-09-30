@@ -41,5 +41,10 @@ class TargetGenerateTest :
         expectedOutputFiles = listOf("targets-test07-targets.txt"),
         testName = "history under a parallel parent",
       ),
+      TestCase(
+        schemaFile = "targets-test08.dot",
+        expectedOutputFiles = listOf("targets-test08-targets.txt"),
+        testName = "targets under parameterized ancestors",
+      ),
     ) { runTest(it) }
   })

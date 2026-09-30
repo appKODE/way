@@ -333,9 +333,7 @@ internal fun buildNodeBuilderTypeSpec(
       // Only emit the path-keyed payload helper when the root flow has a parameter — that's
       // the sole call site (the root branch of build()). Skipping it for parameter-less roots
       // keeps the generated NodeBuilder minimal.
-      if (flow.parameter != null) {
-        addFunction(buildRootPayloadOrErrorFunSpec())
-      }
+      flow.parameter?.let { param -> addFunction(buildRootPayloadFunSpec(parseTypeName(param.type).isNullable)) }
     }
     .build()
 }
@@ -391,12 +389,13 @@ private fun createBuildFunctionBody(
         when (node) {
           is Node.Flow -> {
             if (node == flow) {
-              if (node.parameter != null) {
+              val param = node.parameter
+              if (param != null) {
                 addStatement(
                   "path == rootPath -> %L.%L(%L(rootPath, payloads))",
                   NODE_FACTORY_PARAMETER_NAME,
                   ROOT_NODE_FACTORY_METHOD_NAME,
-                  ROOT_PAYLOAD_OR_ERROR_FUN_NAME,
+                  rootPayloadFunName(parseTypeName(param.type).isNullable),
                 )
               } else {
                 addStatement(
@@ -514,7 +513,7 @@ private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_E
         "val payload = payloads[targetPath] ?: error(%P)",
         "no payload for \"\$targetPath\"",
       )
-      .addStatement("return payload as T")
+      .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)
       .build(),
   )
   .build()
@@ -524,8 +523,9 @@ private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_E
 // `schema.regions` searching for the root — which fails for parallel-flow roots (whose own
 // segment is the parent of all regions, not a member of any). NavigationService.start()
 // places the root payload at rootPath directly (NavigationService.kt:166-175), so we
-// retrieve it from there.
-private fun buildRootPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(ROOT_PAYLOAD_OR_ERROR_FUN_NAME)
+// retrieve it from there. A nullable root parameter gets `payloadAtPathOrNull` instead: start(null)
+// stores no payload at all, which for a nullable parameter means a null argument, not an error.
+private fun buildRootPayloadFunSpec(isNullable: Boolean): FunSpec = FunSpec.builder(rootPayloadFunName(isNullable))
   .addTypeVariable(TypeVariableName("T"))
   .returns(TypeVariableName("T"))
   .addAnnotation(
@@ -536,8 +536,16 @@ private fun buildRootPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(ROOT_PAY
   .addParameter("path", PATH)
   .addParameter("payloads", MAP.parameterizedBy(PATH, ANY))
   .addCode(
-    "return (payloads[path] ?: error(%P)) as T",
-    "no payload for \"\$path\"",
+    CodeBlock.builder()
+      .apply {
+        if (isNullable) {
+          addStatement("val payload = payloads[path]")
+        } else {
+          addStatement("val payload = payloads[path] ?: error(%P)", "no payload for \"\$path\"")
+        }
+      }
+      .addStatement("return (if (payload === %T) null else payload) as T", NULL_PAYLOAD)
+      .build(),
   )
   .build()
 
@@ -550,6 +558,10 @@ private const val NODE_BUILDER_CACHE_PROPERTY_NAME = "nodeBuilders"
 private const val TARGET_OR_ERROR_FUN_NAME = "targetOrError"
 private const val PAYLOAD_OR_ERROR_FUN_NAME = "payloadOrError"
 private const val ROOT_PAYLOAD_OR_ERROR_FUN_NAME = "payloadAtPathOrError"
+private const val ROOT_PAYLOAD_OR_NULL_FUN_NAME = "payloadAtPathOrNull"
+
+private fun rootPayloadFunName(isNullable: Boolean): String =
+  if (isNullable) ROOT_PAYLOAD_OR_NULL_FUN_NAME else ROOT_PAYLOAD_OR_ERROR_FUN_NAME
 
 // NOTE_GROUPING_NODES_BY_FLOW_RULE
 //

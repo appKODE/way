@@ -9,6 +9,7 @@ import kotlin.collections.Set
 import ru.kode.way.FlowNode
 import ru.kode.way.Node
 import ru.kode.way.NodeBuilder
+import ru.kode.way.NullPayload
 import ru.kode.way.Path
 import ru.kode.way.Segment
 import ru.kode.way.drop
@@ -74,7 +75,7 @@ public class Nb01appNodeBuilder(
   ): T {
     val targetPath = targetOrError(segment, rootSegmentAlias)
     val payload = payloads[targetPath] ?: error("""no payload for "$targetPath"""")
-    return payload as T
+    return (if (payload === NullPayload) null else payload) as T
   }
 
   public interface Factory {

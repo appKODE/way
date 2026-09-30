@@ -117,6 +117,13 @@ Typical generated types (from graph id `App`):
 - `AppChildFinishRequest` (sealed interface with nested child events, when child flows exist)
 - For parallel nodes, `<ParallelName>NodeBuilder` also emits named `val <child>RegionId: RegionId` properties for each sub-region, so callers never need to hardcode `RegionId(Path(...))` strings.
 
+Target accessors take the parameters of **every parameterized node on the path**, not just the target's own:
+with `main -> details(eSimId) -> packageDetails(packageId)` the accessor is
+`Target.myESimFlow.packageDetails(eSimId, packageId)`. The runtime uses an ancestor value only when that ancestor
+is not alive and has to be rebuilt (an alive ancestor keeps the payload it was built with), so a late
+`NavigateTo` after Back can never fail with `no payload for "..."`. An ancestor parameter whose name clashes with
+another one on the path is prefixed with the node id (`detailsId`).
+
 ### How source wiring works
 
 - KMP: generated dir is added to `commonMain` (and `commonTest` when present).

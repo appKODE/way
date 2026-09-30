@@ -33,7 +33,8 @@ crashing, and every event goes through an `EventSink`.
   screen, a flow's or parallel's sink at the active leaves under it; the event bubbles up on `Ignore` through the node
   within its region and, except Back, reaches every parallel enclosing the node and bubbles up through each
   parallel's ancestors, like `service.send`; Back stays in the node's region (the root sink is equivalent to
-  `service.send`). Its events are dropped with `DropReason.StaleSource(path)` if the node has left navigation or was
+  `service.send`). A non-Back event nobody handles in that scope falls back to the whole tree, like `service.send`, so
+  it can reach a handler in a sibling parallel region (scope nodes are consulted twice on the fallback). Its events are dropped with `DropReason.StaleSource(path)` if the node has left navigation or was
   recreated by the time they are dispatched.
 * `NavigationService.nodeGeneration(path)`, the generation of the node instance alive at `path`, changed whenever the
   node is recreated.

@@ -14,7 +14,8 @@ internal fun resolveTransition(
    * Path of the node whose [EventSink] sent [event]. A screen's sink starts at the screen itself; a flow's or a
    * parallel's sink at the active leaves of the regions under it (and the parallels under it). The event then bubbles
    * up on `Ignore` within the region and, except for Back, also reaches the parallels enclosing [source], like a plain
-   * `send` does. `null` means the whole tree, which is what a plain `send` does.
+   * `send` does. `null` means the whole tree, which is what a plain `send` does. The caller re-resolves with `null` when
+   * a non-Back event resolved to nothing here, so events nobody handles in this scope reach sibling regions.
    */
   source: Path? = null,
 ): ResolvedTransition {

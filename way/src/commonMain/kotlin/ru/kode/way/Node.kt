@@ -118,7 +118,8 @@ abstract class ParallelFlowNode<R : Any> : Node {
 
   /**
    * This parallel's sink ([NavigationService.eventSink]): events are resolved from the active leaves of its regions
-   * and dropped with [DropReason.StaleSource] once this node instance has left navigation. The service attaches a
+   * and dropped with [DropReason.StaleSource] once this node instance has left navigation. A non-Back event nobody
+   * handles in its scope falls back to the whole tree, like `send`. The service attaches a
    * new sink right before every entry (usable in `onEntry` and entry hooks), so if the node builder returns the same
    * instance on re-entry, reading this property later yields the sink of the new entry. For async work capture it
    * first (`val sink = eventSink` in `onEntry`, or before launching the work): the captured sink goes stale when this

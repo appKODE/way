@@ -37,7 +37,8 @@ abstract class BaseFlowNode<R : Any> :
 
   /**
    * This node's sink ([NavigationService.eventSink]): events are resolved from the active leaves under this flow and
-   * dropped with [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation. The service
+   * dropped with [ru.kode.way.DropReason.StaleSource] once this node instance has left navigation. A non-Back event
+   * nobody handles in its scope falls back to the whole tree, like `send`. The service
    * attaches a new sink right before every entry (usable in `onEntry` and entry hooks), so if the node builder
    * returns the same instance on re-entry, reading this property later yields the sink of the new entry. For async
    * work, and when handing it to the presenters of the flow's children, capture it first (`val sink = eventSink` in

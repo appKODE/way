@@ -252,9 +252,11 @@ enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)`
   sink at the active leaf of every region under it, so its active children handle the event first;
 - bubble up on `Ignore` through the node to its ancestors within the region, and (except `Event.Back`) also reach
   every parallel enclosing the node and bubble up through each parallel's ancestors, like `service.send` (same region
-  order, same merge). Sibling regions are never consulted: a
-  sink of region A never reaches region B's leaf, but an event region A's screen sends which the parallel handles
-  (e.g. a cross-region event) is handled by the parallel;
+  order, same merge);
+- a non-Back event which nothing handled in that scope (no target, no enqueued event) falls back to the whole tree,
+  resolved exactly as `service.send` would, so a screen in region A can send an event only a node in sibling region B
+  handles. An event handled in scope is not sent again. The scope's nodes are consulted twice on a fallback
+  (`transition` and `onPreTransition` run again), and a parallel answering `Stay` falls through as well;
 - `Event.Back` stays in the node's region (never reaching enclosing parallels or sibling regions): a parallel's sink
   routes it through that parallel's `DispatchBackTo`, a sink of a node inside a region keeps it in that region;
 - are checked when dispatched, not when sent: if the node has left navigation or was recreated meanwhile, the event
@@ -282,7 +284,8 @@ Events go into an `EventSink`; take the nearest one:
   custom node;
 - a ViewModel / presenter: its screen's sink, passed to it from the node;
 - outside navigation (Activity back, a deep link, a push): the `NavigationService` itself, which is an `EventSink`:
-  `service.send(event)` is the root sink (whole tree, never stale), equivalent to the root node's sink.
+  `service.send(event)` is the root sink (whole tree, never stale), equivalent to the root node's sink. A node's sink
+  falls back to the same whole-tree resolution for non-Back events nobody handles in its scope.
 
 Same threading rules as `NavigationService` (one thread; re-entrant sends are queued).
 

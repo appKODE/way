@@ -1,0 +1,7 @@
+digraph ValidationFanInSchema {
+  app [type = flow]
+  shared [type = schema]
+
+  app -> home -> shared
+  app -> settings -> shared
+}

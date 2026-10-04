@@ -1,0 +1,15 @@
+// parameters on a parallel flow and inside its region sub-schemas
+digraph TargetsTest10 {
+  schemaFileName = "targets-test10-schema"
+  targetsFileName = "targets-test10-targets"
+
+  app [type = flow]
+  tabs [type = parallelFlow, parameterName = "tabsId", parameterType = "kotlin.Int"]
+  tabA [type = flow]
+  tabB [type = flow, parameterName = "bId", parameterType = "kotlin.String"]
+  screenB [parameterName = "page", parameterType = "kotlin.Int"]
+
+  app -> tabs
+  tabs -> tabA -> screenA
+  tabs -> tabB -> screenB
+}

@@ -1,0 +1,8 @@
+digraph ValidationClashingParams {
+  app [type = flow]
+  a [type = flow, parameterName = "id", parameterType = "kotlin.String"]
+  b [type = flow, parameterName = "aId", parameterType = "kotlin.String"]
+  c [type = flow, parameterName = "id", parameterType = "kotlin.String"]
+
+  app -> a -> b -> c -> cScreen
+}

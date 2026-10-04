@@ -1,9 +1,12 @@
 package ru.kode.way
 
+import ru.kode.way.extension.node.hook.BaseFlowNode
+import ru.kode.way.extension.node.hook.BaseScreenNode
+
 /**
  * Drives navigation state for a single root flow.
  *
- * **Threading:** NavigationService is NOT thread-safe. All calls to [sendEvent], [start],
+ * **Threading:** NavigationService is NOT thread-safe. All calls to [send], [start],
  * [addTransitionListener], etc. must be made from the same thread (typically the main/UI thread).
  * The reentrancy guard ([isDispatching]) only protects against single-threaded re-entry from
  * within listener callbacks, not concurrent access from multiple threads.
@@ -11,7 +14,7 @@ package ru.kode.way
 class NavigationService<R : Any>(
   private val nodeBuilder: NodeBuilder,
   private val onFinishRequest: (R) -> FlowTransition<Unit>,
-) {
+) : EventSink {
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
     _nodeExtensionPoints = mutableListOf(),
@@ -20,8 +23,12 @@ class NavigationService<R : Any>(
   private val listeners = ArrayList<(NavigationState) -> Unit>()
   private val serviceExtensionPoints = mutableListOf<ServiceExtensionPoint<R>>()
   private var enqueuedEventScheduler: ((Event) -> Unit)? = null
+
+  /** Sink events handed unwrapped to [enqueuedEventScheduler], re-wrapped when the scheduler sends them back. */
+  private val scheduledSourcedEvents = mutableListOf<SourcedEvent>()
   private var isDispatching = false
   private var isDisposed = false
+  private var nextGeneration = 0L
 
   /**
    * [onFinishRequest] with its types erased to `(Any) -> Transition`. A root/intermediate parallel-flow
@@ -46,9 +53,21 @@ class NavigationService<R : Any>(
    */
   var validateSchema: Boolean = true
 
+  /**
+   * When true, [send] throws [EventDroppedException] for an event dropped with [DropReason.MissingPayload].
+   * When false (default), the event is dropped silently: navigation state stays as it was, no transition
+   * listeners are called and the remaining enqueued events are still processed. In both cases every
+   * [ServiceExtensionPoint.onEventDropped] is called first. Enable it in debug builds and tests.
+   *
+   * [DropReason.StaleSource] never throws, even in strict mode: an event from a node which has just left (a double
+   * tap, a tap during an exit animation) is an expected race, it is only reported via
+   * [ServiceExtensionPoint.onEventDropped].
+   */
+  var strictEventDropping: Boolean = false
+
   fun start(rootFlowPayload: Any? = null) {
     check(!isStarted()) { "NavigationService is already started; start() must only be called once" }
-    sendEvent(InitEvent(rootFlowPayload))
+    dispatch(InitEvent(rootFlowPayload))
   }
 
   fun isStarted(): Boolean = state.isInitialized()
@@ -60,9 +79,9 @@ class NavigationService<R : Any>(
    * as part of registration. If that immediate-invocation throws, the listener is automatically
    * removed before the exception propagates to the caller.
    *
-   * During normal dispatch (inside [sendEvent]), listeners are notified independently — one
+   * During normal dispatch (inside [send]), listeners are notified independently — one
    * listener throwing does NOT skip subsequent listeners. The first thrown exception propagates
-   * out of [sendEvent] after every listener has been called; further exceptions thrown by later
+   * out of [send] after every listener has been called; further exceptions thrown by later
    * listeners are suppressed and attached as `Throwable.suppressed` to the first one.
    */
   fun addTransitionListener(listener: (NavigationState) -> Unit) {
@@ -106,7 +125,7 @@ class NavigationService<R : Any>(
   /**
    * Releases all listeners and extension points held by this service.
    *
-   * After calling [dispose], calls to [sendEvent] become safe no-ops: they will return immediately
+   * After calling [dispose], calls to [send] become safe no-ops: they will return immediately
    * without processing the event or delivering state to any listener. Calling [start] after [dispose]
    * is undefined behaviour and should be avoided.
    *
@@ -119,11 +138,12 @@ class NavigationService<R : Any>(
     if (isDisposed) return
     check(!isDispatching) {
       "dispose() must not be called during event dispatch (e.g. from inside a transition " +
-        "listener or extension point). Call it after sendEvent() returns. Use cleanDispose() " +
+        "listener or extension point). Call it after send() returns. Use cleanDispose() " +
         "for the same constraint with leaf-to-root onDispose firing."
     }
     isDisposed = true
     listeners.clear()
+    scheduledSourcedEvents.clear()
     serviceExtensionPoints.clear()
     state._nodeExtensionPoints.clear()
     state._enqueuedEvents.clear()
@@ -145,7 +165,7 @@ class NavigationService<R : Any>(
    * does not skip the remaining steps or the remaining nodes.
    *
    * Must not be called from inside a transition listener or extension-point callback (i.e. during
-   * event dispatch). Call it only after [sendEvent] returns, typically from [android.arch.lifecycle.ViewModel.onCleared].
+   * event dispatch). Call it only after [send] returns, typically from [android.arch.lifecycle.ViewModel.onCleared].
    *
    * This method is idempotent: calling it more than once has no additional effect.
    */
@@ -153,7 +173,7 @@ class NavigationService<R : Any>(
     if (isDisposed) return
     check(!isDispatching) {
       "cleanDispose() must not be called during event dispatch (e.g. from inside a transition " +
-        "listener or extension point). Call it after sendEvent() returns."
+        "listener or extension point). Call it after send() returns."
     }
     if (state.isInitialized()) {
       state._regions.entries
@@ -199,7 +219,8 @@ class NavigationService<R : Any>(
     private val enqueuedEvents: List<Event> = state._enqueuedEvents.toList()
     private val payloads: Map<Path, Any> = state._payloads.toMap()
     private val intermediateParallels: Map<Path, IntermediateParallel> = state._intermediateParallels.toMap()
-    private val history: Map<Path, List<Path>> = state._history.toMap()
+    private val history: Map<Path, HistoryRecord> = state._history.toMap()
+    private val generations: Map<Path, Long> = state._generations.toMap()
     private val rootNode: Node? = state.rootNode
     private val rootNodePath: Path? = state.rootNodePath
     private val rootFinishTransitionBuilder: ((Any) -> Transition)? = state._rootFinishTransitionBuilder
@@ -215,28 +236,33 @@ class NavigationService<R : Any>(
       state._intermediateParallels.putAll(intermediateParallels)
       state._history.clear()
       state._history.putAll(history)
+      state._generations.clear()
+      state._generations.putAll(generations)
       state.rootNode = rootNode
       state.rootNodePath = rootNodePath
       state._rootFinishTransitionBuilder = rootFinishTransitionBuilder
     }
   }
 
-  private fun transition(state: NavigationState, event: Event): NavigationState {
+  private fun transition(state: NavigationState, event: Event, source: Path?): NavigationState {
     check(event is InitEvent || state.isInitialized()) {
-      "sendEvent() was called before start(); call NavigationService.start() first"
-    }
-    serviceExtensionPoints.toList().forEach {
-      it.onPreTransition(this, event, state.copy())
+      "send() was called before start(); call NavigationService.start() first"
     }
     // Snapshot every mutable slot before any mutation so a throw anywhere below restores the exact
     // pre-transition state (all-or-nothing). Taken before InitEvent populates regions, so a failed
     // start() restores to empty and is retryable.
     val snapshot = TransactionSnapshot(state)
+    // Resolved and payload-checked before onPreTransition, so an event dropped with a missing payload only reaches
+    // onEventDropped. InitEvent is resolved after its regions are materialized, in applyResolvedTransition.
+    val resolvedTransition = if (event is InitEvent) null else resolveCheckedTransition(state, event, source)
+    serviceExtensionPoints.toList().forEach {
+      it.onPreTransition(this, event, state.copy())
+    }
     // Root flow nodes entered by the InitEvent block, tracked so the catch can compensate their
     // onEntry. applyResolvedTransition tracks its own entered/exited separately.
     val initEnteredRoots = mutableListOf<Pair<Node, Path>>()
     val navigationState = try {
-      applyResolvedTransition(state, event, initEnteredRoots)
+      applyResolvedTransition(state, event, source, resolvedTransition, initEnteredRoots)
     } catch (e: Throwable) {
       // Compensate onEntry for root flow nodes entered in the InitEvent block (applyResolvedTransition
       // compensates its own nodes); then restore the snapshot so the whole dispatch is all-or-nothing.
@@ -260,6 +286,8 @@ class NavigationService<R : Any>(
   private fun applyResolvedTransition(
     state: NavigationState,
     event: Event,
+    source: Path?,
+    preResolvedTransition: ResolvedTransition?,
     initEnteredRoots: MutableList<Pair<Node, Path>>,
   ): NavigationState {
     if (event is InitEvent) {
@@ -268,17 +296,13 @@ class NavigationService<R : Any>(
         materializeRegion(regionId, event, initEnteredRoots)
       }
     }
-    val resolvedTransition = resolveTransition(
-      regions = state.regions,
-      nodeBuilder = nodeBuilder,
-      event = event,
-      extensionPoints = state._nodeExtensionPoints,
-      rootNode = state.rootNode,
-      rootNodePath = state.rootNodePath,
-      rootFinishTransitionBuilder = state._rootFinishTransitionBuilder,
-      intermediateParallels = state._intermediateParallels,
-      history = state._history,
-    )
+    val resolvedTransition = preResolvedTransition ?: resolveCheckedTransition(state, event, source)
+    // An alive node re-targeted with a different argument is rebuilt, together with its alive descendants.
+    val aliveBefore = computeConfiguration(state)
+    val retargeted = resolvedTransition.payloads.filter { (path, payload) ->
+      path in aliveBefore && path !in state._intermediateParallels &&
+        state._payloads[path].let { it != null && it != payload }
+    }.keys
     // Persist this transition's payloads into the running store BEFORE synchronizeNodes —
     // any lazily-rebuilt NodeBuilder with a parameterised flow lookup hits the store, not the
     // transient transition map. This is what fixes "no payload for <path>" on subsequent
@@ -297,6 +321,14 @@ class NavigationService<R : Any>(
     // calculateAliveNodes mutates and returns the SAME state instance; mutatedState === state.
     val mutatedState = calculateAliveNodes(state, resolvedTransition.targetPaths, nodeBuilder.schema)
     unmountOrphanedIntermediates(state, event, syncExited, unmountedIntermediates)
+    // ponytail: an intermediate parallel below a re-targeted node is kept, only region nodes are rebuilt
+    val recreated = computeConfiguration(mutatedState).filterTo(mutableSetOf()) { path ->
+      path !in mutatedState._intermediateParallels && retargeted.any { path.startsWith(it) }
+    }
+    // A recreated node gets a new generation, so a sink of its previous instance is stale.
+    mutatedState._generations.keys.removeAll(recreated)
+    // Before synchronizeNodes, so a sink obtained in onEntry already carries the entered node's generation.
+    syncGenerations(mutatedState)
     synchronizeNodes(
       mutatedState,
       event,
@@ -306,6 +338,7 @@ class NavigationService<R : Any>(
       syncEntered,
       syncExited,
       unmountedIntermediates,
+      recreated,
     )
     try {
       if (validateSchema) checkSchemaValidity(nodeBuilder.schema, mutatedState)
@@ -316,6 +349,87 @@ class NavigationService<R : Any>(
     }
     return mutatedState
   }
+
+  /**
+   * Resolves [event] to its target paths without mutating [state], and throws [MissingPayloadException] when a
+   * target needs a payload nobody has, before anything is mounted or exited.
+   */
+  private fun resolveCheckedTransition(state: NavigationState, event: Event, source: Path?): ResolvedTransition {
+    fun resolve(from: Path?) = resolveTransition(
+      regions = state.regions,
+      nodeBuilder = nodeBuilder,
+      event = event,
+      extensionPoints = state._nodeExtensionPoints,
+      rootNode = state.rootNode,
+      rootNodePath = state.rootNodePath,
+      rootFinishTransitionBuilder = state._rootFinishTransitionBuilder,
+      intermediateParallels = state._intermediateParallels,
+      history = state._history,
+      source = from,
+    )
+    var resolvedTransition = resolve(source)
+    // An event nobody handled in the sink's scope falls back to the whole tree, like send (Back never does).
+    // Known limits: the scope's nodes are consulted twice (transition and onPreTransition run again), and a parallel
+    // answering Stay resolves to EMPTY as well, so it falls through too.
+    if (source != null && event != Event.Back && resolvedTransition == ResolvedTransition.EMPTY) {
+      resolvedTransition = resolve(null)
+    }
+    findMissingPayload(nodeBuilder.schema, state, resolvedTransition)?.let { throw MissingPayloadException(it) }
+    return resolvedTransition
+  }
+
+  /** Gives a fresh generation to every newly alive path and forgets the paths which are no longer alive. */
+  private fun syncGenerations(state: NavigationState) {
+    val alive = computeConfiguration(state) + state._intermediateParallels.keys + listOfNotNull(state.rootNodePath)
+    state._generations.keys.retainAll(alive)
+    alive.forEach { path -> state._generations.getOrPut(path) { nextGeneration++ } }
+  }
+
+  /**
+   * Returns a sink which sends events on behalf of the node currently alive at [path]. A screen's sink starts at the
+   * screen itself (never at a screen stacked on it); a flow's or a parallel's sink starts at the active leaf of every
+   * region under it, so its active children handle the event first, and the parallels under it handle it too. The
+   * event then bubbles up on [Ignore] through the node to its ancestors within the region and, except for
+   * [Event.Back], also reaches every parallel enclosing the node and bubbles up through each parallel's ancestors,
+   * like [send] (same region order, same merge). If nothing in that scope handled the event, it falls back to the whole
+   * tree, exactly as [send] would resolve it, so a sibling region can handle it. Back never falls back: it stays in the node's
+   * region, never reaching enclosing parallels or sibling regions: routed through the node's own `DispatchBackTo` if it is a
+   * parallel, kept in the node's region otherwise. The root node's sink is equivalent to [send].
+   *
+   * If the node is no longer alive, or has been recreated, when the event is dispatched, the event is dropped with
+   * [DropReason.StaleSource]. A change below the node does not make its sink stale. A sink for a path which is not
+   * alive is always stale.
+   */
+  fun eventSink(path: Path): EventSink = eventSink(path, state)
+
+  private fun eventSink(path: Path, state: NavigationState): EventSink {
+    val generation = state._generations[path] ?: -1L
+    return EventSink { dispatch(SourcedEvent(it, path, generation)) }
+  }
+
+  /**
+   * Enters [node] at [path]: a node owning a sink (see [BaseFlowNode.eventSink]) gets a fresh one bound to its
+   * current generation first, so the sink is usable from `onEntry` and its hooks. Its generation must be assigned.
+   *
+   * Only forward entries go through here. The re-entry in [compensateLifecycle] after a rollback intentionally does
+   * not re-attach: the node keeps the sink of its original entry, which is live again because [TransactionSnapshot]
+   * restores `_generations`.
+   */
+  private fun enter(state: NavigationState, node: Node, path: Path, event: Event) {
+    when (node) {
+      is BaseFlowNode<*> -> node.attachEventSink(eventSink(path, state))
+      is BaseScreenNode -> node.attachEventSink(eventSink(path, state))
+      is ParallelFlowNode<*> -> node.attachEventSink(eventSink(path, state))
+      else -> Unit
+    }
+    callOnEntry(node, path, event, state._nodeExtensionPoints)
+  }
+
+  /**
+   * The generation of the node instance currently alive at [path], or `null` if no node is alive there. It changes
+   * every time a node is (re)created at [path], so it can key a cached [eventSink].
+   */
+  fun nodeGeneration(path: Path): Long? = state._generations[path]
 
   /**
    * For a parallel-flow-ROOTED schema, builds and enters the root [ParallelFlowNode] FIRST (before
@@ -349,7 +463,9 @@ class NavigationService<R : Any>(
       "schema rootSegment is a parallel-flow region root, but builder returned " +
         "${rootNode::class.simpleName}. Generated NodeBuilder is out of sync with the schema."
     }
-    callOnEntry(rootNode, rootSegmentPath, event, state._nodeExtensionPoints)
+    // Entered before syncGenerations runs: give it its generation now so a sink obtained in onEntry is live.
+    state._generations.getOrPut(rootSegmentPath) { nextGeneration++ }
+    enter(state, rootNode, rootSegmentPath, event)
     initEnteredRoots.add(rootNode to rootSegmentPath)
     state.rootNode = rootNode
     state.rootNodePath = rootSegmentPath
@@ -453,7 +569,8 @@ class NavigationService<R : Any>(
     )
     when (regionRoot) {
       is FlowNode<*> -> {
-        callOnEntry(regionRoot, regionRootPath, event, state._nodeExtensionPoints)
+        state._generations.getOrPut(regionRootPath) { nextGeneration++ }
+        enter(state, regionRoot, regionRootPath, event)
         initEnteredRoots.add(regionRoot to regionRootPath)
         val rootFinishBuilder = finishBuilderFor(regionRootPath)
         state._regions[regionId] = Region(
@@ -534,7 +651,8 @@ class NavigationService<R : Any>(
     require(node is ParallelFlowNode<*>) {
       "expected ParallelFlowNode at $parallelPath, but builder returned ${node::class.simpleName}"
     }
-    callOnEntry(node, parallelPath, event, state._nodeExtensionPoints)
+    state._generations.getOrPut(parallelPath) { nextGeneration++ }
+    enter(state, node, parallelPath, event)
     entered.add(node to parallelPath)
     val finishBuilder = finishBuilderFor(parallelPath)
     state._intermediateParallels[parallelPath] = IntermediateParallel(
@@ -584,6 +702,7 @@ class NavigationService<R : Any>(
     entered: MutableList<Pair<Node, Path>>,
     exited: MutableList<Pair<Node, Path>>,
     unmountedIntermediates: Set<Path>,
+    recreated: Set<Path>,
   ) {
     // Record SCXML history for every compound flow/region that just left the alive set, keyed by
     // its path → the atomic leaf that was active under it. Done here — after calculateAliveNodes
@@ -626,7 +745,7 @@ class NavigationService<R : Any>(
       // Per-region synchronization
       state._regions.forEach { (regionId, region) ->
         previousAlive[regionId].orEmpty().reversed().forEach { path ->
-          if (!region.alive.contains(path)) {
+          if (!region.alive.contains(path) || path in recreated) {
             // Skip intermediate parallels: their onExit was already fired by the pre-unmount
             // step in transition(). They were carried in this region's previousAlive as a
             // path-coverage placeholder (placed by initParallelAndRouteAbsolute's
@@ -642,9 +761,11 @@ class NavigationService<R : Any>(
             exited.add(node to path)
           }
         }
-        region._nodes.keys.retainAll(region.alive.toSet())
+        region._nodes.keys.retainAll(region.alive.toSet() - recreated)
       }
       onExitThrows.rethrowAsAggregate()
+      // A cached child NodeBuilder of a recreated node was created with the previous argument.
+      if (recreated.isNotEmpty()) nodeBuilder.invalidateCache(computeConfiguration(state) - recreated)
       // Per-region build loop — entries newly added by calculateAliveNodes get their nodes
       // built and onEntry fired.
       state._regions.forEach { (_, region) ->
@@ -667,7 +788,7 @@ class NavigationService<R : Any>(
             region._nodes[path] =
               nodeBuilder.build(path, pathPayloads, rootSegmentAlias = nodeBuilder.schema.rootSegment)
                 .also {
-                  callOnEntry(it, path, event, state._nodeExtensionPoints)
+                  enter(state, it, path, event)
                   entered.add(it to path)
                 }
           }
@@ -697,55 +818,100 @@ class NavigationService<R : Any>(
     }
   }
 
-  fun sendEvent(event: Event) {
+  /**
+   * The root sink: sends [event] on behalf of the whole tree, from outside any node (Activity back, a deep link, a
+   * push). It is resolved from the active leaf of every region, like the root node's [eventSink], and is never stale.
+   * Code acting on behalf of a node uses that node's sink instead (UI: `LocalEventSink`, a node: its
+   * [BaseFlowNode.eventSink] / [BaseScreenNode.eventSink], a presenter: the sink its screen passes to it).
+   */
+  override fun send(event: Event) = dispatch(event)
+
+  /**
+   * The single entry of every event: [send], node sinks ([SourcedEvent]) and [start]. Re-entrant calls are queued.
+   */
+  private fun dispatch(event: Event) {
     if (isDisposed) return
+    val scheduledIndex = scheduledSourcedEvents.indexOfFirst { it.event === event }
+    val sendingEvent = if (scheduledIndex >= 0) scheduledSourcedEvents.removeAt(scheduledIndex) else event
     if (isDispatching) {
-      state._enqueuedEvents.addLast(event)
+      state._enqueuedEvents.addLast(sendingEvent)
       return
     }
-    var currentEvent: Event = event
+    var currentEvent: Event = sendingEvent
     while (true) {
       isDispatching = true
       try {
-        val newState = transition(state, currentEvent)
-        val validityErrors = newState.runValidityChecks()
-        if (validityErrors.isNotEmpty()) {
-          error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
-        }
-        state = newState
-        // Per-listener try/catch: one listener throwing must NOT skip subsequent listeners.
-        // Collect every throw and rethrow the first after all listeners have been called, attaching
-        // the rest as `addSuppressed` so the caller still sees them. The rethrow deliberately aborts
-        // the enqueued-events drain: a listener exception is a consumer bug and callers rely on it
-        // surfacing immediately with the queue left intact (see "listener exception propagates
-        // immediately; enqueued events are not drained").
-        val listenerThrows = mutableListOf<Throwable>()
-        listeners.toList().forEach { listener ->
+        // transition() has already rolled the state back when it throws. A missing payload drops the event
+        // and keeps draining the queue; a failed start() is never dropped.
+        // The only place a SourcedEvent is unwrapped: everything downstream sees the user's event.
+        val sourced = currentEvent as? SourcedEvent
+        val event = sourced?.event ?: currentEvent
+        val newState = if (sourced != null && state._generations[sourced.source] != sourced.generation) {
+          dropEvent(event, DropReason.StaleSource(sourced.source), cause = null)
+          null
+        } else {
           try {
-            listener(state.copy())
-          } catch (e: Throwable) {
-            listenerThrows.add(e)
+            transition(state, event, sourced?.source)
+          } catch (e: MissingPayloadException) {
+            if (event is InitEvent) throw e
+            dropEvent(event, DropReason.MissingPayload(e.path), e)
+            null
           }
         }
-        listenerThrows.rethrowAsAggregate()
+        if (newState != null) {
+          val validityErrors = newState.runValidityChecks()
+          if (validityErrors.isNotEmpty()) {
+            error(validityErrors.joinToString("\n", prefix = "internal error. State is inconsistent:\n"))
+          }
+          state = newState
+          // Per-listener try/catch: one listener throwing must NOT skip subsequent listeners.
+          // Collect every throw and rethrow the first after all listeners have been called, attaching
+          // the rest as `addSuppressed` so the caller still sees them. The rethrow deliberately aborts
+          // the enqueued-events drain: a listener exception is a consumer bug and callers rely on it
+          // surfacing immediately with the queue left intact (see "listener exception propagates
+          // immediately; enqueued events are not drained").
+          val listenerThrows = mutableListOf<Throwable>()
+          listeners.toList().forEach { listener ->
+            try {
+              listener(state.copy())
+            } catch (e: Throwable) {
+              listenerThrows.add(e)
+            }
+          }
+          listenerThrows.rethrowAsAggregate()
+        }
       } finally {
         isDispatching = false
       }
       currentEvent = state._enqueuedEvents.removeFirstOrNull() ?: break
       enqueuedEventScheduler?.let { scheduler ->
-        scheduler(currentEvent)
+        val sourced = currentEvent as? SourcedEvent
+        if (sourced != null) scheduledSourcedEvents.add(sourced)
+        scheduler(sourced?.event ?: currentEvent)
         break
       }
     }
   }
 
+  private fun dropEvent(event: Event, reason: DropReason, cause: Throwable?) {
+    serviceExtensionPoints.toList().forEach { it.onEventDropped(this, event, reason) }
+    // A stale source is an expected race (a double tap, a tap during an exit animation), not a bug.
+    if (strictEventDropping && reason is DropReason.MissingPayload) throw EventDroppedException(event, reason, cause)
+  }
+
   /**
    * Sets a custom scheduler for enqueued events.
    *
-   * By default, enqueued events are drained immediately in an iterative loop inside [sendEvent].
+   * By default, enqueued events are drained immediately in an iterative loop inside [send].
    * If you need dispatch to be tied to a platform event loop (e.g. `Handler.post` on Android),
    * set a custom scheduler here. It will be called with the next queued event after each transition;
-   * the scheduler is responsible for delivering that event back to [sendEvent] at the right time.
+   * the scheduler is responsible for delivering that event back to [send] at the right time.
+   *
+   * An event sent through an [EventSink] is passed to the scheduler as the plain event the node sent. The service
+   * remembers that instance: when the scheduler passes the same instance (`===`) back to [send], it is
+   * dispatched as a sink event again, i.e. resolved from its node and dropped with [DropReason.StaleSource] if that
+   * node has left meanwhile. So deliver the very instance you received, not a copy. An event object which is also sent
+   * directly meanwhile (e.g. [BackEvent]) may swap the treatment between the two deliveries.
    */
   fun setEnqueuedEventsScheduler(scheduler: (Event) -> Unit) {
     enqueuedEventScheduler = scheduler
@@ -786,7 +952,9 @@ private fun recordHistoryOnExit(state: NavigationState, previousAlive: Map<Regio
     }
   }
   recorded.forEach { (ancestor, leaves) ->
-    state._history[ancestor] = leaves.distinct()
+    // every not alive node on the way to a leaf, including parameterized ancestors above [ancestor]
+    val payloads = state._payloads.filterKeys { path -> path !in newConfig && leaves.any { it.startsWith(path) } }
+    state._history[ancestor] = HistoryRecord(leaves.distinct(), payloads)
   }
 }
 
@@ -817,6 +985,8 @@ private fun compensateLifecycle(
     runCatching { callOnExit(node, path, event, extensionPoints) }
   }
   exited.reversed().forEach { (node, path) ->
+    // Not NavigationService.enter: no new sink is attached. The node's original sink becomes live again once the
+    // caller's TransactionSnapshot restores `_generations`.
     runCatching { callOnEntry(node, path, event, extensionPoints) }
   }
 }

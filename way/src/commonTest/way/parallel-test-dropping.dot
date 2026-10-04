@@ -1,0 +1,15 @@
+// dropped events in a parallel-rooted schema: every sub-region has a parameterized node below its home screen
+digraph ParallelTestDropping {
+  package = "ru.kode.way.pardrop"
+
+  dropRoot [type = "parallelFlow"]
+  dropAlpha [type = "flow"]
+  dropBeta [type = "flow"]
+  alphaItem [parameterName = "id", parameterType = "kotlin.String"]
+  betaItem [parameterName = "id", parameterType = "kotlin.String"]
+
+  dropRoot -> dropAlpha
+  dropRoot -> dropBeta
+  dropAlpha -> alphaHome -> alphaItem
+  dropBeta -> betaHome -> betaItem -> betaDetails
+}

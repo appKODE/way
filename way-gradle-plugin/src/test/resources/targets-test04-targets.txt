@@ -20,8 +20,24 @@ public class AppTargets(
 
   public fun page1(charset: Charset): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = charset)
 
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public fun page2(userCount: Int): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page2@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = userCount)
+
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
   public fun page2(charset: Charset, userCount: Int): ScreenTarget = ScreenTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page2@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = userCount, ancestorPayloads = mapOf(Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot") to charset))
 
+  /**
+   * Short target: parameterized ancestors keep their current payloads. Use it inside a flow which is alive; if a parameterized ancestor is not alive anymore, the event is dropped.
+   */
+  public fun permissions(requireGrantAll: Boolean): FlowTarget = FlowTarget(flowPath(Path(listOf(Segment("intro@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page1@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("page2@TargetsTest04:src/test/resources/targets-test04.dot"), Segment("permissions@TargetsTest04:src/test/resources/targets-test04.dot")))), payload = requireGrantAll)
+
+  /**
+   * Full target: passes payloads for every parameterized ancestor, so they can be rebuilt. Use it for a cold start, a flow's `initial`, an `AbsoluteTarget` or to jump into a branch which is not alive.
+   */
   public fun permissions(
     charset: Charset,
     userCount: Int,

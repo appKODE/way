@@ -103,32 +103,32 @@ class HistoryTargetParallelTest :
         awaitItem().leafOf("histApp") shouldBe "histHome"
 
         // Enter the parallel: both regions materialise at their defaults.
-        sut.sendEvent(TestEvent("enterMain"))
+        sut.send(TestEvent("enterMain"))
         awaitItem().apply {
           leafOf("histTabA") shouldBe "histA1"
           leafOf("histTabB") shouldBe "histB1"
         }
 
         // Drill tabA to its NON-default screen; tabB stays at its default leaf.
-        sut.sendEvent(TestEvent("drillA2"))
+        sut.send(TestEvent("drillA2"))
         awaitItem().apply {
           leafOf("histTabA") shouldBe "histA2"
           leafOf("histTabB") shouldBe "histB1"
         }
 
         // Fully exit the parallel back to home — records deep history {histA2, histB1} for histMain.
-        sut.sendEvent(TestEvent("toHome"))
+        sut.send(TestEvent("toHome"))
         awaitItem().apply {
           regionByName("histTabA") shouldBe null
           regionByName("histTabB") shouldBe null
           leafOf("histApp") shouldBe "histHome"
           // Recording guardrail: histMain accumulated BOTH sibling regions' atomic leaves (union),
           // not just whichever region was processed last.
-          _history[histMainPath]?.map { it.lastSegment().name }?.toSet() shouldBe setOf("histA2", "histB1")
+          _history[histMainPath]?.leaves?.map { it.lastSegment().name }?.toSet() shouldBe setOf("histA2", "histB1")
         }
 
         // Deep restore must bring BOTH regions back — tabA to its recorded histA2 AND tabB to histB1.
-        sut.sendEvent(TestEvent("histMainDeep"))
+        sut.send(TestEvent("histMainDeep"))
         awaitItem().apply {
           leafOf("histTabA") shouldBe "histA2"
           leafOf("histTabB") shouldBe "histB1"
@@ -141,18 +141,18 @@ class HistoryTargetParallelTest :
       sut.collectTransitions().test {
         awaitItem().leafOf("histApp") shouldBe "histHome"
 
-        sut.sendEvent(TestEvent("enterMain"))
+        sut.send(TestEvent("enterMain"))
         awaitItem().apply {
           leafOf("histTabA") shouldBe "histA1"
           leafOf("histTabB") shouldBe "histB1"
         }
 
         // Drill tabA to its NON-default screen so shallow-vs-deep can diverge.
-        sut.sendEvent(TestEvent("drillA2"))
+        sut.send(TestEvent("drillA2"))
         awaitItem().leafOf("histTabA") shouldBe "histA2"
 
         // Fully exit the parallel — records {histA2, histB1} (recording is deep regardless of restore).
-        sut.sendEvent(TestEvent("toHome"))
+        sut.send(TestEvent("toHome"))
         awaitItem().apply {
           regionByName("histTabA") shouldBe null
           regionByName("histTabB") shouldBe null
@@ -161,7 +161,7 @@ class HistoryTargetParallelTest :
         // Shallow restore re-materialises the cold parallel and brings back BOTH regions, each at its
         // own DEFAULT — tabA forgets the histA2 drill (histA1), tabB at histB1. The old code restored
         // only the first region and dropped tabB entirely.
-        sut.sendEvent(TestEvent("histMainShallow"))
+        sut.send(TestEvent("histMainShallow"))
         awaitItem().apply {
           leafOf("histTabA") shouldBe "histA1"
           leafOf("histTabB") shouldBe "histB1"

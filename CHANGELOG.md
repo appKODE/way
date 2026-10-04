@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.10.0 - 2026-09-30
+
+Generated targets get a short form again, events which can't be applied any more are dropped instead of
+crashing, and every event goes through an `EventSink`.
+
+### Breaking
+
+* `NavigationService.sendEvent(event)` is removed: `NavigationService` implements `EventSink`, use
+  `service.send(event)` (the root sink, same behavior). Events are only sent through an `EventSink`.
+
+### Added
+
+* Short target builders. Every generated target has a builder taking only the node's own parameter (a property for
+  a param-less node, `fun details(id)` otherwise), which keeps the payloads of alive parameterized ancestors. When the
+  path has parameterized ancestors, the 0.9.11 full builder is emitted as an overload
+  (`fun packageDetails(detailsId, id)`). Use the short one inside an alive flow, the full one for a cold start,
+  `FlowNode.initial`, `AbsoluteTarget` or a jump into a branch which is not alive.
+* Dropped events. An event whose target needs a parameterized ancestor which is not alive and has no payload is
+  dropped with `DropReason.MissingPayload(path)` instead of crashing with `no payload for "..."`. Navigation state
+  stays as it was, no node lifecycle callbacks run, no transition listeners are called, and the remaining enqueued
+  events are still processed.
+* `ServiceExtensionPoint.onEventDropped(service, event, reason)` (default no-op) is called for every dropped event.
+* `NavigationService.strictEventDropping` (default `false`): when `true`, an event dropped with
+  `DropReason.MissingPayload` throws `EventDroppedException(event, reason)` from `send`, after the state is rolled
+  back; the events enqueued after it stay queued. `DropReason.StaleSource` is an expected race and never throws.
+* Drops are all-or-nothing: a multi-target `NavigateTo` or a broadcast to parallel regions is dropped entirely when
+  any target misses a payload. The event is checked before `onPreTransition`, so neither `onPreTransition` nor
+  `onPostTransition` is called for a dropped event (except for a payload missed by a hand-rolled `Schema`, caught by
+  the node builder after `onPreTransition`).
+* `NavigationService.eventSink(path): EventSink`, a sink bound to one node instance. A screen's sink starts at the
+  screen, a flow's or parallel's sink at the active leaves under it; the event bubbles up on `Ignore` through the node
+  within its region and, except Back, reaches every parallel enclosing the node and bubbles up through each
+  parallel's ancestors, like `service.send`; Back stays in the node's region (the root sink is equivalent to
+  `service.send`). A non-Back event nobody handles in that scope falls back to the whole tree, like `service.send`, so
+  it can reach a handler in a sibling parallel region (scope nodes are consulted twice on the fallback). Its events are dropped with `DropReason.StaleSource(path)` if the node has left navigation or was
+  recreated by the time they are dispatched.
+* `NavigationService.nodeGeneration(path)`, the generation of the node instance alive at `path`, changed whenever the
+  node is recreated.
+* `BaseScreenNode.eventSink` / `BaseFlowNode.eventSink` / `ParallelFlowNode.eventSink`: the node's own sink,
+  attached right before every `onEntry`; reading it before the first entry throws. A send after the node left is
+  dropped as `StaleSource`. Every entry attaches a new sink, so capture it (`val sink = eventSink` in `onEntry`) for
+  async work that may outlive the entry.
+* `way-compose`: `LocalEventSink`, the sink of the node being rendered, provided by `NodeHost` to every node's
+  `Content()`; outside any node (under `LocalNavigationService`) it is the service itself.
+* Generated `Schema.isParameterized(regionId, path, rootSegmentAlias)` (default `false` for hand-written schemas).
+* `MissingPayloadException(path)`, thrown by generated node builders when a payload is missing. `NavigationService`
+  turns it into a dropped event; during `start()` it is rethrown.
+* An imported schema (`type=schema`) may be reachable from several parents (`a -> perm`, `b -> perm`), also when a
+  parent chain has parameters. Each parent path gets its own targets, `<node>Via<Parent>` (`permViaA`, `permViaB`),
+  short and full, the full one taking the payloads of its own path. Parents must be in the same region and must not be
+  a parallel node.
+* `Schema.targets(regionId, segment, rootSegmentAlias)`, every path of a segment (default: the single `target()`).
+
+### Changed
+
+* `NodeHost(nodeBuilder, ...)`, the overload which creates the service, sets `strictEventDropping` from the app's
+  `ApplicationInfo.FLAG_DEBUGGABLE`: debug builds throw on a dropped event, release builds drop it silently.
+* Generated node builders throw `MissingPayloadException` instead of a plain `IllegalStateException`.
+* `NavigateTo` an alive parameterized node with a different argument rebuilds it (exit, entry, new generation, so its
+  old sinks become stale); an equal argument keeps it.
+* `HistoryTarget` into a parameterized node which is not alive rebuilds it with the argument it had when left. The
+  history record keeps those payloads and is replaced on every exit.
+
+### Fixed
+
+* A tap on a screen which is animating out after Back, or any late event with a short target, no longer crashes with
+  `no payload for "..."`.
+* A parameterized node which is a composed schema's root and misses its payload is dropped the same way (the
+  generated node builder's exception is the backstop, the transition is rolled back with balanced lifecycle).
+* Generations are synchronized before nodes are entered, so a sink obtained in `onEntry` is not stale.
+* `NodeHost` caches `LocalEventSink` per service and node generation, so a recreated node gets a fresh sink.
+* A scheduler set with `setEnqueuedEventsScheduler` never receives the internal sourced wrapper of a sink event.
+
+Migration from 0.9.11:
+* Replace `service.sendEvent(event)` with `service.send(event)`, or better with the nearest sink (see below).
+* Calls to the full builders (`packageDetails(eSimId, packageId)`) still compile and behave the same.
+* Regenerate code with the matching plugin version.
+* Ancestor arguments cached only to satisfy 0.9.11 targets can be removed: switch to the short builder
+  (`packageDetails(packageId)`) where the ancestor flow is alive.
+* Send UI events through `LocalEventSink.current.send(event)` instead of
+  `LocalNavigationService.current.sendEvent(event)`, and events from a node or its presenter through the node's
+  `eventSink`, so events from a leaving screen are dropped. A sink resolves from the active leaves under its node, so
+  this holds whichever node handles the event; `service.send` is for callers outside navigation (Activity back, deep
+  links, pushes).
+* Apps constructing `NavigationService` directly are lenient by default; set `strictEventDropping = true` in debug
+  builds and tests to surface dropped events.
+
 ## 0.9.11 - 2026-09-30
 
 **Breaking:** generated target accessors now require the parameters of every parameterized ancestor on the

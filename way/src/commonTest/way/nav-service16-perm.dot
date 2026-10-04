@@ -1,0 +1,7 @@
+digraph NavService16Perm {
+  package = "ru.kode.way.nav16"
+
+  perm [type = flow, parameterName = reason, parameterType = "kotlin.String", resultType = "kotlin.String"]
+
+  perm -> permIntro
+}

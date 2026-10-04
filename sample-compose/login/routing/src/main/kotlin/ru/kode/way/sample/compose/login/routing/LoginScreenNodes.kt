@@ -7,12 +7,12 @@ import ru.kode.way.Ignore
 import ru.kode.way.ScreenNode
 import ru.kode.way.ScreenTransition
 import ru.kode.way.compose.ComposableNode
-import ru.kode.way.sample.compose.core.routing.FlowEventSink
+import ru.kode.way.compose.LocalEventSink
 import ru.kode.way.sample.compose.login.ui.CredentialsScreen
 import ru.kode.way.sample.compose.login.ui.OtpScreen
 import javax.inject.Inject
 
-class CredentialsNode @Inject constructor(private val eventSink: FlowEventSink) :
+class CredentialsNode @Inject constructor() :
   ScreenNode,
   ComposableNode {
   override fun transition(event: Event): ScreenTransition = Ignore
@@ -21,11 +21,11 @@ class CredentialsNode @Inject constructor(private val eventSink: FlowEventSink) 
   override fun Content(modifier: Modifier) {
     // viewModel could be injected with dagger into this screen node class and passed as
     // an argument to screen function
-    CredentialsScreen(eventSink::sendEvent)
+    CredentialsScreen(LocalEventSink.current::send)
   }
 }
 
-class OtpNode @Inject constructor(private val eventSink: FlowEventSink) :
+class OtpNode @Inject constructor() :
   ScreenNode,
   ComposableNode {
 
@@ -37,6 +37,6 @@ class OtpNode @Inject constructor(private val eventSink: FlowEventSink) :
   override fun Content(modifier: Modifier) {
     // viewModel could be injected with dagger into this screen node class and passed as
     // an argument to screen function
-    OtpScreen(maskInput, eventSink::sendEvent)
+    OtpScreen(maskInput, LocalEventSink.current::send)
   }
 }

@@ -58,16 +58,16 @@ class HistoryTargetCodegenTest :
         awaitItem().active shouldBe "app.onboarding.intro"
 
         // drill to the NON-default child of onboarding
-        sut.sendEvent(TestEvent("toPage1"))
+        sut.send(TestEvent("toPage1"))
         awaitItem().active shouldBe "app.onboarding.page1"
 
         // navigate away, exiting the onboarding flow (history is recorded here)
-        sut.sendEvent(TestEvent("toLogin"))
+        sut.send(TestEvent("toLogin"))
         awaitItem().active shouldBe "app.login.credentials"
 
         // the generated Target.onboarding.onboardingHist restores page1, NOT onboarding's default
         // initial (intro)
-        sut.sendEvent(TestEvent("histOnboarding"))
+        sut.send(TestEvent("histOnboarding"))
         awaitItem().active shouldBe "app.onboarding.page1"
       }
     }

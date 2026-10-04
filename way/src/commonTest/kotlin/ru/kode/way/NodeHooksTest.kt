@@ -90,7 +90,7 @@ class NodeHooksTest :
         callbackOrder.shouldContainExactly("onPreEntry", "onPostEntry")
         callbackOrder.clear()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem() // navigates to app.main
 
         // A transition event: onPreTransition, onPostTransition fired; no exit yet
@@ -153,7 +153,7 @@ class NodeHooksTest :
         awaitItem() // initial: app.login.credentials; hook entry callbacks fired
         callbackOrder.clear() // ignore entry events — only testing exit
 
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         // Back from credentials → Finish(login) enqueued; state stays at credentials
         awaitItem()
         // Enqueued Login finish → app navigates to onboarding; login flow exits here
@@ -244,7 +244,7 @@ class NodeHooksTest :
         callbackOrder.clear()
 
         // Navigate away from par03Main → sub-regions are torn down → hook exit callbacks fire
-        sut.sendEvent(TestEvent("goToPage"))
+        sut.send(TestEvent("goToPage"))
         awaitItem()
         callbackOrder.shouldContainExactly("onPreExit", "onPostExit")
         cancelAndIgnoreRemainingEvents()
@@ -518,7 +518,7 @@ class NodeHooksTest :
         callbackOrder.clear()
 
         // Back from credentials -> Finish(login) -> app navigates to onboarding -> login exits.
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
         awaitItem()
         awaitItem()
 
@@ -590,7 +590,7 @@ class NodeHooksTest :
         callbackOrder.shouldContainExactly("hook.onPreEntry", "node.onEntry", "hook.onPostEntry")
         callbackOrder.clear()
 
-        sut.sendEvent(TestEvent("A"))
+        sut.send(TestEvent("A"))
         awaitItem() // navigates to app.main — intro screen exits
 
         callbackOrder.shouldContainExactly("hook.onPreExit", "node.onExit", "hook.onPostExit")
@@ -663,7 +663,7 @@ class NodeHooksTest :
       // Per foundation.hookOrder: callOnEntry/callOnExit at NavigationService.kt:475-489 invoke
       // snapshot.forEach { it.onPreEntry(node, path) } directly — no runCatching wrapper
       // (only callOnDispose wraps each step). So a throwing FlowNodeHook propagates out of the
-      // current dispatch and triggers the outer snapshot-rollback in sendEvent's transition().
+      // current dispatch and triggers the outer snapshot-rollback in send's transition().
       class HookFailure(message: String) : RuntimeException(message)
 
       // Hook throws on exit. The initial start() must succeed (no exit yet), so we only flip the
@@ -713,9 +713,9 @@ class NodeHooksTest :
       armed = true
       // Back from credentials -> Finish(login). The follow-up navigation to onboarding triggers
       // login's onExit, where the hook throws. The throw is NOT swallowed — it propagates out of
-      // sendEvent.
+      // send.
       shouldThrow<HookFailure> {
-        sut.sendEvent(Event.Back)
+        sut.send(Event.Back)
       }
     }
 
@@ -793,7 +793,7 @@ class NodeHooksTest :
         (log.count { it.startsWith("A.onPreEntry:") } >= 2) shouldBe true
 
         val sizeBeforeNav = log.size
-        sut.sendEvent(TestEvent("go"))
+        sut.send(TestEvent("go"))
         awaitItem() // Navigate to app.main → intro exits, main enters; both extensions see transition + exit + entry
 
         val deltaLog = log.drop(sizeBeforeNav)

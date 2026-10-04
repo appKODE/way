@@ -46,5 +46,20 @@ class TargetGenerateTest :
         expectedOutputFiles = listOf("targets-test08-targets.txt"),
         testName = "targets under parameterized ancestors",
       ),
+      TestCase(
+        schemaFile = "targets-test09.dot",
+        expectedOutputFiles = listOf("targets-test09-targets.txt"),
+        testName = "keyword parameter name, nullable and multiple ancestors, history under a parameterized ancestor",
+      ),
+      TestCase(
+        schemaFile = "targets-test10.dot",
+        expectedOutputFiles = listOf("targets-test10-targets.txt"),
+        testName = "parameterized parallel flow as an ancestor of region root targets",
+      ),
+      TestCase(
+        schemaFile = "fan-in01.dot",
+        expectedOutputFiles = listOf("fan-in01-targets.txt"),
+        testName = "imported schema reachable from several parents gets a target per parent path",
+      ),
     ) { runTest(it) }
   })

@@ -1,6 +1,7 @@
 package ru.kode.way.gradle
 
 import com.squareup.kotlinpoet.ANY
+import com.squareup.kotlinpoet.BOOLEAN
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -66,8 +67,12 @@ internal fun buildSchemaFileSpec(
     .addFunction(
       buildSchemaTargetsSpec(parseResult.adjacencyList, ::buildSegmentId),
     )
+    .apply { buildSchemaFanInTargetsSpec(parseResult.adjacencyList, ::buildSegmentId)?.let(::addFunction) }
     .addFunction(
       buildSchemaNodeTypeSpec(parseResult.adjacencyList, ::buildSegmentId),
+    )
+    .addFunction(
+      buildSchemaIsParameterizedSpec(parseResult.adjacencyList, ::buildSegmentId),
     )
     .addFunction(
       buildCreateChildFlowFinishEventSpec(packageName, parseResult.adjacencyList, ::buildSegmentId),
@@ -283,6 +288,41 @@ private fun buildSchemaTargetsSpec(adjacencyList: AdjacencyList, buildSegmentId:
 }
 
 /**
+ * Emits `targets()` listing one path per parent for every imported schema reachable from several parents (fan-in),
+ * delegating every other segment to `target()`. Returns `null` when the graph has no fan-in, the default
+ * `Schema.targets` is enough then. Paths are region-independent, the same as in `target()`.
+ */
+private fun buildSchemaFanInTargetsSpec(adjacencyList: AdjacencyList, buildSegmentId: (Node) -> String): FunSpec? {
+  val fanInNodes = adjacencyList.keys.filter { adjacencyList.findParents(it).size > 1 }
+  if (fanInNodes.isEmpty()) return null
+  val code = CodeBlock.builder()
+    .addStatement(
+      "val rootSegment = rootSegmentAlias ?: %T(%S)",
+      SEGMENT,
+      buildSegmentId(adjacencyList.findRootNode()),
+    )
+    .beginControlFlow("return when (segment.id) {")
+  fanInNodes.forEach { node ->
+    code.add("%S -> listOf(", buildSegmentId(node))
+    adjacencyList.parentChains(node).forEachIndexed { index, chain ->
+      if (index > 0) code.add(", ")
+      code.add("%T(listOf(rootSegment, %L))", PATH, buildSegmentArgumentList(chain.drop(1), buildSegmentId))
+    }
+    code.add(")\n")
+  }
+  code.addStatement("else -> listOfNotNull(target(regionId, segment, rootSegmentAlias))")
+  code.endControlFlow()
+  return FunSpec.builder("targets")
+    .addModifiers(KModifier.OVERRIDE)
+    .addParameter("regionId", REGION_ID)
+    .addParameter("segment", SEGMENT)
+    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+    .returns(LIST.parameterizedBy(PATH))
+    .addCode(code.build())
+    .build()
+}
+
+/**
  * Runs [emit] for each unique BUILDABLE node reachable from the schema root — skipping History
  * pseudostates and de-duplicating by segment id — in DFS order. Shared by the `target()` and
  * `nodeType()` case emitters so both cover the identical node set in the identical order.
@@ -371,6 +411,61 @@ private fun buildSchemaNodeTypeSpec(adjacencyList: AdjacencyList, buildSegmentId
         .endControlFlow() // return when (regionId) {
         .build(),
     )
+    .build()
+}
+
+/**
+ * Emits `isParameterized()` returning `true` for the path of every node which has a parameter, except a schema root
+ * with a nullable one. Paths are anchored at the schema's root the same way as in [buildSchemaNodeTypeSpec] and
+ * don't depend on the region.
+ */
+private fun buildSchemaIsParameterizedSpec(adjacencyList: AdjacencyList, buildSegmentId: (Node) -> String): FunSpec {
+  var hasCases = false
+  val cases = CodeBlock.builder().apply {
+    forEachUniqueRuntimeNode(adjacencyList, buildSegmentId) { node ->
+      val parameter = when (node) {
+        is Node.Flow -> node.parameter
+        is Node.Screen -> node.parameter
+        is Node.History -> null
+      }
+      if (parameter == null) return@forEachUniqueRuntimeNode
+      val intermediates = descendantChainFromSchemaRoot(node, adjacencyList)
+      // A nullable schema root is built with null when its payload is absent (see buildRootPayloadFunSpec),
+      // e.g. when the importing schema declares the node without a parameter, so it never misses one.
+      if (intermediates.isEmpty() && parseTypeName(parameter.type).isNullable) return@forEachUniqueRuntimeNode
+      hasCases = true
+      if (intermediates.isEmpty()) {
+        addStatement("path == %T(rootSegment) -> true", PATH)
+      } else {
+        addStatement(
+          "path == %T(listOf(rootSegment, %L)) -> true",
+          PATH,
+          buildSegmentArgumentList(intermediates, buildSegmentId),
+        )
+      }
+    }
+  }
+  val code = CodeBlock.builder()
+  if (hasCases) {
+    code.addStatement(
+      "val rootSegment = rootSegmentAlias ?: %T(%S)",
+      SEGMENT,
+      buildSegmentId(adjacencyList.findRootNode()),
+    )
+    code.beginControlFlow("return when {")
+    code.add(cases.build())
+    code.addStatement("else -> false")
+    code.endControlFlow()
+  } else {
+    code.addStatement("return false")
+  }
+  return FunSpec.builder("isParameterized")
+    .addModifiers(KModifier.OVERRIDE)
+    .addParameter("regionId", REGION_ID)
+    .addParameter("path", PATH)
+    .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
+    .returns(BOOLEAN)
+    .addCode(code.build())
     .build()
 }
 
@@ -482,31 +577,26 @@ private fun buildCreateChildFlowFinishEventSpec(
           dfs(adjacencyList, regionRoot) { node ->
             when (node) {
               is Node.Flow -> {
+                // An imported schema reachable from several parents finishes from each of its paths.
                 if (node.id != regionRoot.id) {
-                  if (node.resultType != UNIT.canonicalName) {
-                    val resultType = parseTypeName(node.resultType)
-                    addStatement(
-                      "%T(listOf(rootSegment, %L)) -> %T(result as %T)",
-                      PATH,
-                      buildSegmentArgumentList(descendantChainFromSchemaRoot(node, adjacencyList), buildSegmentId),
-                      childFinishRequestEventClassName(
-                        packageName = packageName,
-                        flowNodeId = regionRoot.id,
-                        childFlowNodeId = node.id,
-                      ),
-                      resultType,
+                  adjacencyList.parentChains(node).forEach { chain ->
+                    val eventClassName = childFinishRequestEventClassName(
+                      packageName = packageName,
+                      flowNodeId = regionRoot.id,
+                      childFlowNodeId = node.id,
                     )
-                  } else {
-                    addStatement(
-                      "%T(listOf(rootSegment, %L)) -> %T",
-                      PATH,
-                      buildSegmentArgumentList(descendantChainFromSchemaRoot(node, adjacencyList), buildSegmentId),
-                      childFinishRequestEventClassName(
-                        packageName = packageName,
-                        flowNodeId = regionRoot.id,
-                        childFlowNodeId = node.id,
-                      ),
-                    )
+                    val segments = buildSegmentArgumentList(chain.drop(1), buildSegmentId)
+                    if (node.resultType != UNIT.canonicalName) {
+                      addStatement(
+                        "%T(listOf(rootSegment, %L)) -> %T(result as %T)",
+                        PATH,
+                        segments,
+                        eventClassName,
+                        parseTypeName(node.resultType),
+                      )
+                    } else {
+                      addStatement("%T(listOf(rootSegment, %L)) -> %T", PATH, segments, eventClassName)
+                    }
                   }
                 }
               }

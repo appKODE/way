@@ -46,7 +46,7 @@ class DisposeLifecycleTest :
       }
     }
 
-    should("sendEvent before start() throws IllegalStateException") {
+    should("send before start() throws IllegalStateException") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService01Schema(),
@@ -59,7 +59,7 @@ class DisposeLifecycleTest :
       )
 
       shouldThrow<IllegalStateException> {
-        sut.sendEvent(TestEvent("anything"))
+        sut.send(TestEvent("anything"))
       }
     }
 
@@ -80,11 +80,11 @@ class DisposeLifecycleTest :
       // Second call must not throw and must be a no-op.
       sut.dispose()
 
-      // After dispose, sendEvent is a silent no-op — proves the second dispose() didn't re-arm anything.
-      sut.sendEvent(TestEvent("anything"))
+      // After dispose, send is a silent no-op — proves the second dispose() didn't re-arm anything.
+      sut.send(TestEvent("anything"))
     }
 
-    should("after dispose() sendEvent is a silent no-op and listeners are not invoked") {
+    should("after dispose() send is a silent no-op and listeners are not invoked") {
       val sut = NavigationService(
         TestNodeBuilder(
           NavService01Schema(),
@@ -107,9 +107,9 @@ class DisposeLifecycleTest :
 
       sut.dispose()
 
-      // sendEvent after dispose must NOT throw and must NOT notify the listener.
-      sut.sendEvent(TestEvent("go"))
-      sut.sendEvent(TestEvent("another"))
+      // send after dispose must NOT throw and must NOT notify the listener.
+      sut.send(TestEvent("go"))
+      sut.send(TestEvent("another"))
 
       deliveries shouldBe listOf("app.intro")
     }
@@ -135,8 +135,8 @@ class DisposeLifecycleTest :
       sut.cleanDispose()
 
       disposed shouldBe emptyList()
-      // Subsequent sendEvent must be a silent no-op (dispose() was invoked from inside cleanDispose).
-      sut.sendEvent(TestEvent("anything"))
+      // Subsequent send must be a silent no-op (dispose() was invoked from inside cleanDispose).
+      sut.send(TestEvent("anything"))
     }
 
     should("cleanDispose() calls onDispose leaf-to-root with sub-regions first") {
@@ -253,7 +253,7 @@ class DisposeLifecycleTest :
         onFinishRequest = { _: Int -> Stay },
       )
 
-      // The listener is added BEFORE start(); start() drives the InitEvent through sendEvent,
+      // The listener is added BEFORE start(); start() drives the InitEvent through send,
       // setting isDispatching = true. cleanDispose() must reject the call with IllegalStateException
       // from its `check(!isDispatching)` guard. The listener swallows it via runCatching, so
       // start() itself completes normally — the contract under test is on cleanDispose, not start.
@@ -292,7 +292,7 @@ class DisposeLifecycleTest :
         onFinishRequest = { _: Unit -> Stay },
       )
       sut.start()
-      sut.sendEvent(TestEvent("go"))
+      sut.send(TestEvent("go"))
 
       // After navigating, alive nodes are [app, app.main]; cleanDispose disposes leaf-to-root.
       // app.main throws inside onDispose — runCatching around node.onDispose() must swallow it,
@@ -306,7 +306,7 @@ class DisposeLifecycleTest :
       // Mirrors the existing cleanDispose-from-listener contract: calling dispose() while
       // isDispatching == true must throw immediately. Without the guard, dispose() clears
       // _regions / _intermediateParallels / _payloads / listeners mid-iteration of
-      // sendEvent's `listeners.toList().forEach`, leaving later listeners with a corrupted
+      // send's `listeners.toList().forEach`, leaving later listeners with a corrupted
       // NavigationState snapshot.
       val sut = NavigationService(
         TestNodeBuilder(
@@ -334,10 +334,10 @@ class DisposeLifecycleTest :
       // The leak fix asserts that addTransitionListener returns early when isDisposed,
       // so the listener instance is not retained in the internal `listeners` ArrayList.
       // Without the fix the listener would stay in the list forever and never be invoked
-      // (sendEvent is a no-op after dispose), leaking the closure and everything it captures.
+      // (send is a no-op after dispose), leaking the closure and everything it captures.
       //
       // Assert via reflection on the private `listeners` field so the test fails when the
-      // listener IS appended post-dispose, even though sendEvent post-dispose hides the bug
+      // listener IS appended post-dispose, even though send post-dispose hides the bug
       // through any observable callback channel.
       val sut = NavigationService(
         TestNodeBuilder(
@@ -461,13 +461,67 @@ class DisposeLifecycleTest :
       (ex is RuntimeException) shouldBe true
       ex?.message shouldBe "immediate-invoke listener error"
 
-      // The throwing listener must have been auto-removed: a subsequent sendEvent must NOT
-      // re-invoke it (otherwise the throw would propagate out of sendEvent again).
+      // The throwing listener must have been auto-removed: a subsequent send must NOT
+      // re-invoke it (otherwise the throw would propagate out of send again).
       // The fresh listener is added AFTER start(), so it receives one immediate-invoke delivery
       // for the current state plus one delivery for the Stay transition driven by "go".
       val deliveries = mutableListOf<String>()
       sut.addTransitionListener { state -> deliveries.add(state.active) }
-      sut.sendEvent(TestEvent("go")) // must not re-throw
+      sut.send(TestEvent("go")) // must not re-throw
       deliveries shouldBe listOf("app.intro", "app.intro")
+    }
+
+    fun createNav01Service() = NavigationService(
+      TestNodeBuilder(
+        NavService01Schema(),
+        mapOf(
+          "app" to TestFlowNode(initialTarget = Target.app01.intro),
+          "app.intro" to TestScreenNode(),
+        ),
+      ),
+      onFinishRequest = { _: Int -> Stay },
+    )
+
+    fun NavigationService<Int>.recordDrops(): MutableList<DropReason> {
+      val dropped = mutableListOf<DropReason>()
+      addServiceExtensionPoint(
+        object : ServiceExtensionPoint<Int> {
+          override fun onPreTransition(service: NavigationService<Int>, event: Event, state: NavigationState) = Unit
+          override fun onPostTransition(service: NavigationService<Int>, event: Event, state: NavigationState) = Unit
+          override fun onEventDropped(service: NavigationService<Int>, event: Event, reason: DropReason) {
+            dropped.add(reason)
+          }
+        },
+      )
+      return dropped
+    }
+
+    should("report an event sent through a sink obtained before start() as stale, without throwing") {
+      val sut = createNav01Service()
+      val dropped = sut.recordDrops()
+      sut.strictEventDropping = true
+      val app = Path(Segment("app"))
+
+      sut.eventSink(app).send(TestEvent("go"))
+
+      dropped shouldBe listOf(DropReason.StaleSource(app))
+    }
+
+    should("ignore an event sent through a sink after dispose() or cleanDispose(), also in strict mode") {
+      listOf<(NavigationService<Int>) -> Unit>({ it.dispose() }, { it.cleanDispose() }).forEach { disposeFn ->
+        val sut = createNav01Service()
+        val dropped = sut.recordDrops()
+        val deliveries = mutableListOf<NavigationState>()
+        sut.addTransitionListener { state -> deliveries.add(state) }
+        sut.start()
+        sut.strictEventDropping = true
+        val sink = sut.eventSink(deliveries.single().regions.values.single().active)
+        disposeFn(sut)
+
+        sink.send(TestEvent("go"))
+
+        dropped shouldBe emptyList()
+        deliveries.size shouldBe 1
+      }
     }
   })

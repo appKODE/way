@@ -68,7 +68,7 @@ class SchemaTest :
         awaitItem().active shouldBe "app.intro"
 
         val thrown = shouldThrow<IllegalStateException> {
-          sut.sendEvent(TestEvent("A"))
+          sut.send(TestEvent("A"))
         }
 
         // Message must name the offending path AND mention the schema-declared type
@@ -86,7 +86,7 @@ class SchemaTest :
         cancelAndIgnoreRemainingEvents()
       }
 
-      // After the failed sendEvent, the service state should still reflect the pre-transition
+      // After the failed send, the service state should still reflect the pre-transition
       // configuration. We re-collect to take a fresh snapshot.
       sut.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
@@ -123,13 +123,13 @@ class SchemaTest :
         // With validateSchema=false, checkSchemaValidity is skipped entirely. The transition
         // is expected to complete without raising an exception from the schema-validation path.
         shouldNotThrowAny {
-          sut.sendEvent(TestEvent("A"))
+          sut.send(TestEvent("A"))
         }
 
         cancelAndIgnoreRemainingEvents()
       }
 
-      // Belt-and-suspenders: even if a future change made sendEvent throw here for an unrelated
+      // Belt-and-suspenders: even if a future change made send throw here for an unrelated
       // reason, the failure must not be the schema-validity message. We capture the throwable and
       // check its message does not contain the checkSchemaValidity wording.
       val sut2 = NavigationService(
@@ -150,7 +150,7 @@ class SchemaTest :
 
       sut2.collectTransitions().test {
         awaitItem().active shouldBe "app.intro"
-        val caught: Throwable? = runCatching { sut2.sendEvent(TestEvent("A")) }.exceptionOrNull()
+        val caught: Throwable? = runCatching { sut2.send(TestEvent("A")) }.exceptionOrNull()
         // Either no exception (preferred) or — if one occurs — its message must not be the
         // signature checkSchemaValidity wording ("according to schema").
         if (caught != null) {

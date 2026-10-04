@@ -31,9 +31,16 @@ class NavigationState internal constructor(
    * consulted when a [HistoryTarget] is resolved. A single leaf is enough to satisfy both shallow
    * (take the immediate child of the flow, then run its own default initial) and deep (restore the
    * recorded leaf directly) restores. Rolled back with every other slot on a thrown transition via
-   * [NavigationService]'s transaction snapshot.
+   * [NavigationService]'s transaction snapshot. Each record keeps the payloads of its leaves' parameterized
+   * nodes, so a [HistoryTarget] rebuilds them with their old arguments; they go away when the record is replaced.
    */
-  internal val _history: MutableMap<Path, List<Path>> = mutableMapOf(),
+  internal val _history: MutableMap<Path, HistoryRecord> = mutableMapOf(),
+  /**
+   * Generation id of every alive path (the configuration plus the root and intermediate parallels). A path gets a
+   * fresh id each time it becomes alive, so an [EventSink] which captured an older id is stale. Rolled back with
+   * every other slot on a thrown transition.
+   */
+  internal val _generations: MutableMap<Path, Long> = mutableMapOf(),
 ) {
   val regions: Map<RegionId, Region> = _regions
   val payloads: Map<Path, Any> = _payloads
@@ -73,11 +80,13 @@ class NavigationState internal constructor(
     other as NavigationState
 
     if (_regions != other._regions) return false
+    // a node rebuilt at an unchanged path (e.g. re-targeted with another argument) differs only by its generation
+    if (_generations != other._generations) return false
 
     return true
   }
 
-  override fun hashCode(): Int = _regions.hashCode()
+  override fun hashCode(): Int = 31 * _regions.hashCode() + _generations.hashCode()
 
   // TODO @RemoveMutable remove if switch away from mutable collections happens
   internal fun copy(): NavigationState = NavigationState(
@@ -87,6 +96,7 @@ class NavigationState internal constructor(
     _payloads = this._payloads.toMutableMap(),
     _intermediateParallels = this._intermediateParallels.toMutableMap(),
     _history = this._history.toMutableMap(),
+    _generations = this._generations.toMutableMap(),
   ).also {
     it.rootNode = this.rootNode
     it.rootNodePath = this.rootNodePath
@@ -182,3 +192,6 @@ class Region internal constructor(
     return result
   }
 }
+
+/** The atomic [leaves] active under a flow when it was last exited, and the payloads needed to rebuild them. */
+internal class HistoryRecord(val leaves: List<Path>, val payloads: Map<Path, Any>)

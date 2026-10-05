@@ -303,6 +303,14 @@ class WayPlugin : Plugin<Project> {
         }
       }
 
+      // Same reason as in findAndroidMainSources(): `variant.sources` alone does not reach Kotlin compilation in
+      // some Android+Kotlin setups, so the directory is also registered on the variant's Kotlin source set.
+      registerGeneratedDirInKotlinSourceSet(
+        project.extensions.findByType(KotlinProjectExtension::class.java),
+        variant.name,
+        taskProvider,
+      )
+
       variant.sources.kotlin?.addGeneratedSourceDirectory(
         taskProvider,
         GenerateClassesTask::outputDirectory,
@@ -457,4 +465,19 @@ internal fun registerGeneratedDirInKotlinMainSourceSet(
     ?.findByName("main")
     ?.kotlin
     ?.srcDir(taskProvider)
+}
+
+/**
+ * Registers the generated directory on the Kotlin source set called [sourceSetName], whenever it gets created:
+ * variant source sets may not exist yet when variants are being configured.
+ */
+internal fun registerGeneratedDirInKotlinSourceSet(
+  kotlinExtension: KotlinProjectExtension?,
+  sourceSetName: String,
+  taskProvider: TaskProvider<GenerateClassesTask>,
+) {
+  kotlinExtension
+    ?.sourceSets
+    ?.matching { it.name == sourceSetName }
+    ?.configureEach { it.kotlin.srcDir(taskProvider) }
 }

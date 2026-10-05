@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1 - 2026-10-05
+
+### Fixed
+
+* Gradle plugin: classes generated for an Android module where a flavor or a build type overrides a `.dot` file were
+  not compiled (unresolved references to every generated class). The per-variant output directory is now also
+  registered on the variant's Kotlin source set, as it already was for modules without overrides.
+
 ## 0.10.0 - 2026-09-30
 
 Generated targets get a short form again, events which can't be applied any more are dropped instead of

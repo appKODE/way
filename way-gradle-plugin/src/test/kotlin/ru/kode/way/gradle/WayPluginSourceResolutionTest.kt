@@ -100,7 +100,10 @@ class WayPluginSourceResolutionTest :
 
       val kotlinExtension = project.extensions.findByType(KotlinProjectExtension::class.java)!!
       val generatedDir = project.layout.buildDirectory.dir("generated/way/code/googleDebug")
-      val taskProvider = project.tasks.register("generateGoogleDebugWayClasses", GenerateClassesTask::class.java) { task ->
+      val taskProvider = project.tasks.register(
+        "generateGoogleDebugWayClasses",
+        GenerateClassesTask::class.java,
+      ) { task ->
         task.outputDirectory.set(generatedDir)
       }
 

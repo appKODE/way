@@ -94,6 +94,26 @@ class WayPluginSourceResolutionTest :
         ?.contains(generatedDir.get().asFile) shouldBe true
     }
 
+    should("register generated dir in a variant kotlin source set created later") {
+      val project = ProjectBuilder.builder().build()
+      project.pluginManager.apply("org.jetbrains.kotlin.jvm")
+
+      val kotlinExtension = project.extensions.findByType(KotlinProjectExtension::class.java)!!
+      val generatedDir = project.layout.buildDirectory.dir("generated/way/code/googleDebug")
+      val taskProvider = project.tasks.register(
+        "generateGoogleDebugWayClasses",
+        GenerateClassesTask::class.java,
+      ) { task ->
+        task.outputDirectory.set(generatedDir)
+      }
+
+      registerGeneratedDirInKotlinSourceSet(kotlinExtension, "googleDebug", taskProvider)
+      val variantSourceSet = kotlinExtension.sourceSets.create("googleDebug")
+
+      variantSourceSet.kotlin.srcDirs.contains(generatedDir.get().asFile) shouldBe true
+      kotlinExtension.sourceSets.getByName("main").kotlin.srcDirs.contains(generatedDir.get().asFile) shouldBe false
+    }
+
     should("do nothing when kotlin extension is null while registering generated dir") {
       val project = ProjectBuilder.builder().build()
       val taskProvider = project.tasks.register("generateWayClasses", GenerateClassesTask::class.java)

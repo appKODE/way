@@ -28,7 +28,7 @@ internal fun resolveTransition(
   fun enclosesSource(path: Path) = bubblesPastScope && source?.startsWith(path) == true && path != source
   // An intermediate parallel is also a region's active entry after a cross-region NavigateTo: the region fold then
   // consults it on non-Back events, while Back goes through its own dispatch below, once.
-  val sourceIsRegionActive = source != null && regions.values.any { it.active == source }
+  val regionActivePaths = regions.values.mapTo(HashSet()) { it.active }
   // The root or intermediate parallel owning the scope; it handles an event bubbling past its sub-regions.
   val scopeParallelPath = source ?: rootNodePath
   val scopeParallel = when {
@@ -105,7 +105,7 @@ internal fun resolveTransition(
     regionsResult
   } else {
     intermediateParallels.entries
-      .filter { (inScope(it.key) && !(it.key == source && sourceIsRegionActive)) || enclosesSource(it.key) }
+      .filter { it.key !in regionActivePaths && (inScope(it.key) || enclosesSource(it.key)) }
       .sortedByDescending { it.key.length }
       .fold(regionsResult) { acc, (path, intermediate) ->
         val resolved = resolveParallelTransition(

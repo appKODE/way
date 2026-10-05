@@ -321,7 +321,7 @@ class NavigationService<R : Any>(
     // calculateAliveNodes mutates and returns the SAME state instance; mutatedState === state.
     val mutatedState = calculateAliveNodes(state, resolvedTransition.targetPaths, nodeBuilder.schema)
     unmountOrphanedIntermediates(state, event, syncExited, unmountedIntermediates)
-    // ponytail: an intermediate parallel below a re-targeted node is kept, only region nodes are rebuilt
+    // An intermediate parallel below a re-targeted node is kept, only region nodes are rebuilt
     val recreated = computeConfiguration(mutatedState).filterTo(mutableSetOf()) { path ->
       path !in mutatedState._intermediateParallels && retargeted.any { path.startsWith(it) }
     }

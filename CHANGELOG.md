@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.2 - 2026-10-05
+
+### Fixed
+
+* An event sent with a plain `send` reached a parallel flow node twice when the node had been entered by `NavigateTo`
+  from its parent flow (as opposed to being the initial node). `transition()` ran twice, so an `EnqueueEvent` or any
+  side effect in it was doubled.
+
 ## 0.10.1 - 2026-10-05
 
 ### Fixed

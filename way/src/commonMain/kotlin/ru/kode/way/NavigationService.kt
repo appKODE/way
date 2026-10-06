@@ -355,6 +355,8 @@ class NavigationService<R : Any>(
    * target needs a payload nobody has, before anything is mounted or exited.
    */
   private fun resolveCheckedTransition(state: NavigationState, event: Event, source: Path?): ResolvedTransition {
+    // Shared by the scoped resolution and its fallback, so no node is asked about the event twice.
+    val consulted = if (source != null && event != Event.Back) mutableSetOf<Path>() else null
     fun resolve(from: Path?) = resolveTransition(
       regions = state.regions,
       nodeBuilder = nodeBuilder,
@@ -366,11 +368,11 @@ class NavigationService<R : Any>(
       intermediateParallels = state._intermediateParallels,
       history = state._history,
       source = from,
+      consulted = consulted,
     )
     var resolvedTransition = resolve(source)
-    // An event nobody handled in the sink's scope falls back to the whole tree, like send (Back never does).
-    // Known limits: the scope's nodes are consulted twice (transition and onPreTransition run again), and a parallel
-    // answering Stay resolves to EMPTY as well, so it falls through too.
+    // An event nobody handled in the sink's scope goes on to the rest of the tree, in the order send would ask it
+    // (Back never does). A parallel answering Stay resolves to EMPTY as well, so the event goes on past it too.
     if (source != null && event != Event.Back && resolvedTransition == ResolvedTransition.EMPTY) {
       resolvedTransition = resolve(null)
     }
@@ -391,8 +393,9 @@ class NavigationService<R : Any>(
    * region under it, so its active children handle the event first, and the parallels under it handle it too. The
    * event then bubbles up on [Ignore] through the node to its ancestors within the region and, except for
    * [Event.Back], also reaches every parallel enclosing the node and bubbles up through each parallel's ancestors,
-   * like [send] (same region order, same merge). If nothing in that scope handled the event, it falls back to the whole
-   * tree, exactly as [send] would resolve it, so a sibling region can handle it. Back never falls back: it stays in the node's
+   * like [send] (same region order, same merge). If nothing in that scope handled the event, it falls back to the rest
+   * of the tree, in the order [send] would ask it, so a sibling region can handle it; the nodes already asked are not
+   * asked again. Back never falls back: it stays in the node's
    * region, never reaching enclosing parallels or sibling regions: routed through the node's own `DispatchBackTo` if it is a
    * parallel, kept in the node's region otherwise. The root node's sink is equivalent to [send].
    *

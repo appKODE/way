@@ -253,10 +253,11 @@ enable it (recommended for debug builds and tests). `NodeHost(nodeBuilder, ...)`
 - bubble up on `Ignore` through the node to its ancestors within the region, and (except `Event.Back`) also reach
   every parallel enclosing the node and bubble up through each parallel's ancestors, like `service.send` (same region
   order, same merge);
-- a non-Back event which nothing handled in that scope (no target, no enqueued event) falls back to the whole tree,
-  resolved exactly as `service.send` would, so a screen in region A can send an event only a node in sibling region B
-  handles. An event handled in scope is not sent again. The scope's nodes are consulted twice on a fallback
-  (`transition` and `onPreTransition` run again), and a parallel answering `Stay` falls through as well;
+- a non-Back event which nothing handled in that scope (no target, no enqueued event) falls back to the rest of the
+  tree, in the order `service.send` would ask it, so a screen in region A can send an event only a node in sibling
+  region B handles. An event handled in scope is not sent again, and the nodes already asked in scope are not asked
+  again on the fallback, so each node gets the event at most once. A node which does its work and answers `Ignore`
+  does not stop the fallback, and neither does a parallel answering `Stay`;
 - `Event.Back` stays in the node's region (never reaching enclosing parallels or sibling regions): a parallel's sink
   routes it through that parallel's `DispatchBackTo`, a sink of a node inside a region keeps it in that region;
 - are checked when dispatched, not when sent: if the node has left navigation or was recreated meanwhile, the event

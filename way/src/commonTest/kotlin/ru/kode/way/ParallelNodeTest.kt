@@ -653,10 +653,63 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.eventSink(betaActive).send(TestEvent("goToScreen2"))
 
-      // The parallel is consulted in scope (Ignore) and again on the whole-tree fallback, which reaches alpha.
-      parallelEvents.count { it == TestEvent("goToScreen2") } shouldBe 2
+      // The parallel is consulted in scope (Ignore) and skipped on the whole-tree fallback, which reaches alpha.
+      parallelEvents.count { it == TestEvent("goToScreen2") } shouldBe 1
       states.last().regionByName("par02Alpha")!!.active.lastSegment().name shouldBe "par02AlphaScreen2"
       states.last().regionByName("par02Alpha")!!.active shouldNotBe alphaActive
+    }
+
+    should("a flow which ignored a sink's event in scope is not asked again when the event falls back") {
+      var alphaAsked = 0
+      var betaAsked = 0
+      val sut = buildPar02Service(
+        alphaTransitions = listOf(
+          TestFlowTransitionSpec(
+            eventMatcher = {
+              if (it == TestEvent("X")) alphaAsked++
+              false
+            },
+            transition = Ignore,
+          ),
+        ),
+        betaTransitions = listOf(
+          TestFlowTransitionSpec(
+            eventMatcher = {
+              if (it == TestEvent("X")) betaAsked++
+              false
+            },
+            transition = Ignore,
+          ),
+        ),
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+
+      sut.eventSink(states.last().regionByName("par02Alpha")!!.active).send(TestEvent("X"))
+
+      alphaAsked shouldBe 1
+      betaAsked shouldBe 1
+    }
+
+    should("a parallel answering Stay to its own sink's event is asked once and the event still reaches the tree") {
+      val parallelEvents = mutableListOf<Event>()
+      val sut = buildPar02Service(
+        createMainNode = {
+          TestParallelNode(
+            parallelTransitions = listOf(TestParallelTransitionSpec({ it == TestEvent("S") }, Stay)),
+            onTransitionCallback = { parallelEvents.add(it) },
+          )
+        },
+      )
+      val states = mutableListOf<NavigationState>()
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+      val mainPath = states.last().regionByName("par02Alpha")!!.active.dropLast(2)
+
+      sut.eventSink(mainPath).send(TestEvent("S"))
+
+      parallelEvents.count { it == TestEvent("S") } shouldBe 1
     }
 
     should("a screen sink's event nobody handles in scope reaches a flow in the sibling region") {
@@ -1500,8 +1553,8 @@ class ParallelNodeTest : ShouldSpec() {
 
       sut.eventSink(alphaPath).send(TestEvent("X"))
 
-      // Nobody handles X in the scope, so it falls back to the whole tree: the scope's nodes are consulted twice and
-      // par04Beta's leaves once, on the fallback.
+      // Nobody handles X in the scope, so it falls back to the whole tree: the scope's nodes are consulted once, in
+      // scope, and par04Beta's leaves once, on the fallback.
       val scope = listOf(
         "par04InnerAScreen2",
         "par04InnerAScreen1",
@@ -1512,7 +1565,7 @@ class ParallelNodeTest : ShouldSpec() {
         "par04Main",
         "par04App",
       )
-      consulted.shouldContainExactlyInAnyOrder(scope + scope + listOf("par04BetaScreen", "par04Beta"))
+      consulted.shouldContainExactlyInAnyOrder(scope + listOf("par04BetaScreen", "par04Beta"))
     }
 
     should("same event dispatched to two active sub-regions is handled independently by each") {

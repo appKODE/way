@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.3 - 2026-10-06
+
+### Fixed
+
+* An event sent through a node's `eventSink` which nobody handled in the sink's scope was delivered to the scope's
+  nodes a second time by the whole-tree fallback: `transition()` and the `onPreTransition` hooks ran twice, so a node
+  doing its work in `transition()` and answering `Ignore` (or a parallel answering `Stay`) did that work twice. The
+  fallback now skips the nodes which were already asked, so every node gets the event at most once.
+
 ## 0.10.2 - 2026-10-05
 
 ### Fixed

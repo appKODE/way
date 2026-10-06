@@ -15,9 +15,15 @@ internal fun resolveTransition(
    * parallel's sink at the active leaves of the regions under it (and the parallels under it). The event then bubbles
    * up on `Ignore` within the region and, except for Back, also reaches the parallels enclosing [source], like a plain
    * `send` does. `null` means the whole tree, which is what a plain `send` does. The caller re-resolves with `null` when
-   * a non-Back event resolved to nothing here, so events nobody handles in this scope reach sibling regions.
+   * a non-Back event resolved to nothing here, so events nobody handles in this scope reach the rest of the tree.
    */
   source: Path? = null,
+  /**
+   * Paths of the nodes already asked about [event]. A node in it is not asked again (neither its `transition` nor the
+   * `onPreTransition` hooks run) and counts as `Ignore`; every node asked here is added. The caller shares one set
+   * between the scoped resolution and its whole-tree fallback, so each node handles the event at most once.
+   */
+  consulted: MutableSet<Path>? = null,
 ): ResolvedTransition {
   // Assumes a screen path lives in exactly one region's nodes.
   val sourceScreen = source?.takeIf { s -> regions.values.any { it.nodes[s] is ScreenNode } }
@@ -65,7 +71,7 @@ internal fun resolveTransition(
     val transition = if (event is RootFinishRequestEvent) {
       region._rootFinishTransitionBuilder(event.result)
     } else {
-      buildTransition(event, node, start, extensionPoints)
+      buildTransition(event, node, start, extensionPoints, consulted)
     }
     val resolved = resolveTransitionInRegion(
       regionId = regionId,
@@ -78,6 +84,7 @@ internal fun resolveTransition(
       extensionPoints = extensionPoints,
       allRegions = regions,
       history = history,
+      consulted = consulted,
     )
     acc + resolved
   }
@@ -117,6 +124,7 @@ internal fun resolveTransition(
           nodeBuilder = nodeBuilder,
           allRegions = regions,
           history = history,
+          consulted = consulted,
         )
         acc + resolved
       }
@@ -159,6 +167,7 @@ internal fun resolveTransition(
     nodeBuilder = nodeBuilder,
     allRegions = regions,
     history = history,
+    consulted = consulted,
   )
 }
 
@@ -178,8 +187,9 @@ private fun resolveParallelTransition(
   nodeBuilder: NodeBuilder,
   allRegions: Map<RegionId, Region>,
   history: Map<Path, HistoryRecord> = emptyMap(),
+  consulted: MutableSet<Path>? = null,
 ): ResolvedTransition {
-  val transition = buildTransition(event, parallelNode, parallelNodePath, extensionPoints)
+  val transition = buildTransition(event, parallelNode, parallelNodePath, extensionPoints, consulted)
   return resolveParallelInner(
     parallelNode = parallelNode,
     parallelNodePath = parallelNodePath,
@@ -339,6 +349,7 @@ private fun resolveTransitionInRegion(
   extensionPoints: List<NodeExtensionPoint>,
   allRegions: Map<RegionId, Region>,
   history: Map<Path, HistoryRecord> = emptyMap(),
+  consulted: MutableSet<Path>? = null,
 ): ResolvedTransition = when (transition) {
   is EnqueueEvent -> ResolvedTransition(
     targetPaths = mapOf(regionId to activePath),
@@ -469,7 +480,7 @@ private fun resolveTransitionInRegion(
       val node = nodes[parentPath] ?: error("expected node to exist at path \"${parentPath}\"")
       resolveTransitionInRegion(
         regionId,
-        buildTransition(event, node, parentPath, extensionPoints),
+        buildTransition(event, node, parentPath, extensionPoints, consulted),
         parentPath,
         activePath,
         nodes,
@@ -478,6 +489,7 @@ private fun resolveTransitionInRegion(
         extensionPoints,
         allRegions,
         history,
+        consulted,
       )
     }
   }
@@ -882,7 +894,10 @@ private fun buildTransition(
   node: Node,
   path: Path,
   extensionPoints: List<NodeExtensionPoint>,
-): Transition = if (event is InitEvent) {
+  consulted: MutableSet<Path>? = null,
+): Transition = if (consulted != null && !consulted.add(path)) {
+  Ignore
+} else if (event is InitEvent) {
   when (node) {
     is FlowNode<*> -> {
       NavigateTo(node.initial)

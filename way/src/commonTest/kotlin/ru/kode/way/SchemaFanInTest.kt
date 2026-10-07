@@ -4,6 +4,15 @@ import app.cash.turbine.test
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
+import ru.kode.way.mc01.AppFlowNodeBuilder
+import ru.kode.way.mc01.LoginFlowNodeBuilder
+import ru.kode.way.mc01.MCAppFlowSchema
+import ru.kode.way.mc01.MCLoginFlowSchema
+import ru.kode.way.mc01.MCMainFlowSchema
+import ru.kode.way.mc01.MainFlowNodeBuilder
+import ru.kode.way.mc01.appFlow
+import ru.kode.way.mc01.loginFlow
+import ru.kode.way.mc01.mainFlow
 import ru.kode.way.nav16.AppChildFinishRequest
 import ru.kode.way.nav16.AppNodeBuilder
 import ru.kode.way.nav16.NavService16PermSchema
@@ -99,6 +108,59 @@ class SchemaFanInTest :
 
         sut.send(TestEvent("First"))
         (awaitItem().aliveNodes["app.a.perm.permIntro"] as TestScreenNode).payload shouldBe "r-1"
+      }
+    }
+
+    should("drop the node builder of a parameterized schema two imported schemas below the root") {
+      val failingSections = mutableSetOf(2)
+      val sut = NavigationService(
+        AppFlowNodeBuilder(
+          object : AppFlowNodeBuilder.Factory {
+            override fun createRootNode() = TestFlowNode(initialTarget = Target.appFlow.mainFlow)
+            override fun createLoginFlowNodeBuilder(section: Int): NodeBuilder = error("not reached")
+            override fun createMainFlowNodeBuilder(): NodeBuilder = MainFlowNodeBuilder(
+              object : MainFlowNodeBuilder.Factory {
+                override fun createRootNode() = TestFlowNode(
+                  initialTarget = Target.mainFlow.main(count = 1),
+                  transitions = listOf(
+                    tr("First", Target.mainFlow.loginFlow(section = 1)),
+                    tr("Second", Target.mainFlow.loginFlow(section = 2)),
+                  ),
+                )
+                override fun createMainNode(count: Int) = TestScreenNode(payload = count)
+                override fun createLoginFlowNodeBuilder(section: Int): NodeBuilder = LoginFlowNodeBuilder(
+                  object : LoginFlowNodeBuilder.Factory {
+                    override fun createRootNode(section: Int): FlowNode<*> = TestFlowNode(
+                      initialTarget = Target.loginFlow.credentials,
+                      onEntryImpl = { if (failingSections.remove(section)) error("entry of $section failed") },
+                    )
+                    override fun createCredentialsNode() = TestScreenNode(payload = section)
+                    override fun createOtpNode() = TestScreenNode(payload = section)
+                  },
+                  MCLoginFlowSchema(),
+                )
+              },
+              MCMainFlowSchema(MCLoginFlowSchema()),
+            )
+          },
+          MCAppFlowSchema(
+            loginFlowSchema = MCLoginFlowSchema(),
+            mainFlowSchema = MCMainFlowSchema(MCLoginFlowSchema()),
+          ),
+        ),
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.collectTransitions().test {
+        awaitItem().active shouldBe "appFlow.mainFlow.main"
+        // the node builder of mainFlow is kept, the one of loginFlow which it has created is not
+        shouldThrow<IllegalStateException> { sut.send(TestEvent("Second")) }
+
+        sut.send(TestEvent("First"))
+        awaitItem().apply {
+          active shouldBe "appFlow.mainFlow.main.loginFlow.credentials"
+          (aliveNodes["appFlow.mainFlow.main.loginFlow.credentials"] as TestScreenNode).payload shouldBe 1
+        }
       }
     }
 

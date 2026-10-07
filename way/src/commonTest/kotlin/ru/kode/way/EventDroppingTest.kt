@@ -413,6 +413,42 @@ class EventDroppingTest :
       recorder.dropped.last().second shouldBe DropReason.StaleSource(detailsPath!!)
     }
 
+    should("deliver the events which were queued before a transition is rolled back, once and in their order") {
+      val sut = createService(hideParameters = true)
+      val recorder = Recorder(sut)
+      // only the first entry of details sends "X": the one which is rolled back
+      var sendOnEntry = true
+      sut.addNodeExtensionPoint(
+        TestNodeExtensionPoint(postEntry = { _, path ->
+          if (sendOnEntry && path.toString() == "app.main.details") {
+            sendOnEntry = false
+            sut.send(TestEvent("X"))
+          }
+        }),
+      )
+      sut.start()
+      recorder.clear()
+      // armed only for the dispatch of "M": addTransitionListener also calls the listener with the current state
+      var armed = false
+      sut.addTransitionListener {
+        if (armed) {
+          armed = false
+          sut.send(TestEvent("N"))
+          sut.send(TestEvent("D"))
+          sut.send(TestEvent("R"))
+        }
+      }
+
+      armed = true
+      sut.send(TestEvent("M"))
+
+      // "D" and "R" were queued behind "N" when it was rolled back: they stay, "X" which "N" has sent does not
+      recorder.dropped.single().first shouldBe TestEvent("N")
+      recorder.states.map { it.active } shouldBe listOf("app.main", "app.main.details", "app.main.details")
+      recorder.states.drop(1).map { (it.aliveNodes["app.main.details"] as TestScreenNode).payload } shouldBe
+        listOf("d1", "d9")
+    }
+
     // sends "M" and enqueues "T" (dropped: details is not alive) and "D" while "M" is dispatched
     fun NavigationService<Int>.sendMainEnqueuingDropAndDetails() {
       // armed only for the dispatch of "M": addTransitionListener also calls the listener with the current state

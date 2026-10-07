@@ -178,12 +178,20 @@ class NavigationService<R : Any>(nodeBuilder: NodeBuilder, private val onFinishR
         "listener or extension point). Call it after send() returns."
     }
     if (state.isInitialized()) {
+      // a parallel entered by NavigateTo is both a node of the calling region and an intermediate parallel
+      val disposed = mutableListOf<Node>()
+      val disposeOnce = { node: Node, path: Path ->
+        if (disposed.none { it === node }) {
+          disposed.add(node)
+          callOnDispose(node, path, state._nodeExtensionPoints)
+        }
+      }
       state._regions.entries
         .sortedByDescending { it.key.path.length }
         .forEach { (_, region) ->
           region.alive.reversed().forEach { path ->
             val node = region.nodes[path] ?: return@forEach
-            callOnDispose(node, path, state._nodeExtensionPoints)
+            disposeOnce(node, path)
           }
         }
       // Dispose intermediate parallel roots (parallel-rooted sub-region roots wrapping another
@@ -192,7 +200,7 @@ class NavigationService<R : Any>(nodeBuilder: NodeBuilder, private val onFinishR
       state._intermediateParallels.entries
         .sortedByDescending { it.key.length }
         .forEach { (path, intermediate) ->
-          callOnDispose(intermediate.node, path, state._nodeExtensionPoints)
+          disposeOnce(intermediate.node, path)
         }
       // For a parallel-flow-ROOTED schema the root ParallelFlowNode lives in `state.rootNode`
       // (set at InitEvent), NOT in any region's `_nodes` map nor in `_intermediateParallels`
@@ -203,7 +211,7 @@ class NavigationService<R : Any>(nodeBuilder: NodeBuilder, private val onFinishR
       val rootNode = state.rootNode
       val rootNodePath = state.rootNodePath
       if (rootNode != null && rootNodePath != null) {
-        callOnDispose(rootNode, rootNodePath, state._nodeExtensionPoints)
+        disposeOnce(rootNode, rootNodePath)
       }
     }
     dispose()

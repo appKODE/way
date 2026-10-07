@@ -44,6 +44,8 @@
 
 ### Fixed
 
+* `cleanDispose()` called `onDispose` twice on a parallel flow which was entered by `NavigateTo`: such a node
+  is alive both as a node of the calling region and as an intermediate parallel.
 * `RegionId.resolveAbsolute` returned a wrong path for a region of a parallel which is declared deeper than the
   root of an imported schema, so `DispatchBackTo` with a generated region id of such a parallel fell back to the
   deepest region.

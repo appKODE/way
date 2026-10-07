@@ -34,7 +34,7 @@ internal fun variantSourceSetNamesInPriorityOrder(identity: ComponentIdentity): 
 }
 
 /**
- * File-level full-replacement override resolver.
+ * File-level override resolver.
  *
  * [sourceSetDirsInPriorityOrder] holds, for each contributing source set in ascending priority
  * order (as produced by [variantSourceSetNamesInPriorityOrder]), the list of `way/` directories
@@ -42,9 +42,12 @@ internal fun variantSourceSetNamesInPriorityOrder(identity: ComponentIdentity): 
  * path relative to the containing directory; when a higher-priority source set has a `.dot` file
  * at the same relative path as a lower-priority one, it fully replaces it. Files present in only
  * one source set pass through unchanged.
+ *
+ * A schema extension (see [isSchemaExtensionFile]) replaces nothing: it is returned together with
+ * the lower-priority files at its relative path.
  */
 internal fun resolveOverriddenDotFiles(sourceSetDirsInPriorityOrder: List<List<File>>): List<File> {
-  val fileByRelativePath = LinkedHashMap<String, File>()
+  val filesByRelativePath = LinkedHashMap<String, List<File>>()
   sourceSetDirsInPriorityOrder.forEach { dirs ->
     dirs.forEach { dir ->
       if (dir.isDirectory) {
@@ -52,10 +55,13 @@ internal fun resolveOverriddenDotFiles(sourceSetDirsInPriorityOrder: List<List<F
           .filter { candidate -> candidate.isFile && candidate.extension == "dot" }
           .forEach { dotFile ->
             val relativePath = dotFile.relativeTo(dir).path
-            fileByRelativePath[relativePath] = dotFile
+            val overridden = filesByRelativePath[relativePath].orEmpty()
+            // only a file which overrides another one is read: this runs at configuration time
+            filesByRelativePath[relativePath] =
+              if (overridden.isNotEmpty() && isSchemaExtensionFile(dotFile)) overridden + dotFile else listOf(dotFile)
           }
       }
     }
   }
-  return fileByRelativePath.values.toList()
+  return filesByRelativePath.values.flatten()
 }

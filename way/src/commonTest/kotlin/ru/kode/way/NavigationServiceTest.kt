@@ -1318,12 +1318,8 @@ class NavigationServiceTest :
       }
     }
 
-    // NOTE: For now this is an expected behavior: flow nodes can be built several times prior to being used
-    // in transitions (for example during initial node resolution). Users are expected to use onEntry/onExit instead of
-    // node constructors to initialize node-tree dependent data.
-    // NOTE: In case the above restriction will be lifted and node construction will be guaranteed to happen once,
-    // this test should be adjusted to test for exactly this case and this comment should be removed.
-    should("call child flow builder twice ") {
+    // The node which is asked about its initial target while a transition is resolved is the one which is entered.
+    should("build a child flow node once") {
       var createChildNodeCallCount = 0
       val sut = NavigationService<Unit>(
         ru.kode.way.nav09.AppNodeBuilder(
@@ -1355,8 +1351,7 @@ class NavigationServiceTest :
         awaitItem().apply {
           active shouldBe "app.page1.permissions.intro"
         }
-        // See NOTEs above
-        createChildNodeCallCount shouldBe 2
+        createChildNodeCallCount shouldBe 1
       }
     }
 

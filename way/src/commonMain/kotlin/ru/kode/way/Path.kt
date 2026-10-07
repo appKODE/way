@@ -113,6 +113,13 @@ fun Path.endsWith(other: Path): Boolean {
 }
 
 /**
+ * True when the node at this path is the one [target] points to: `path.endsWith(Target.appFlow.login)`.
+ * A generated target of a screen or a flow and a live path have the same segment ids, so this replaces a comparison
+ * of node names. A [HistoryTarget] has the path of its parent flow, so it matches the flow.
+ */
+fun Path.endsWith(target: Target): Boolean = endsWith(target.path)
+
+/**
  * Like [endsWith], but the FIRST segment of [other] is compared by [Segment.name] only — the
  * `@<graphId>:<file>` disambiguator on that one segment may differ across a schema mount that
  * spans two Gradle modules (parent module's codegen stamps its own identity on the boundary

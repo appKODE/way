@@ -1,0 +1,7 @@
+digraph App {
+  mode = "extend"
+
+  login [type=schema, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
+
+  app -> login
+}

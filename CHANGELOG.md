@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.11.0 - 2026-10-06
+
+### Added
+
+* Gradle plugin: a flavor (or build type) `.dot` file can extend a schema instead of replacing it. A file with the
+  `mode = "extend"` graph attribute holds only the added nodes and edges; they are added to the schema with the same
+  graph id, so the schema does not have to be copied into the flavor's source set. A file without the attribute
+  replaces the lower-priority one as before. See "Flavor-Specific Routing" in the README.
+* `Path.endsWith(target: Target)`: `path.endsWith(Target.appFlow.login)` instead of a comparison of the last
+  segment's name with a string.
+* `ParallelFlowNode.initialRegions`: the regions which start together with the node (all of them by default). The
+  other ones have no nodes until `startRegion(regionId)`, or a `NavigateTo` with a target inside of them,
+  starts them: tabs which load on the first selection need no placeholder nodes.
+  `isRegionStarted(regionId)` tells whether a region has nodes. A region of the root parallel which starts later
+  through `startRegion` gets the payload the service was started with, as the ones started at once do. Back which
+  is sent with `DispatchBackTo` to a region which is not started is ignored.
+* `way-compose`: `FocusedRegionHost(regionId)` renders only one region of a parallel node (the selected tab) and keeps
+  the saved state of the other ones, `contentModifier` goes to the content of the region;
+  `collectActiveNode(regionId)` and `collectIsRegionAtRoot(regionId)` take a schema-relative region id.
+* `ParallelFlowNode.isRegionAtRoot(regionId)`: the state of a region is readable in `transition()`, so Back can be
+  sent to an overlay region only when it shows something, without a listener which copies the state into the node.
+* `BaseParallelFlowNode`: a parallel flow node with hooks, the counterpart of `BaseFlowNode`.
+* `way-compose`: `rememberTransitionSpec()` with `pushTransition()`, `popTransition()`, `fadeTransition()` and
+  `noTransition()`, a spec which slides forward when the target path continues the source one and back in the
+  reverse case.
+
+### Changed
+
+* `way-compose`: `NodeHost(regionId)`, `collectActiveNode` and `collectIsRegionAtRoot` start from the current state of
+  the service, not from an empty one for the first frame: a host which enters composition later (a tab, an overlay)
+  shows its node at once. `NavigationService.currentState()` returns that state.
+* The methods of `ServiceExtensionPoint`, `NodeExtensionPoint`, `FlowNodeHook` and `ScreenNodeHook` have empty default
+  implementations.
+* `ParallelFlowNode` has new members `initialRegions`, `startRegion`, `isRegionStarted` and `isRegionAtRoot`: a
+  subclass which declares a member with one of these names has to rename it.
+* The regions of a parallel flow which is declared inside of a region of the root schema start when this parallel
+  is entered and are removed when it is left. They were started together with the service and never removed.
+* `NodeBuilder` has new members `snapshotCache` and `restoreCache` with default implementations, the generated
+  builders override them. A hand-written builder which caches its child builders should override them too.
+* A node which is entered is built once per transition: the node which is asked about its `initial` target or
+  `initialRegions` is the one which is entered. A child flow node was built twice.
+
+### Fixed
+
+* `RegionId.resolveAbsolute` returned a wrong path for a region of a parallel which is declared deeper than the
+  root of an imported schema, so `DispatchBackTo` with a generated region id of such a parallel fell back to the
+  deepest region.
+* A relative target from a node of a parallel flow into one of its regions changed the region of the parallel
+  itself, not the target one.
+* A flow which has both a nested parallel flow and a screen of its own failed with "path must have at least one
+  segment" on a relative target to this screen.
+* A parallel flow which is left got its `onExit` before the nodes of its regions did. Now the nodes of the regions
+  exit first, an inner parallel exits before the outer one.
+* A parallel flow declared inside of a region of another parallel which is left stayed mounted together with its
+  regions.
+* A schema whose root is a flow with a parallel flow declared under it failed at start with "parallel-flow root
+  must be a ParallelFlowNode". The root flow is the first region of such a schema now: the generated region ids
+  get an entry for it, and `<Root>ChildFinishRequest` is generated. The region enum keeps the regions of the parallel
+  only.
+* Back was delivered to every region of a parallel flow declared under a flow inside of a region of the root schema,
+  each of them handled it. Now it goes into one region, chosen by the parallel, as it does for any other parallel.
+* The regions of a parallel flow declared deeper inside of an imported parallel schema were started together with
+  this schema, before their parallel was entered, and never got `onExit`.
+* A parallel flow which is entered by a `NavigateTo` with a target inside of it got its `onEntry` before the flows
+  above it, and before the nodes which the same transition leaves got their `onExit`.
+* A transition which fails restores the state first and only then calls `onEntry` of the nodes which had got
+  `onExit`: such a node saw the half-changed state.
+* Gradle plugin: a flow or a parallel flow declared inside of a flow which is not the root of its schema failed with
+  "illegal path build requested": the node builder of the root asked the outer flow's builder to build it.
+* A parallel flow which an initial target has entered was built and entered once more by the first `NavigateTo`
+  with a target inside of it, and the first node never got its `onExit`.
+* A parallel flow declared under a flow got `transition(Event.Back)` twice for one Back.
+* A node whose `onEntry` throws gets `onExit` when the failed transition is rolled back, as the nodes entered before
+  it do. It was left entered half-way.
+* A node whose `onPreExit` hook throws before its `onExit` is reached is not entered back when the failed transition
+  is rolled back.
+* An event which a node has sent from `onEntry` or `onExit` while a failed transition was rolled back stayed in the
+  queue and was handled after the next event.
+* A transition which fails restores the child node builders as they were before it. A builder which it had created
+  for a parameterized schema stayed cached, so the next transition built the nodes of this schema with the argument
+  of the failed one.
+
 ## 0.10.3 - 2026-10-06
 
 ### Fixed

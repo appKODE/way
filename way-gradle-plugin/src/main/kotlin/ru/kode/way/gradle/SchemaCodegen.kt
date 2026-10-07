@@ -574,7 +574,9 @@ private fun buildCreateChildFlowFinishEventSpec(
             endControlFlow() // regions[i] -> {
             return@forEachIndexed
           }
-          dfs(adjacencyList, regionRoot) { node ->
+          // The same descent as in buildChildFinishEventFileSpecs: a node which owns a virtual sub-schema emits the
+          // finish events of the flows under it.
+          dfsWhile(adjacencyList, regionRoot) { node ->
             when (node) {
               is Node.Flow -> {
                 // An imported schema reachable from several parents finishes from each of its paths.
@@ -605,6 +607,8 @@ private fun buildCreateChildFlowFinishEventSpec(
               is Node.History,
               -> Unit
             }
+            val ownsVirtualSubSchema = node is Node.Flow.LocalParallel || adjacencyList.isLocalChildOfParallel(node)
+            node === regionRoot || !ownsVirtualSubSchema
           }
           beginControlFlow("else -> {")
           addStatement("error(%P)", "internal error: failed to build child finish event for path=\$path")

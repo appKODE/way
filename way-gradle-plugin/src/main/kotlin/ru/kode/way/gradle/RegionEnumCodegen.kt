@@ -16,11 +16,12 @@ import com.squareup.kotlinpoet.TypeSpec
  * them to compare [ru.kode.way.RegionId] values directly. Each entry carries the segment name
  * (the portion before `@file.dot`), and a companion `forRegionId` performs the reverse lookup.
  *
- * Returns null when the schema has zero or one region (flow-rooted schemas) — there is no enum
- * worth emitting in that case.
+ * Returns null when the schema has zero or one region of a parallel — there is no enum worth emitting in that
+ * case. A root flow is a region too, but not one of a parallel: it has no entry.
  */
 internal fun buildRegionEnumFileSpecOrNull(parseResult: SchemaParseResult, config: CodeGenConfig): FileSpec? {
-  val regionRoots = buildRegionRoots(parseResult.adjacencyList)
+  val rootNode = parseResult.adjacencyList.findRootNode()
+  val regionRoots = buildRegionRoots(parseResult.adjacencyList).filter { it != rootNode }
   if (regionRoots.size <= 1) return null
 
   val packageName = parseResult.customPackage ?: config.outputPackageName

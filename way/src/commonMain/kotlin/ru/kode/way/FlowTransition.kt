@@ -121,7 +121,8 @@ infix fun NavigateAndEnqueue.thenEnqueue(event: Event): NavigateAndEnqueue = cop
  * [regionId] may be either an absolute key from `NavigationState.regions` or a schema-local id
  * (such as `MyParallelFlowSchema.exploreFlowRegionId`); the runtime suffix-matches schema-local ids
  * against the parallel's active sub-regions. A stale or unresolved id never crashes Back — it
- * soft-falls-back to the deepest active sub-region.
+ * soft-falls-back to the deepest active sub-region. Back to a region of this parallel which is not started
+ * (see [ParallelFlowNode.initialRegions]) is ignored.
  *
  * This is a parallel-only transition (declared `FlowTransition<Nothing>`). Returning it from a plain
  * [FlowNode] or [ScreenNode] is a misuse and is rejected at resolution time.

@@ -23,10 +23,10 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.SaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -160,8 +160,10 @@ private fun NodeAnimatedContent(
   // exit animation included) leaves. Snapshot-backed so the cleanup effect re-runs when it changes.
   val mountedKeys = remember { mutableStateListOf<String>() }
   // Keys we have handed to the SaveableStateHolder, so the cleanup effect knows what to purge. Plain
-  // (non-snapshot) set: only read imperatively inside the effect, never during composition.
-  val trackedKeys = remember { mutableSetOf<String>() }
+  // (non-snapshot) set: only read imperatively inside the effect, never during composition. Saveable, because the
+  // holder outlives this host when the host leaves the composition (see FocusedRegionHost): a node which left its
+  // region meanwhile must not hand its saved state to a new node at the same path.
+  val trackedKeys = rememberSaveable { mutableSetOf<String>() }
 
   val activePath = activeNode?.path
   val activeKey = activePath?.toSaveableKey()
@@ -243,10 +245,10 @@ private fun collectRootNode(service: NavigationService<*>): State<NodeWithPath?>
   }
 
 /**
- * A [State] reflecting [transform] applied to every [NavigationState] this service emits (and
- * `initial` before the first). Registers a transition listener for the composition's lifetime and
+ * A [State] reflecting [transform] applied to the current [NavigationState] and to every one this service emits
+ * later (`initial` while the service is not started). Registers a transition listener for the composition's lifetime and
  * removes it on dispose — the listener lifecycle every collector in this module shares. Extra [keys]
- * (beyond the service) re-key the underlying [produceState].
+ * (beyond the service) re-key the state.
  */
 @Composable
 internal fun <T> NavigationService<*>.produceTransitionState(
@@ -254,12 +256,16 @@ internal fun <T> NavigationService<*>.produceTransitionState(
   vararg keys: Any?,
   transform: (NavigationState) -> T,
 ): State<T> = key(this, *keys) {
-  // keyed outside produceState: its value survives a key change, so a new service would start from the old value
-  produceState(initial) {
-    val listener = { s: NavigationState -> value = transform(s) }
+  // starts from the current state: with `initial` the first frame would show a started service as an empty one.
+  // The first value lives only in the state: a remembered copy of it would keep its node alive after that node exits
+  val state = remember { mutableStateOf(currentState()?.let(transform) ?: initial) }
+  DisposableEffect(Unit) {
+    val listener = { s: NavigationState -> state.value = transform(s) }
+    // a started service reports its current state right away, so a transition before this effect is not lost
     addTransitionListener(listener)
-    awaitDispose { removeTransitionListener(listener) }
+    onDispose { removeTransitionListener(listener) }
   }
+  state
 }
 
 private fun Region.toNodeWithPath(): NodeWithPath = NodeWithPath(active, activeNode)
@@ -399,6 +405,56 @@ fun NodeHost(
     label = "NodeHost-${absoluteRegionId.path}",
   )
 }
+
+/**
+ * Renders only [regionId] out of the regions of a parallel node, e.g. the selected tab. The other regions are not
+ * composed, so they show no dialogs or sheets, and their saved state is kept and restored when [regionId] points to
+ * them again. A region which is not started yet (see [ParallelFlowNode.initialRegions]) renders nothing.
+ *
+ * Has the same requirements as [NodeHost] with a region id. [regionTransitionSpec] animates the change of [regionId],
+ * [transitionSpec] animates navigation inside of the region. [modifier] is applied to the host itself,
+ * [contentModifier] is passed to the content of the nodes, as the modifier of [NodeHost] is.
+ */
+@ExperimentalAnimationApi
+@Composable
+fun FocusedRegionHost(
+  regionId: RegionId,
+  modifier: Modifier = Modifier,
+  contentModifier: Modifier = Modifier,
+  regionTransitionSpec: AnimatedContentTransitionScope<RegionId>.() -> ContentTransform = {
+    fadeIn() togetherWith
+      fadeOut()
+  },
+  transitionSpec: AnimatedContentTransitionScope<Path?>.() -> ContentTransform = defaultTransitionSpec,
+) {
+  val saveableStateHolder = rememberSaveableStateHolder()
+  AnimatedContent(
+    targetState = regionId,
+    modifier = modifier,
+    transitionSpec = regionTransitionSpec,
+    label = "FocusedRegionHost",
+  ) { id ->
+    saveableStateHolder.SaveableStateProvider(id.path.toSaveableKey()) {
+      NodeHost(regionId = id, modifier = contentModifier, transitionSpec = transitionSpec)
+    }
+  }
+}
+
+/**
+ * The active node in [regionId] of the parallel node which is being rendered, reactively. Unlike the overload with
+ * a service, [regionId] may be schema-relative. `null` while the region is not started.
+ */
+@Composable
+fun collectActiveNode(regionId: RegionId): State<NodeWithPath?> =
+  collectActiveNode(LocalNavigationService.current, regionId.resolveAbsolute(LocalNodePath.current))
+
+/**
+ * Whether [regionId] of the parallel node which is being rendered rests on its first node, reactively. Unlike the
+ * overload with a service, [regionId] may be schema-relative. `false` while the region is not started.
+ */
+@Composable
+fun collectIsRegionAtRoot(regionId: RegionId): State<Boolean> =
+  collectIsRegionAtRoot(LocalNavigationService.current, regionId.resolveAbsolute(LocalNodePath.current))
 
 @Immutable
 data class NodeWithPath(val path: Path, val node: Node)

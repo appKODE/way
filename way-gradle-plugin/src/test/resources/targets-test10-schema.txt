@@ -18,13 +18,16 @@ public class TargetsTest10Schema : Schema {
       mapOf(Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot") to TabsSchema(), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot") to TabASchema(), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot") to TabBSchema())
 
   override val regions: List<RegionId> =
-      listOf(RegionId(Path(listOf(Segment("app@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot")))), RegionId(Path(listOf(Segment("app@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot")))))
+      listOf(RegionId(Path(listOf(Segment("app@TargetsTest10:src/test/resources/targets-test10.dot")))), RegionId(Path(listOf(Segment("app@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot")))), RegionId(Path(listOf(Segment("app@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot")))))
 
-  public val tabARegionId: RegionId
+  public val appRegionId: RegionId
     get() = regions[0]
 
-  public val tabBRegionId: RegionId
+  public val tabARegionId: RegionId
     get() = regions[1]
+
+  public val tabBRegionId: RegionId
+    get() = regions[2]
 
   override fun target(
     regionId: RegionId,
@@ -44,6 +47,18 @@ public class TargetsTest10Schema : Schema {
       }
     }
     regions[1] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@TargetsTest10:src/test/resources/targets-test10.dot")
+      when(segment.id) {
+        "app@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(rootSegment)
+        "tabs@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot")))
+        "tabB@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot")))
+        "screenB@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("screenB@TargetsTest10:src/test/resources/targets-test10.dot")))
+        "tabA@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot")))
+        "screenA@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("screenA@TargetsTest10:src/test/resources/targets-test10.dot")))
+        else -> null
+      }
+    }
+    regions[2] -> {
       val rootSegment = rootSegmentAlias ?: Segment("app@TargetsTest10:src/test/resources/targets-test10.dot")
       when(segment.id) {
         "app@TargetsTest10:src/test/resources/targets-test10.dot" -> Path(rootSegment)
@@ -93,6 +108,20 @@ public class TargetsTest10Schema : Schema {
         }
       }
     }
+    regions[2] -> {
+      val rootSegment = rootSegmentAlias ?: Segment("app@TargetsTest10:src/test/resources/targets-test10.dot")
+      when {
+        path == Path(rootSegment) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"))) -> Schema.NodeType.ParallelFlow
+        path == Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("screenB@TargetsTest10:src/test/resources/targets-test10.dot"))) -> Schema.NodeType.Screen
+        path == Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot"))) -> Schema.NodeType.Flow
+        path == Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot"), Segment("screenA@TargetsTest10:src/test/resources/targets-test10.dot"))) -> Schema.NodeType.Screen
+        else -> {
+          error("""internal error: no nodeType for path=$path""")
+        }
+      }
+    }
     else -> {
       error("""unknown regionId=$regionId""")
     }
@@ -119,13 +148,21 @@ public class TargetsTest10Schema : Schema {
   ): Event = when (regionId) {
     regions[0] -> {
       when(path) {
-        Path(Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot")) -> TabsChildFinishRequest.TabA
+        Path(listOf(rootSegment, Segment("tabs@TargetsTest10:src/test/resources/targets-test10.dot"))) -> AppChildFinishRequest.Tabs
         else -> {
           error("""internal error: failed to build child finish event for path=$path""")
         }
       }
     }
     regions[1] -> {
+      when(path) {
+        Path(Segment("tabA@TargetsTest10:src/test/resources/targets-test10.dot")) -> TabsChildFinishRequest.TabA
+        else -> {
+          error("""internal error: failed to build child finish event for path=$path""")
+        }
+      }
+    }
+    regions[2] -> {
       when(path) {
         Path(Segment("tabB@TargetsTest10:src/test/resources/targets-test10.dot")) -> TabsChildFinishRequest.TabB
         else -> {

@@ -56,7 +56,7 @@ internal fun resolveTransition(
       val isRootParallelSubRegion = rootNode is ParallelFlowNode<*> && rootNodePath != null &&
         regionId.path != rootNodePath && regionId.path.startsWith(rootNodePath)
       // A sink under the parallel (not the parallel itself) keeps Back in its own sub-region.
-      val isSubRegion = !nodeBuilder.schema.regions.contains(regionId) || isRootParallelSubRegion
+      val isSubRegion = !nodeBuilder.schema.isRootRegion(regionId) || isRootParallelSubRegion
       if (isSubRegion && inScope(regionId.path.dropLast(1))) {
         return@fold acc
       }
@@ -85,6 +85,7 @@ internal fun resolveTransition(
       allRegions = regions,
       history = history,
       consulted = consulted,
+      activeAsked = start == region.active && event !is RootFinishRequestEvent,
     )
     acc + resolved
   }
@@ -350,6 +351,8 @@ private fun resolveTransitionInRegion(
   allRegions: Map<RegionId, Region>,
   history: Map<Path, HistoryRecord> = emptyMap(),
   consulted: MutableSet<Path>? = null,
+  // the walk has started at [activePath]: every node from it up to [path] was asked about [event] already
+  activeAsked: Boolean = false,
 ): ResolvedTransition = when (transition) {
   is EnqueueEvent -> ResolvedTransition(
     targetPaths = mapOf(regionId to activePath),
@@ -377,8 +380,12 @@ private fun resolveTransitionInRegion(
     check(subRegions.isNotEmpty()) {
       "DispatchBackTo must be returned from a ParallelFlowNode's transition(Event.Back) (path=$path)"
     }
-    val chosen = chooseBackRegion(transition.regionId, subRegions)
-    dispatchBackIntoRegion(chosen, subRegions, allRegions, nodeBuilder, event, extensionPoints, history)
+    if (isUnstartedRegion(transition.regionId, path, allRegions, nodeBuilder.schema)) {
+      ResolvedTransition.EMPTY
+    } else {
+      val chosen = chooseBackRegion(transition.regionId, subRegions)
+      dispatchBackIntoRegion(chosen, subRegions, allRegions, nodeBuilder, event, extensionPoints, history)
+    }
   }
 
   is NavigateTo -> {
@@ -406,7 +413,20 @@ private fun resolveTransitionInRegion(
         is FlowTarget, is ScreenTarget -> {
           val targetPathAbs = resolveAbsoluteTargetPath(schema, path, target.path)
           recordTargetPayloads(target, targetPathAbs, regionId, nodes, payloads)
-          maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads, regionId)
+          val owningRegionId = unstartedRegionId(targetPathAbs, allRegions.keys, schema)
+            ?: owningRegionId(targetPathAbs, allRegions.keys, fallback = regionId)
+          if (owningRegionId != regionId ||
+            findParallelOnPath(targetPathAbs, owningRegionId, initializedPaths, schema) != null
+          ) {
+            // the target is inside of a region of a parallel below this node: that region takes it, and
+            // a parallel which is not entered yet is entered and starts its regions
+            resolveAbsoluteLeaves(
+              listOf(targetPathAbs), regionId, nodes, allRegions, nodeBuilder, schema, payloads, initializedPaths,
+              alreadyChosenBase = targetPaths,
+            )
+          } else {
+            maybeResolveInitial(target, targetPathAbs, nodeBuilder, nodes, schema, payloads, regionId)
+          }
         }
 
         is HistoryTarget -> resolveHistoryTarget(
@@ -465,6 +485,7 @@ private fun resolveTransitionInRegion(
         extensionPoints,
         allRegions,
         history,
+        activeAsked,
       )
       if (resolved == null) {
         ResolvedTransition(
@@ -490,6 +511,7 @@ private fun resolveTransitionInRegion(
         allRegions,
         history,
         consulted,
+        activeAsked,
       )
     }
   }
@@ -518,7 +540,8 @@ private fun resolveAbsoluteTarget(
   val absolutePath = target.path
   require(!isParallelFlowAt(schema, absolutePath)) {
     "NavigateTo(AbsoluteTarget(\"$absolutePath\")) targets a ParallelFlowNode path. " +
-      "Use an AbsoluteTarget pointing at a path inside one of its sub-regions."
+      "Use an AbsoluteTarget pointing at a path inside one of its sub-regions " +
+      "(a region whose root is a parallel flow cannot be started by startRegion)."
   }
   return resolveAbsoluteLeaves(
     candidates = listOf(absolutePath),
@@ -558,7 +581,8 @@ private fun resolveHistoryTarget(
   alreadyChosen: Map<RegionId, Path>,
 ): Map<RegionId, Path> {
   val flowPath = target.path
-  val targetRegionId = owningRegionId(flowPath, allRegions.keys, fallback = callingRegionId)
+  val targetRegionId = unstartedRegionId(flowPath, allRegions.keys, schema)
+    ?: owningRegionId(flowPath, allRegions.keys, fallback = callingRegionId)
   val existingNodes = allRegions[targetRegionId]?.nodes ?: nodes
   target.payload?.also { payloads[flowPath] = it }
   val record = history[flowPath]
@@ -623,8 +647,23 @@ private fun resolveAbsoluteTargetPath(schema: Schema, activePath: Path, targetPa
   // drop exactly the same number of leading segments from the resolved relative path before
   // appending. Dropping fewer would double-stack the regionRoot (`...par05Alpha.par05Alpha...`);
   // dropping more would skip a real intermediate segment.
+  if (!activePath.startsWith(absoluteRegionRoot(activeSchemaPath, regionId))) {
+    // the active node is a flow above the regions which its schema declares (they belong to a parallel nested
+    // in it), [regionId] is only a fallback here: the target is relative to the root of the schema
+    return if (relativeResolvedPath.length <=
+      1
+    ) {
+      activeSchemaPath
+    } else {
+      activeSchemaPath.append(relativeResolvedPath.drop(1))
+    }
+  }
   return absoluteRegionRoot(activeSchemaPath, regionId).append(relativeResolvedPath.drop(regionId.path.length))
 }
+
+/** The roots of the regions of the parallel at [parallelPath]; its schema may declare other parallels as well. */
+internal fun regionRootsOf(parallelSchema: Schema, schemaPath: Path, parallelPath: Path): List<Path> =
+  parallelSchema.regions.map { absoluteRegionRoot(schemaPath, it) }.filter { it.dropLast(1) == parallelPath }
 
 internal fun absoluteRegionRoot(schemaPath: Path, relativeRegionId: RegionId): Path =
   if (relativeRegionId.path.length <= 1) {
@@ -702,6 +741,8 @@ private fun maybeResolveBackEvent(
   extensionPoints: List<NodeExtensionPoint>,
   allRegions: Map<RegionId, Region>,
   history: Map<Path, HistoryRecord> = emptyMap(),
+  // the nodes from [activePath] up to the root of the region have answered Ignore to this Back
+  activeAsked: Boolean = false,
 ): ResolvedTransition? {
   if (event != Event.Back || activePath.segments.size <= 1) return null
 
@@ -727,6 +768,8 @@ private fun maybeResolveBackEvent(
       ownerRegionId = regionId,
       ownerNodes = nodes,
       history = history,
+      // asked on the way up already, it is not asked about the same Back once more
+      knownTransition = if (activeAsked && candidatePath.startsWith(regionId.path)) Ignore else null,
     )
   }
 
@@ -783,18 +826,23 @@ private fun dispatchBackThroughParallel(
   ownerRegionId: RegionId? = null,
   ownerNodes: Map<Path, Node>? = null,
   history: Map<Path, HistoryRecord> = emptyMap(),
+  knownTransition: Transition? = null,
 ): ResolvedTransition {
-  val parallelBackTransition = buildTransition(event, parallelNode, parallelNodePath, extensionPoints)
+  val parallelBackTransition = knownTransition
+    ?: buildTransition(event, parallelNode, parallelNodePath, extensionPoints)
   val chosenRegionId = when (parallelBackTransition) {
-    is DispatchBackTo -> chooseBackRegion(parallelBackTransition.regionId, subRegionActivePaths)
+    is DispatchBackTo -> {
+      val regionId = parallelBackTransition.regionId
+      if (isUnstartedRegion(regionId, parallelNodePath, allRegions, nodeBuilder.schema)) return ResolvedTransition.EMPTY
+      chooseBackRegion(regionId, subRegionActivePaths)
+    }
 
     is Ignore -> deepestRegion(subRegionActivePaths)
 
     // A flow-nested parallel is not a sub-region root, so its own transition must be resolved exactly
     // as the region fold would: resolveTransitionInRegion derives the schema-based child/root finish
-    // for a Finish (no finishTransitionBuilder involved). In practice a pure transition() only reaches
-    // this arm as Ignore (handled above); this keeps Finish/NavigateTo/… correct-by-construction for a
-    // stateful transition() that returns something else on re-consultation.
+    // for a Finish (no finishTransitionBuilder involved). A parallel which was asked on the way up of the
+    // region fold already comes here with that answer (Ignore, handled above) and is not asked again.
     else -> return if (ownerRegionId != null && ownerNodes != null) {
       resolveTransitionInRegion(
         regionId = ownerRegionId,
@@ -883,6 +931,22 @@ private fun dispatchBackIntoRegion(
     allRegions = allRegions,
     history = history,
   )
+}
+
+/**
+ * Whether [regionId] names a region of the parallel at [parallelPath] which is not started: it has nothing to go
+ * back from, so Back which is dispatched to it is ignored.
+ */
+private fun isUnstartedRegion(
+  regionId: RegionId,
+  parallelPath: Path,
+  allRegions: Map<RegionId, Region>,
+  schema: Schema,
+): Boolean {
+  val regionRoot = regionId.resolveAbsolute(parallelPath).path
+  return regionRoot.length == parallelPath.length + 1 &&
+    allRegions.keys.none { it.path.startsWith(regionRoot) } &&
+    nodeTypeOrNull(schema, regionRoot) != null
 }
 
 private fun subRegionActivePaths(parentPath: Path, allRegions: Map<RegionId, Region>): Map<RegionId, Path> = allRegions
@@ -1025,16 +1089,31 @@ private fun maybeResolveInitial(
     is FlowNode<*> -> {
       val nextTargetPathAbs = targetPathAbs.append(targetNode.initial.path)
       recordTargetPayloads(targetNode.initial, nextTargetPathAbs, callingRegionId, nodes, payloads)
-      maybeResolveInitial(
-        targetNode.initial,
-        nextTargetPathAbs,
-        nodeBuilder,
-        nodes,
-        schema,
-        payloads,
-        callingRegionId,
-        visitedPaths,
-      )
+      // an initial target inside of a parallel declared below this flow enters that parallel
+      val parallelOnPath = findParallelOnPath(nextTargetPathAbs, RegionId(targetPathAbs), emptySet(), schema)
+      if (parallelOnPath != null) {
+        initParallelAndRouteAbsolute(
+          nextTargetPathAbs,
+          parallelOnPath,
+          callingRegionId,
+          nodeBuilder,
+          nodes,
+          schema,
+          payloads,
+          emptySet(),
+        )
+      } else {
+        maybeResolveInitial(
+          targetNode.initial,
+          nextTargetPathAbs,
+          nodeBuilder,
+          nodes,
+          schema,
+          payloads,
+          callingRegionId,
+          visitedPaths,
+        )
+      }
     }
 
     is ParallelFlowNode<*> -> {
@@ -1046,8 +1125,10 @@ private fun maybeResolveInitial(
       if (targetPathAbs.startsWith(callingRegionId.path)) {
         resolved[callingRegionId] = targetPathAbs
       }
-      parallelSchema.regions.forEach { relativeRegionId ->
-        val regionRootAbs = absoluteRegionRoot(schemaPath, relativeRegionId)
+      val regionRoots = regionRootsOf(parallelSchema, schemaPath, targetPathAbs)
+      targetNode.checkInitialRegions(targetPathAbs, regionRoots)
+      regionRoots.forEach { regionRootAbs ->
+        if (!targetNode.startsRegion(targetPathAbs, regionRootAbs)) return@forEach
         val absoluteRegionId = RegionId(regionRootAbs)
         resolved.putAll(
           maybeResolveInitial(regionRootAbs, absoluteRegionId, nodeBuilder, nodes, schema, payloads, mutableSetOf()),
@@ -1069,6 +1150,24 @@ private fun maybeResolveInitial(
  */
 internal fun owningRegionId(path: Path, regions: Collection<RegionId>, fallback: RegionId): RegionId =
   regions.filter { path.startsWith(it.path) }.maxByOrNull { it.path.length } ?: fallback
+
+/**
+ * The region of an alive parallel which owns [path] and is not started yet (see [ParallelFlowNode.initialRegions]),
+ * or `null` if [path] belongs to a started region or to a parallel which is not alive. A parallel is alive exactly
+ * when one of its regions is started.
+ */
+private fun unstartedRegionId(path: Path, regions: Collection<RegionId>, schema: Schema): RegionId? {
+  val ownerLength = regions.filter { path.startsWith(it.path) }.maxOfOrNull { it.path.length } ?: 0
+  for (length in maxOf(ownerLength + 1, 2)..path.length) {
+    val regionRoot = path.take(length)
+    val parallelPath = regionRoot.dropLast(1)
+    if (isParallelFlowAt(schema, parallelPath)) {
+      val isAlive = regions.any { it.path.length == length && it.path.startsWith(parallelPath) }
+      return if (isAlive && !isParallelFlowAt(schema, regionRoot)) RegionId(regionRoot) else null
+    }
+  }
+  return null
+}
 
 /** The node type at [path], or `null` if the schema can't resolve it. Defensive against traversal errors. */
 private fun nodeTypeOrNull(schema: Schema, path: Path): Schema.NodeType? =
@@ -1104,7 +1203,8 @@ private fun resolveAbsoluteLeaves(
 ): Map<RegionId, Path> {
   val resolvedLeaves = mutableMapOf<RegionId, Path>()
   candidates.forEach { candidate ->
-    val candidateRegionId = owningRegionId(candidate, allRegions.keys, fallback = defaultRegionId)
+    val candidateRegionId = unstartedRegionId(candidate, allRegions.keys, schema)
+      ?: owningRegionId(candidate, allRegions.keys, fallback = defaultRegionId)
     val candidateNodes = allRegions[candidateRegionId]?.nodes ?: fallbackNodes
     val parallelOnPath = findParallelOnPath(candidate, candidateRegionId, initializedPaths, schema)
     val resolved = if (parallelOnPath != null) {
@@ -1192,8 +1292,18 @@ private fun initParallelAndRouteAbsolute(
   if (parallelPath.startsWith(callingRegionId.path)) {
     resolved[callingRegionId] = parallelPath
   }
-  parallelSchema.regions.forEach { relativeRegionId ->
-    val regionRootAbs = absoluteRegionRoot(schemaPath, relativeRegionId)
+  val regionRoots = regionRootsOf(parallelSchema, schemaPath, parallelPath)
+  // Built only to read initialRegions, and only if there is a sibling region to decide on. A node which cannot be
+  // built here (a payload is missing) starts all its regions, the transition is then dropped as MissingPayload.
+  val parallelNode by lazy {
+    val node = nodes[parallelPath] ?: runCatching {
+      nodeBuilder.build(parallelPath, payloads = payloads, rootSegmentAlias = nodeBuilder.schema.rootSegment)
+    }.getOrNull()
+    (node as? ParallelFlowNode<*>)?.also {
+      it.checkInitialRegions(parallelPath, regionRoots)
+    }
+  }
+  regionRoots.forEach { regionRootAbs ->
     val absoluteRegionId = RegionId(regionRootAbs)
     if (absolutePath.startsWith(regionRootAbs)) {
       // This sub-region owns absolutePath — check for deeper nested uninitialized parallels
@@ -1212,6 +1322,8 @@ private fun initParallelAndRouteAbsolute(
       // Other sub-regions — preserve any active path a previous target in the same NavigateTo
       // chose for this region; otherwise initialize to the default initial state.
       if (absoluteRegionId in alreadyChosen) return@forEach
+      val startsRegion = parallelNode?.startsRegion(parallelPath, regionRootAbs) ?: true
+      if (!startsRegion) return@forEach
       resolved.putAll(
         maybeResolveInitial(regionRootAbs, absoluteRegionId, nodeBuilder, nodes, schema, payloads, mutableSetOf()),
       )

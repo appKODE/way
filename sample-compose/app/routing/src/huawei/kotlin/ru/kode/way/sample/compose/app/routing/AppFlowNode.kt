@@ -8,7 +8,7 @@ import ru.kode.way.Ignore
 import ru.kode.way.Target
 import javax.inject.Inject
 
-// Huawei flavor's app-flow.dot (src/huawei/way/app-flow.dot) drops the Google-only login step,
+// The login step is added by the google flavor's schema extension (src/google/way/app-flow.dot),
 // so this flow starts directly at "main" instead of "login".
 class AppFlowNode @Inject constructor() : FlowNode<Unit> {
   override val initial: Target = Target.app.main

@@ -187,9 +187,9 @@ internal fun buildSpecs(
       emitParentParallelEntries = false,
     )
   }
-  // For top-level schemas with more than one region (i.e. parallel-rooted), emit a Region enum
-  // so consumers can use a typed identifier for each sub-region instead of comparing RegionId
-  // values directly. Single-region (flow-rooted) schemas have no meaningful enum to emit.
+  // For top-level schemas with more than one region of a parallel, emit a Region enum so consumers can use
+  // a typed identifier for each of them instead of comparing RegionId values directly. A schema without
+  // a parallel has no meaningful enum to emit.
   val regionEnumSpec = buildRegionEnumFileSpecOrNull(parseResult, config)
   return SchemaOutputSpecs(
     schemaFileSpec = buildSchemaFileSpec(parseResult, config, registry),

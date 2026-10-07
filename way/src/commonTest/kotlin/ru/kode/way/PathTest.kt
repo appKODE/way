@@ -31,6 +31,12 @@ class PathTest : ShouldSpec() {
       }
     }
 
+    should("end with a target of its last nodes only") {
+      val path = Path("app", "home", "profile")
+      path.endsWith(ScreenTarget(Path("home", "profile"))).shouldBeTrue()
+      path.endsWith(FlowTarget(Path("home"))).shouldBeFalse()
+    }
+
     should("ends with itself") {
       checkAll(Arb.path()) { path: Path ->
         path.endsWith(path).shouldBeTrue()

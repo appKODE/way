@@ -82,7 +82,14 @@ class SchemaGenerateTest :
       ),
       TestCase(
         schemaFile = "targets-test10.dot",
-        expectedOutputFiles = listOf("targets-test10-schema.txt", "TabsSchema.txt", "TabASchema.txt", "TabBSchema.txt"),
+        expectedOutputFiles = listOf(
+          "targets-test10-schema.txt",
+          // the root flow is a region, but it has no entry in the enum of the regions
+          "TargetsTest10Region.txt",
+          "TabsSchema.txt",
+          "TabASchema.txt",
+          "TabBSchema.txt",
+        ),
         testName = "isParameterized inside a parallel schema and its sub-schemas",
       ),
       TestCase(

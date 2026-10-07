@@ -127,6 +127,33 @@ class InvalidateCacheTest : ShouldSpec() {
       betaCreates shouldBe 2
     }
 
+    should("restoreCache brings back the child NodeBuilders which invalidateCache has evicted") {
+      var alphaCreates = 0
+      val alphaBuilder = makeAlphaNodeBuilder()
+      val betaBuilder = makeBetaNodeBuilder()
+      val mainBuilder = Par02MainNodeBuilder(
+        nodeFactory = object : Par02MainNodeBuilder.Factory {
+          override fun createRootNode(): ParallelFlowNode<Unit> = TestParallelNode()
+          override fun createPar02AlphaNodeBuilder(): NodeBuilder {
+            alphaCreates++
+            return alphaBuilder
+          }
+          override fun createPar02BetaNodeBuilder(): NodeBuilder = betaBuilder
+        },
+        schema = Parallel02MainSchema(Parallel02AlphaSchema(), Parallel02BetaSchema()),
+      )
+      val mainRoot = Segment("par02Main@Parallel02Main:src/commonTest/way/parallel-test02-main.dot")
+      val alphaSeg = Segment("par02Alpha@Parallel02Alpha:src/commonTest/way/parallel-test02-alpha.dot")
+      mainBuilder.build(Path(listOf(mainRoot, alphaSeg)), payloads = emptyMap(), rootSegmentAlias = mainRoot)
+
+      val snapshot = mainBuilder.snapshotCache()
+      mainBuilder.invalidateCache(emptySet())
+      mainBuilder.restoreCache(snapshot)
+
+      mainBuilder.build(Path(listOf(mainRoot, alphaSeg)), payloads = emptyMap(), rootSegmentAlias = mainRoot)
+      alphaCreates shouldBe 1
+    }
+
     // Short-form regression guard for Way, written directly against the new
     // `Set<Path>` signature of [NodeBuilder.invalidateCache] (the long-form lives in
     // `ParallelNodeTest.kt` at "invalidateCache does not evict NodeBuilders that are alive

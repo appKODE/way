@@ -21,7 +21,7 @@ The Compose integration (`:way-compose`) renders active nodes with `NodeHost`.
 - `:sample` - JVM sample (KMP multi-target support is not yet released).
 - `:sample-compose:*` - Android sample split into feature modules.
   - `:sample-compose:main-parallel:*` - tab-bar example using `ParallelFlowNode` (see [Compose Integration](#compose-integration)).
-  - `:sample-compose:app:routing` - `google`/`huawei` product flavors with per-flavor `.dot` overrides (see [Flavor-Specific Routing](#flavor-specific-routing)).
+  - `:sample-compose:app:routing` - `google`/`huawei` product flavors with a per-flavor `.dot` extension (see [Flavor-Specific Routing](#flavor-specific-routing)).
 
 ## Requirements
 
@@ -88,6 +88,8 @@ digraph App {
 - `package` - output package for generated code.
 - `schemaFileName` - override generated schema file/class base name.
 - `targetsFileName` - override generated targets file/class base name.
+- `mode = "extend"` - the file adds nodes and edges to the schema with the same graph id instead of declaring one
+  (see [Flavor-Specific Routing](#flavor-specific-routing)).
 
 ### Supported node attributes
 
@@ -159,26 +161,52 @@ none of them can be a parallel node.
 ### Flavor-Specific Routing
 
 Android product flavors can each get their own `.dot` file for the same schema — e.g. a step only
-some flavors need. Resolution works exactly like Android resource merging: a file at
-`src/<flavor>/way/<name>.dot` **fully replaces** the file at the same relative path in a
-lower-priority source set (never merged). Priority, low to high:
+some flavors need. Priority of the source sets, low to high:
 `main` < flavor < build type < flavor+buildType variant-specific.
 
+A flavor file either **extends** the schema or **replaces** it.
+
+**Extend.** A file with the `mode = "extend"` graph attribute holds only what the flavor adds. Its nodes and
+edges are added to the schema with the same graph id, and the result is validated as a whole:
+
 ```
-src/main/way/app-flow.dot     # base: app -> login -> main
-src/huawei/way/app-flow.dot   # override: app -> main (huawei skips login)
+src/main/way/app-flow.dot     # app -> main
+src/google/way/app-flow.dot   # extension: app -> login (only google has a login step)
 ```
+
+```dot
+digraph App {
+  mode = "extend"
+
+  login [type=schema, resultType = "ru.kode.way.sample.compose.login.routing.LoginFlowResult"]
+
+  app -> login
+}
+```
+
+- The extended schema is found by the graph id (`digraph App`), so the file may have any name. With the name of
+  the base file it sits next to it in the flavor's source set, as above.
+- An extension is meant to add: it can't remove a node or an edge, declare the type of a node of the schema anew,
+  or set `package`, `schemaFileName`, `targetsFileName`. Attributes it gives to an untyped node of the schema (a
+  screen's parameter) do overwrite the schema's ones, as a repeated declaration in one file does.
+- Segment ids of the nodes — the added ones too — are built from the path of the base file, so the nodes common
+  to all flavors have the same ids in every flavor.
+- Several extensions of one schema (a flavor's and a build type's) are all applied.
+
+**Replace.** A file without the attribute at `src/<flavor>/way/<name>.dot` **fully replaces** the file at the
+same relative path in a lower-priority source set (together with the extensions at this path), exactly like
+Android resource merging. Use it when a flavor has to drop something.
 
 The plugin registers one `generate<Variant>WayClasses` task per Android variant
 (`generateGoogleDebugWayClasses`, `generateHuaweiDebugWayClasses`, ...), each writing to
-`build/generated/way/code/<variant>/`. A flavor that doesn't override anything simply reuses
+`build/generated/way/code/<variant>/`. A flavor without files of its own simply reuses
 `main`'s file as its own input — there is no `generated/way/code/main/`, since `main` is a
 contributing source set, never a buildable variant on its own.
 
-**The gotcha: hand-written code can't straddle flavors.** `.dot` overrides use full-file
-*replacement*; ordinary Kotlin/Java source sets (`src/main/kotlin`, `src/google/kotlin`,
+**The gotcha: hand-written code can't straddle flavors.** Whichever way a flavor changes a schema, its generated
+code differs, while ordinary Kotlin/Java source sets (`src/main/kotlin`, `src/google/kotlin`,
 `src/huawei/kotlin`) use plain Gradle *union* — every flavor's compilation always includes
-`main/kotlin`. So if one flavor's `.dot` file declares a node another flavor's doesn't, the
+`main/kotlin`. So if one flavor's schema has a node another flavor's doesn't, the
 flavor missing it won't generate the matching class member (e.g. `AppChildFinishRequest.Login`),
 and hand-written code in `src/main/kotlin` referencing it fails with `Unresolved reference` for
 that flavor.
@@ -186,10 +214,12 @@ that flavor.
 Rule: anything touching a symbol that isn't in **every** flavor's generated output must live in
 that flavor's own Kotlin source set (`src/google/kotlin`, `src/huawei/kotlin`, ...), not
 `src/main/kotlin`. Code that stays in `main` may only reference the intersection of what every
-flavor generates.
+flavor generates. The node factory is such code: the generated `Factory` interface has a `create…` method
+for every node, so a flavor with an added node needs its own factory class (the shared part can stay in `main`
+as an abstract class).
 
 Worked example: `sample-compose/app/routing` (`google` / `huawei` flavors) —
-`src/huawei/way/app-flow.dot` overrides `src/main/way/app-flow.dot` to drop a Google-only login
+`src/google/way/app-flow.dot` extends `src/main/way/app-flow.dot` with a Google-only login
 step, and the hand-written `AppFlow.kt` / `AppFlowNode.kt` / `di/AppFlowComponent.kt` are
 duplicated per flavor under `src/google/kotlin` / `src/huawei/kotlin` accordingly.
 `src/test/kotlin/.../AppFlowNodeTest.kt` is a shared test that only touches the symbols common to
@@ -432,7 +462,7 @@ class MainTabsNode : ParallelFlowNode<Unit>(), ComposableNode {
 }
 ```
 
-Pass a `RegionId` from `NavigationState.regions` keys or a generated `<Schema>.<child>RegionId` constant. A `DispatchBackTo` naming a region that is no longer alive is **not** an error — Back soft-falls-back to the deepest active region, so the back button never crashes.
+Pass a `RegionId` from `NavigationState.regions` keys or a generated `<Schema>.<child>RegionId` constant. A `DispatchBackTo` naming a region that is no longer alive is **not** an error — Back soft-falls-back to the deepest active region, so the back button never crashes. Back to a region which is not started yet (see `initialRegions` below) is ignored.
 
 Transitions:
 - `NavigateTo(targets)`
@@ -480,6 +510,55 @@ also drops any intermediate screens.
 - Supports node/service extension points.
 - Handles queued events one-by-one after each transition.
 
+### Regions which start later
+
+All regions of a parallel node start together with it. To start some of them later (a tab which loads on its first
+selection), list the ones which start at once in `initialRegions` and start the others with `startRegion`:
+
+```kotlin
+class HomeNode : ParallelFlowNode<Unit>(), ComposableNode {
+  private var focused by mutableStateOf(schema.mainTabRegionId)
+
+  override val initialRegions get() = setOf(schema.mainTabRegionId)
+
+  override fun transition(event: Event): FlowTransition<Unit> = when (event) {
+    is TabSelected -> {
+      focused = event.regionId
+      startRegion(event.regionId) // Stay if the region is already started
+    }
+    Event.Back -> DispatchBackTo(focused)
+    else -> Ignore
+  }
+
+  @Composable
+  override fun Content(modifier: Modifier) {
+    FocusedRegionHost(focused, modifier)
+  }
+}
+```
+
+A region which is not started has no nodes and receives no events. A `NavigateTo` with a target inside of it
+starts it too. A started region lives as long as its parallel node: the regions of a
+parallel nested in a flow start when this parallel is entered and are removed when it is left. A region of the root
+parallel which `startRegion` starts gets the payload of `service.start(payload)`.
+`initialRegions` must name at least one region, and a region whose root is itself a parallel flow cannot be started
+later.
+
+`FocusedRegionHost` (`way-compose`) composes only the given region: the other ones cannot show a dialog or a sheet,
+and their saved state is restored when they get focus again. Its `modifier` goes to the container which switches
+the regions, `contentModifier` to the content of the shown one.
+
+Inside of `transition` a parallel node can ask about its regions: `isRegionStarted(regionId)` and
+`isRegionAtRoot(regionId)` (the region rests on its first node, nothing is open above it). The second one picks the
+region for Back when one of the regions is an overlay:
+
+```kotlin
+Event.Back -> DispatchBackTo(if (isRegionAtRoot(schema.fullScreenRegionId)) focused else schema.fullScreenRegionId)
+```
+
+A parallel node which needs hooks (for example a coroutine scope hook) extends `BaseParallelFlowNode`, the same way
+a flow node extends `BaseFlowNode`.
+
 ## Compose Integration
 
 `way-compose` provides:
@@ -489,6 +568,8 @@ also drops any intermediate screens.
 - `NodeHost(service)` composable — auto-starts service, observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
 - `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `service.send`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. Outside any node (but under `LocalNavigationService`) it is the service itself, the root sink.
 - `NodeHost(regionId)` composable — renders the active screen in a specific sub-region. Call from a parallel node's `Content()` for each sub-region. Requires a parent `NodeHost(service)` to have provided `LocalNavigationService`.
+- `FocusedRegionHost(regionId)` composable — renders only the given sub-region and keeps the saved state of the other ones.
+- `rememberTransitionSpec()` — a transition spec which slides on push and pop (by comparing the paths) and asks `ambiguousTransitionResolver` for the rest; `pushTransition()`, `popTransition()`, `fadeTransition()`, `noTransition()` are its parts.
 
 Sending screen events:
 

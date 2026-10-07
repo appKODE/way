@@ -4,4 +4,5 @@ digraph NavService16Perm {
   perm [type = flow, parameterName = reason, parameterType = "kotlin.String", resultType = "kotlin.String"]
 
   perm -> permIntro
+  perm -> permDetails
 }

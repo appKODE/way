@@ -19,10 +19,10 @@ package ru.kode.way.extension.node.hook
  * [ru.kode.way.NavigationService] and the screen node to implement [HasScreenNodeHooks].
  */
 interface ScreenNodeHook {
-  fun onPreEntry()
-  fun onPostEntry()
-  fun onPreExit()
-  fun onPostExit()
+  fun onPreEntry() {}
+  fun onPostEntry() {}
+  fun onPreExit() {}
+  fun onPostExit() {}
   fun onPreDispose() {}
   fun onPostDispose() {}
 }

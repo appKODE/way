@@ -51,10 +51,8 @@ abstract class GenerateClassesTask : SourceTask() {
     logger.debug("generation started")
     val files = source.toList()
     // Parse all files first so we can detect output filename collisions before writing anything.
-    val parseResults = files.map { file ->
-      logger.debug("parsing schema file: $file")
-      parseSchemaDotFile(file, projectDir, warn = logger::warn)
-    }
+    logger.debug("parsing schema files: $files")
+    val parseResults = parseSchemaDotFiles(files, projectDir, warn = logger::warn)
     validateNoOutputFileCollisions(parseResults, config)
     // An empty (or whitespace-only) schema file parses to an empty adjacencyList with no
     // validator errors — SchemaRegistry.from() already skips these silently for registry-matching

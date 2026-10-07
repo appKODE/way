@@ -27,10 +27,13 @@ digraph ParallelTestAcmeTabs {
   // is a concrete Explore destination the Back-side "switch focus + navigate" step lands on.
   acmeTopUpScreen [type = "screen"]
   acmeExploreDetailScreen [type = "screen"]
+  // a screen of acmeMainFlow outside of the nested parallel: while it is active, the tabs do not exist
+  acmeIntroScreen [type = "screen"]
 
   acmeAppFlow -> acmeMainFlow
   acmeAppFlow -> acmeAuthFlow
   acmeMainFlow -> acmeTabsFlow
+  acmeMainFlow -> acmeIntroScreen
   acmeTabsFlow -> acmeHomeTab
   acmeTabsFlow -> acmeExploreTab
   acmeHomeTab -> acmeHomeScreen

@@ -55,8 +55,16 @@ internal fun computeConfiguration(state: NavigationState): Set<Path> =
   state._regions.values.flatMapTo(mutableSetOf()) { it.alive }
 
 /**
+ * Whether [regionId] is a region of the root node of this schema: the region of a root flow itself or a region of
+ * a root parallel. Such a region lives as long as the service does; a region of a parallel which is declared deeper
+ * lives as long as that parallel.
+ */
+internal fun Schema.isRootRegion(regionId: RegionId): Boolean =
+  regionId in regions && (regionId.path.length == 1 || regionId.path.dropLast(1) == Path(rootSegment))
+
+/**
  * Removes from [state]._regions every sub-region whose parent parallel is no longer reachable, keeping:
- * - schema-declared top-level regions (always retained), and
+ * - the regions of the root parallel (always retained), and
  * - sub-regions whose parent parallel is still alive — either (a) a runtime node alive in a sibling
  *   region (sub-regions lazily mounted by NavigateTo) or (b) an intermediate parallel root
  *   (parallel-rooted schema mounted as a sub-region of another parallel-rooted schema) that lives in
@@ -69,7 +77,7 @@ internal fun computeConfiguration(state: NavigationState): Set<Path> =
  */
 internal fun pruneOrphanRegions(state: NavigationState, schema: Schema) {
   state._regions.keys.retainAll { regionId ->
-    if (schema.regions.contains(regionId)) return@retainAll true
+    if (schema.isRootRegion(regionId)) return@retainAll true
     val parallelParentPath = regionId.path.dropLast(1)
     if (parallelParentPath in state._intermediateParallels.keys) return@retainAll true
     val parentAliveInSibling = state._regions.entries.any { (otherId, otherRegion) ->

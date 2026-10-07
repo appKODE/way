@@ -1,0 +1,50 @@
+digraph ParallelTestDoubleNested {
+  package = "ru.kode.way.doublenested"
+
+  // A parallel declared inside of a region of another parallel, both of them local:
+  //
+  //   dnApp [parallelFlow]   <-- schema root
+  //     +-- dnMain [flow] -> dnIntroScreen
+  //     |     \-- dnWrap [flow] -> dnWrapScreen
+  //     |           \-- dnOuter [parallelFlow]
+  //     |                 +-- dnLeft [flow] -> dnLeftScreen
+  //     |                 |     \-- dnInner [parallelFlow]
+  //     |                 |           +-- dnA [flow] -> dnAScreen
+  //     |                 |           \-- dnB [flow] -> dnBScreen
+  //     |                 \-- dnRight [flow] -> dnRightScreen
+  //     \-- dnSide [flow] -> dnSideScreen
+  dnApp [type = "parallelFlow"]
+  dnMain [type = "flow"]
+  dnSide [type = "flow"]
+  dnWrap [type = "flow"]
+  dnOuter [type = "parallelFlow"]
+  dnLeft [type = "flow"]
+  dnRight [type = "flow"]
+  dnInner [type = "parallelFlow"]
+  dnA [type = "flow"]
+  dnB [type = "flow"]
+  dnIntroScreen [type = "screen"]
+  dnSideScreen [type = "screen"]
+  dnWrapScreen [type = "screen"]
+  dnLeftScreen [type = "screen"]
+  dnRightScreen [type = "screen"]
+  dnAScreen [type = "screen"]
+  dnBScreen [type = "screen"]
+
+  dnApp -> dnMain
+  dnApp -> dnSide
+  dnMain -> dnIntroScreen
+  dnMain -> dnWrap
+  dnWrap -> dnWrapScreen
+  dnWrap -> dnOuter
+  dnOuter -> dnLeft
+  dnOuter -> dnRight
+  dnLeft -> dnLeftScreen
+  dnLeft -> dnInner
+  dnRight -> dnRightScreen
+  dnInner -> dnA
+  dnInner -> dnB
+  dnA -> dnAScreen
+  dnB -> dnBScreen
+  dnSide -> dnSideScreen
+}

@@ -50,5 +50,15 @@ interface NodeBuilder {
    */
   fun invalidateCache(alivePaths: Set<Path>)
 
+  /**
+   * The cached child NodeBuilders of this one and of every NodeBuilder below it, for [restoreCache]. A transition
+   * which fails gives the ones it has dropped back with it, so the nodes which stay alive keep their builders (and
+   * the DI scopes these hold). A NodeBuilder without a cache has nothing to return.
+   */
+  fun snapshotCache(): Any? = null
+
+  /** Puts back the child NodeBuilders taken by [snapshotCache]. */
+  fun restoreCache(snapshot: Any?) {}
+
   val schema: Schema
 }

@@ -22,6 +22,21 @@ class AdjacencyListTest :
       buildRegionRoots(adjacencyList).shouldContainExactlyInAnyOrder(app)
     }
 
+    should("region roots of a flow with a parallel declared under it are the flow and then the parallel's children") {
+      val app = local("app")
+      val tabs = parallel("tabs")
+      val one = local("one")
+      val two = local("two")
+      val adjacencyList: AdjacencyList = mapOf(
+        app to listOf(tabs),
+        tabs to listOf(one, two),
+        one to listOf(screen("oneScreen")),
+        two to listOf(screen("twoScreen")),
+      )
+
+      buildRegionRoots(adjacencyList) shouldBe listOf(app, one, two)
+    }
+
     should("region roots of a parallel-rooted graph are the root parallel's children") {
       val main = parallel("main")
       val one = local("one")

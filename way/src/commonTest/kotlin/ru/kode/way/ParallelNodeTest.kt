@@ -48,6 +48,7 @@ import ru.kode.way.acmetabs.ParallelTestAcmeTabsSchema
 import ru.kode.way.acmetabs.acmeAuthFlow
 import ru.kode.way.acmetabs.acmeExploreTab
 import ru.kode.way.acmetabs.acmeHomeTab
+import ru.kode.way.acmetabs.acmeMainFlow
 import ru.kode.way.nullroot.NullAppRootNodeBuilder
 import ru.kode.way.nullroot.ParallelTestNullrootSchema
 import ru.kode.way.nullroot.main.NullMainImportNodeBuilder
@@ -2636,6 +2637,213 @@ class ParallelNodeTest : ShouldSpec() {
       }
     }
 
+    should("start only the initial regions of a parallel declared inside of a region of the root schema") {
+      val schema = ParallelTestAcmeTabsSchema()
+      val states = mutableListOf<NavigationState>()
+      var tabsNodesCreated = 0
+      val sut = buildAcmeTabsService(
+        createTabsFlowNode = {
+          tabsNodesCreated++
+          LazyParallelNode(setOf(schema.acmeHomeTabRegionId), mapOf("startExplore" to schema.acmeExploreTabRegionId))
+        },
+      )
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+
+      states.last().regions.keys.map { it.path.lastSegment().name }
+        .shouldContainOnly("acmeMainFlow", "acmeAuthFlow", "acmeHomeTab")
+      // the node which is asked about its initial regions is the one which lives in the region
+      tabsNodesCreated shouldBe 1
+
+      sut.send(TestEvent("startExplore"))
+      states.last().acmeActiveLeaf("acmeExploreTab") shouldBe "acmeExploreScreen"
+    }
+
+    should(
+      "start the regions of a parallel declared inside of a region when it is entered, drop them when it is left",
+    ) {
+      val states = mutableListOf<NavigationState>()
+      var tabsNodesCreated = 0
+      val sut = buildAcmeTabsService(
+        createTabsFlowNode = {
+          tabsNodesCreated++
+          TestParallelNode()
+        },
+        mainInitialTarget = Target.acmeMainFlow.acmeIntroScreen,
+        mainTransitions = listOf(
+          TestFlowTransitionSpec(
+            eventMatcher = { it is TestEvent && it.name == "openTabs" },
+            transition = NavigateTo(Target.acmeExploreTab.acmeExploreDetailScreen),
+          ),
+          TestFlowTransitionSpec(
+            eventMatcher = { it is TestEvent && it.name == "openIntro" },
+            transition = NavigateTo(Target.acmeMainFlow.acmeIntroScreen),
+          ),
+        ),
+      )
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+
+      states.last().regions.keys.map { it.path.lastSegment().name }.shouldContainOnly("acmeMainFlow", "acmeAuthFlow")
+      tabsNodesCreated shouldBe 0
+
+      sut.send(TestEvent("openTabs"))
+      states.last().regions.keys.map { it.path.lastSegment().name }
+        .shouldContainOnly("acmeMainFlow", "acmeAuthFlow", "acmeHomeTab", "acmeExploreTab")
+      states.last().acmeActiveLeaf("acmeExploreTab") shouldBe "acmeExploreDetailScreen"
+      states.last().acmeActiveLeaf("acmeHomeTab") shouldBe "acmeHomeScreen"
+      tabsNodesCreated shouldBe 1
+
+      sut.send(TestEvent("openIntro"))
+      states.last().regions.keys.map { it.path.lastSegment().name }.shouldContainOnly("acmeMainFlow", "acmeAuthFlow")
+
+      sut.send(TestEvent("openTabs"))
+      tabsNodesCreated shouldBe 2
+    }
+
+    should("enter a parallel declared inside of a region before its regions and exit it after them") {
+      val log = mutableListOf<String>()
+      val sut = buildAcmeTabsService(
+        createTabsFlowNode = {
+          TestParallelNode(onEntryImpl = { log += "enter tabs" }, onExitImpl = { log += "exit tabs" })
+        },
+        mainInitialTarget = Target.acmeMainFlow.acmeIntroScreen,
+        mainTransitions = listOf(
+          tr("openTabs", Target.acmeHomeTab.acmeHomeScreen),
+          tr("openIntro", Target.acmeMainFlow.acmeIntroScreen),
+        ),
+        lifecycleLog = log,
+      )
+      sut.start()
+      log.shouldBeEmpty()
+
+      sut.send(TestEvent("openTabs"))
+      log.first() shouldBe "enter tabs"
+      log.shouldContainExactlyInAnyOrder("enter tabs", "enter home", "enter explore")
+
+      log.clear()
+      sut.send(TestEvent("openIntro"))
+      log.last() shouldBe "exit tabs"
+      log.shouldContainExactlyInAnyOrder("exit home", "exit explore", "exit tabs")
+    }
+
+    should("keep a parallel declared inside of a region and its regions when an onExit throws on leaving it") {
+      val log = mutableListOf<String>()
+      var failures = 1
+      val sut = buildAcmeTabsService(
+        createTabsFlowNode = {
+          TestParallelNode(
+            onEntryImpl = { log += "enter tabs" },
+            onExitImpl = {
+              log += "exit tabs"
+              if (failures-- > 0) error("exit failed")
+            },
+          )
+        },
+        mainInitialTarget = Target.acmeMainFlow.acmeIntroScreen,
+        mainTransitions = listOf(
+          tr("openTabs", Target.acmeHomeTab.acmeHomeScreen),
+          tr("openIntro", Target.acmeMainFlow.acmeIntroScreen),
+        ),
+        lifecycleLog = log,
+      )
+      sut.start()
+      sut.send(TestEvent("openTabs"))
+
+      log.clear()
+      shouldThrow<IllegalStateException> { sut.send(TestEvent("openIntro")) }
+      // every node which was exited is entered back
+      log.filter { it.startsWith("exit") }.shouldContainExactlyInAnyOrder("exit home", "exit explore", "exit tabs")
+      log.filter { it.startsWith("enter") }.shouldContainExactlyInAnyOrder("enter home", "enter explore", "enter tabs")
+
+      // the transition was rolled back: the parallel is still there and is left as usual
+      log.clear()
+      sut.send(TestEvent("openIntro"))
+      log.shouldContainExactlyInAnyOrder("exit home", "exit explore", "exit tabs")
+      log.last() shouldBe "exit tabs"
+    }
+
+    should("keep the node of a parallel entered at start when a later event targets a node inside of it") {
+      val log = mutableListOf<String>()
+      val sut = buildAcmeTabsService(
+        homeTabTransitions = listOf(tr("topUp", Target.acmeHomeTab.acmeTopUpScreen)),
+        createTabsFlowNode = {
+          TestParallelNode(onEntryImpl = { log += "enter tabs" }, onExitImpl = { log += "exit tabs" })
+        },
+        mainTransitions = listOf(tr("openIntro", Target.acmeMainFlow.acmeIntroScreen)),
+        lifecycleLog = log,
+      )
+      sut.start()
+      sut.send(TestEvent("topUp"))
+      log.shouldContainExactlyInAnyOrder("enter tabs", "enter home", "enter explore")
+
+      log.clear()
+      sut.send(TestEvent("openIntro"))
+      log.shouldContainExactlyInAnyOrder("exit home", "exit explore", "exit tabs")
+      log.last() shouldBe "exit tabs"
+    }
+
+    should("restore the regions of a left parallel declared inside of a region by a HistoryTarget") {
+      val states = mutableListOf<NavigationState>()
+      val tabsPath = ParallelTestAcmeTabsSchema().acmeHomeTabRegionId.path.dropLast(1)
+      val sut = buildAcmeTabsService(
+        mainInitialTarget = Target.acmeMainFlow.acmeIntroScreen,
+        mainTransitions = listOf(
+          tr("openTabs", Target.acmeExploreTab.acmeExploreDetailScreen),
+          tr("openIntro", Target.acmeMainFlow.acmeIntroScreen),
+          tr("deep", HistoryTarget(tabsPath, deep = true)),
+          tr("shallow", HistoryTarget(tabsPath, deep = false)),
+        ),
+      )
+      sut.addTransitionListener { states.add(it) }
+      sut.start()
+
+      // no history yet: the same as a target to the parallel itself
+      sut.send(TestEvent("deep"))
+      states.last().acmeActiveLeaf("acmeHomeTab") shouldBe "acmeHomeScreen"
+      states.last().acmeActiveLeaf("acmeExploreTab") shouldBe "acmeExploreScreen"
+
+      sut.send(TestEvent("openTabs"))
+      sut.send(TestEvent("openIntro"))
+      states.last().regions.keys.map { it.path.lastSegment().name }.shouldContainOnly("acmeMainFlow", "acmeAuthFlow")
+
+      sut.send(TestEvent("deep"))
+      states.last().acmeActiveLeaf("acmeHomeTab") shouldBe "acmeHomeScreen"
+      states.last().acmeActiveLeaf("acmeExploreTab") shouldBe "acmeExploreDetailScreen"
+
+      sut.send(TestEvent("openIntro"))
+      sut.send(TestEvent("shallow"))
+      states.last().regions.keys.map { it.path.lastSegment().name }
+        .shouldContainOnly("acmeMainFlow", "acmeAuthFlow", "acmeHomeTab", "acmeExploreTab")
+    }
+
+    should("give the start payload to a region of the root parallel which starts later") {
+      val schema = ParallelTestParamswSchema(
+        paramMainImportSchema = ParallelTestParamswMainSchema(
+          paramHomeImportSchema = ParallelTestParamswHomeSchema(
+            paramTabASchema = ParallelTestParamswTabASchema(),
+            paramTabBSchema = ParallelTestParamswTabBSchema(),
+          ),
+        ),
+        paramSheetImportSchema = ParallelTestParamswSheetSchema(),
+      )
+      val mainReceived = mutableListOf<String>()
+      val sut = buildParamswService(
+        createParamAppRoot = {
+          LazyParallelNode(setOf(schema.paramSheetImportRegionId), mapOf("startMain" to schema.paramMainImportRegionId))
+        },
+        createParamMainImport = { deeplink ->
+          mainReceived.add(deeplink)
+          TestFlowNode(initialTarget = Target.paramMainImport.paramMainScreen)
+        },
+      )
+      sut.start("acme://deeplink")
+      mainReceived.shouldBeEmpty()
+
+      sut.send(TestEvent("startMain"))
+      mainReceived.distinct() shouldBe listOf("acme://deeplink")
+    }
+
     // ── A1. Parallel-root detection (NavigationService.kt:169-196) ────────────────────────────────
     // Regression — a real-world shape (`appFlow(parallel) → mainFlow → homeFlow(parallel)`) requires
     // the parallel-root init branch to fire correctly even when a parallel-rooted schema is mounted
@@ -3885,16 +4093,13 @@ class ParallelNodeTest : ShouldSpec() {
       onFinishCalled shouldBe true
     }
 
-    should("flow-nested parallel Finish on the dispatchBackThroughParallel re-consultation still finishes") {
-      // Hardening for the re-consultation path: on Back a flow-nested parallel's transition(Back) is
-      // consulted twice — once in the region fold, once inside dispatchBackThroughParallel. If the
-      // first returns Ignore (bubbles to maybeResolveBackEvent) and the re-consultation returns Finish,
-      // dispatchBackThroughParallel's else branch must route it through resolveTransitionInRegion (the
-      // schema-based finish), NOT drop it via a null finishTransitionBuilder. Drives exactly that
-      // sequence and asserts the root flow's onFinishRequest fires.
+    should("flow-nested parallel is asked about Back once") {
+      // The parallel answers Ignore in the region fold; dispatchBackThroughParallel reuses this answer and does
+      // not ask the node again, so its second answer stays in the queue.
+      val backTransitions = mutableListOf<FlowTransition<Unit>>(Ignore, Finish(Unit))
       var onFinishCalled = false
       val sut = buildPar01Service(
-        mainBackTransitionQueue = mutableListOf(Ignore, Finish(Unit)),
+        mainBackTransitionQueue = backTransitions,
         onFinishRequest = {
           onFinishCalled = true
           Ignore
@@ -3905,7 +4110,8 @@ class ParallelNodeTest : ShouldSpec() {
         sut.send(Event.Back)
         cancelAndIgnoreRemainingEvents()
       }
-      onFinishCalled shouldBe true
+      backTransitions.size shouldBe 1
+      onFinishCalled shouldBe false
     }
 
     should("transition(Event.Back)=Ignore routes Back into the deepest active sub-region") {
@@ -4970,12 +5176,17 @@ private fun buildAcmeTabsService(
   homeTabTransitions: List<TestFlowTransitionSpec> = emptyList(),
   exploreTabTransitions: List<TestFlowTransitionSpec> = emptyList(),
   createTabsFlowNode: () -> ParallelFlowNode<Unit> = { TestParallelNode() },
+  mainInitialTarget: Target = Target.acmeHomeTab.acmeHomeScreen,
+  mainTransitions: List<TestFlowTransitionSpec> = emptyList(),
+  lifecycleLog: MutableList<String> = mutableListOf(),
 ): NavigationService<Unit> {
   val homeTabNodeBuilder = AcmeHomeTabNodeBuilder(
     nodeFactory = object : AcmeHomeTabNodeBuilder.Factory {
       override fun createRootNode(): FlowNode<*> = TestFlowNode(
         initialTarget = Target.acmeHomeTab.acmeHomeScreen,
         transitions = homeTabTransitions,
+        onEntryImpl = { lifecycleLog += "enter home" },
+        onExitImpl = { lifecycleLog += "exit home" },
       )
       override fun createAcmeHomeScreenNode(): ScreenNode = TestScreenNode()
       override fun createAcmeTopUpScreenNode(): ScreenNode = TestScreenNode()
@@ -4987,6 +5198,8 @@ private fun buildAcmeTabsService(
       override fun createRootNode(): FlowNode<*> = TestFlowNode(
         initialTarget = Target.acmeExploreTab.acmeExploreScreen,
         transitions = exploreTabTransitions,
+        onEntryImpl = { lifecycleLog += "enter explore" },
+        onExitImpl = { lifecycleLog += "exit explore" },
       )
       override fun createAcmeExploreScreenNode(): ScreenNode = TestScreenNode()
       override fun createAcmeExploreDetailScreenNode(): ScreenNode = TestScreenNode()
@@ -5007,7 +5220,9 @@ private fun buildAcmeTabsService(
   // when entering the parallel on the way to that screen.
   val mainFlowNodeBuilder = AcmeMainFlowNodeBuilder(
     nodeFactory = object : AcmeMainFlowNodeBuilder.Factory {
-      override fun createRootNode(): FlowNode<*> = TestFlowNode(initialTarget = Target.acmeHomeTab.acmeHomeScreen)
+      override fun createRootNode(): FlowNode<*> =
+        TestFlowNode(initialTarget = mainInitialTarget, transitions = mainTransitions)
+      override fun createAcmeIntroScreenNode(): ScreenNode = TestScreenNode()
       override fun createAcmeTabsFlowNodeBuilder(): NodeBuilder = tabsFlowNodeBuilder
     },
     schema = AcmeMainFlowSchema(),

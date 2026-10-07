@@ -11,10 +11,9 @@ import ru.kode.way.extension.node.hook.BaseScreenNode
  * The reentrancy guard ([isDispatching]) only protects against single-threaded re-entry from
  * within listener callbacks, not concurrent access from multiple threads.
  */
-class NavigationService<R : Any>(
-  private val nodeBuilder: NodeBuilder,
-  private val onFinishRequest: (R) -> FlowTransition<Unit>,
-) : EventSink {
+class NavigationService<R : Any>(nodeBuilder: NodeBuilder, private val onFinishRequest: (R) -> FlowTransition<Unit>) :
+  EventSink {
+  private val nodeBuilder = TransitionNodeBuilder(nodeBuilder)
   private var state: NavigationState = NavigationState(
     _regions = mutableMapOf(),
     _nodeExtensionPoints = mutableListOf(),
@@ -71,6 +70,9 @@ class NavigationService<R : Any>(
   }
 
   fun isStarted(): Boolean = state.isInitialized()
+
+  /** A copy of the current state, `null` before the service is started. */
+  fun currentState(): NavigationState? = if (state.isInitialized()) state.copy() else null
 
   /**
    * Registers a listener that receives the [NavigationState] after every transition.
@@ -176,12 +178,20 @@ class NavigationService<R : Any>(
         "listener or extension point). Call it after send() returns."
     }
     if (state.isInitialized()) {
+      // a parallel entered by NavigateTo is both a node of the calling region and an intermediate parallel
+      val disposed = mutableListOf<Node>()
+      val disposeOnce = { node: Node, path: Path ->
+        if (disposed.none { it === node }) {
+          disposed.add(node)
+          callOnDispose(node, path, state._nodeExtensionPoints)
+        }
+      }
       state._regions.entries
         .sortedByDescending { it.key.path.length }
         .forEach { (_, region) ->
           region.alive.reversed().forEach { path ->
             val node = region.nodes[path] ?: return@forEach
-            callOnDispose(node, path, state._nodeExtensionPoints)
+            disposeOnce(node, path)
           }
         }
       // Dispose intermediate parallel roots (parallel-rooted sub-region roots wrapping another
@@ -190,7 +200,7 @@ class NavigationService<R : Any>(
       state._intermediateParallels.entries
         .sortedByDescending { it.key.length }
         .forEach { (path, intermediate) ->
-          callOnDispose(intermediate.node, path, state._nodeExtensionPoints)
+          disposeOnce(intermediate.node, path)
         }
       // For a parallel-flow-ROOTED schema the root ParallelFlowNode lives in `state.rootNode`
       // (set at InitEvent), NOT in any region's `_nodes` map nor in `_intermediateParallels`
@@ -201,7 +211,7 @@ class NavigationService<R : Any>(
       val rootNode = state.rootNode
       val rootNodePath = state.rootNodePath
       if (rootNode != null && rootNodePath != null) {
-        callOnDispose(rootNode, rootNodePath, state._nodeExtensionPoints)
+        disposeOnce(rootNode, rootNodePath)
       }
     }
     dispose()
@@ -225,11 +235,15 @@ class NavigationService<R : Any>(
     private val rootNodePath: Path? = state.rootNodePath
     private val rootFinishTransitionBuilder: ((Any) -> Transition)? = state._rootFinishTransitionBuilder
 
+    fun restoreEnqueuedEvents(state: NavigationState) {
+      state._enqueuedEvents.clear()
+      state._enqueuedEvents.addAll(enqueuedEvents)
+    }
+
     fun restore(state: NavigationState) {
       state._regions.clear()
       state._regions.putAll(regions)
-      state._enqueuedEvents.clear()
-      state._enqueuedEvents.addAll(enqueuedEvents)
+      restoreEnqueuedEvents(state)
       state._payloads.clear()
       state._payloads.putAll(payloads)
       state._intermediateParallels.clear()
@@ -248,6 +262,26 @@ class NavigationService<R : Any>(
     check(event is InitEvent || state.isInitialized()) {
       "send() was called before start(); call NavigationService.start() first"
     }
+    // a child NodeBuilder which a failed transition has created or dropped is not kept: it may have been created
+    // with the argument of a target which was never reached
+    val nodeBuilderCache = nodeBuilder.snapshotCache()
+    return try {
+      val navigationState = try {
+        runTransition(state, event, source)
+      } catch (e: Throwable) {
+        nodeBuilder.restoreCache(nodeBuilderCache)
+        throw e
+      }
+      // Called after the transition is fully committed. Exceptions here propagate to the caller
+      // but do not roll back navigation state — the transition has already completed.
+      serviceExtensionPoints.toList().forEach { it.onPostTransition(this, event, navigationState.copy()) }
+      navigationState
+    } finally {
+      nodeBuilder.endTransition()
+    }
+  }
+
+  private fun runTransition(state: NavigationState, event: Event, source: Path?): NavigationState {
     // Snapshot every mutable slot before any mutation so a throw anywhere below restores the exact
     // pre-transition state (all-or-nothing). Taken before InitEvent populates regions, so a failed
     // start() restores to empty and is retryable.
@@ -258,42 +292,50 @@ class NavigationService<R : Any>(
     serviceExtensionPoints.toList().forEach {
       it.onPreTransition(this, event, state.copy())
     }
-    // Root flow nodes entered by the InitEvent block, tracked so the catch can compensate their
-    // onEntry. applyResolvedTransition tracks its own entered/exited separately.
-    val initEnteredRoots = mutableListOf<Pair<Node, Path>>()
-    val navigationState = try {
-      applyResolvedTransition(state, event, source, resolvedTransition, initEnteredRoots)
+    // Every node which got its onEntry or onExit during this transition, in the order of the calls.
+    val entered = mutableListOf<Pair<Node, Path>>()
+    val exited = mutableListOf<Pair<Node, Path>>()
+    return try {
+      applyResolvedTransition(state, event, source, resolvedTransition, entered, exited)
     } catch (e: Throwable) {
-      // Compensate onEntry for root flow nodes entered in the InitEvent block (applyResolvedTransition
-      // compensates its own nodes); then restore the snapshot so the whole dispatch is all-or-nothing.
-      compensateLifecycle(initEnteredRoots, exited = emptyList(), event, state._nodeExtensionPoints)
+      // All-or-nothing: the state is restored first, so a node which is entered back sees the regions it had,
+      // then every lifecycle call made so far is reversed.
       snapshot.restore(state)
+      compensateLifecycle(entered, exited, event, state._nodeExtensionPoints)
+      // an event which a node has sent while it was entered back belongs to the transition which has failed
+      snapshot.restoreEnqueuedEvents(state)
       throw e
     }
-    // Called after the transition is fully committed. Exceptions here propagate to the caller
-    // but do not roll back navigation state — the transition has already completed.
-    serviceExtensionPoints.toList().forEach { it.onPostTransition(this, event, navigationState.copy()) }
-    return navigationState
   }
 
   /**
    * Runs the committed body of a [transition]: materializes regions on InitEvent, resolves the event
    * to target paths, recomputes the alive set, then synchronizes node lifecycles. Mutates [state] in
-   * place and returns the same instance. Appends InitEvent-entered roots to [initEnteredRoots] so the
-   * caller's catch can compensate them; its own inner lifecycle calls are compensated here on a throw.
-   * The caller ([transition]) owns the snapshot/restore for all-or-nothing rollback.
+   * place and returns the same instance. Appends every node which got its `onEntry` to [entered] and
+   * every node which got its `onExit` to [exited]: the caller ([transition]) owns the snapshot/restore and the
+   * compensation of these calls for all-or-nothing rollback.
    */
   private fun applyResolvedTransition(
     state: NavigationState,
     event: Event,
     source: Path?,
     preResolvedTransition: ResolvedTransition?,
-    initEnteredRoots: MutableList<Pair<Node, Path>>,
+    entered: MutableList<Pair<Node, Path>>,
+    exited: MutableList<Pair<Node, Path>>,
   ): NavigationState {
     if (event is InitEvent) {
-      enterRootParallelIfNeeded(state, event, initEnteredRoots)
-      nodeBuilder.schema.regions.forEach { regionId ->
-        materializeRegion(regionId, event, initEnteredRoots)
+      enterRootParallelIfNeeded(state, event, entered)
+      val rootParallel = state.rootNode as? ParallelFlowNode<*>
+      val rootParallelPath = state.rootNodePath
+      // regions of a parallel declared deeper start when that parallel is entered
+      val rootRegions = nodeBuilder.schema.regions.filter(nodeBuilder.schema::isRootRegion)
+      if (rootParallel != null && rootParallelPath != null) {
+        rootParallel.checkInitialRegions(rootParallelPath, rootRegions.map { it.path })
+      }
+      rootRegions.forEach { regionId ->
+        val starts = rootParallel == null || rootParallelPath == null ||
+          rootParallel.startsRegion(rootParallelPath, regionId.path)
+        if (starts) materializeRegion(regionId, event, entered)
       }
     }
     val resolvedTransition = preResolvedTransition ?: resolveCheckedTransition(state, event, source)
@@ -311,16 +353,11 @@ class NavigationService<R : Any>(
     state._payloads.putAll(resolvedTransition.payloads)
     val previousAlive = state._regions.mapValues { it.value.alive.toList() }
     val previousNodes = state._regions.mapValues { it.value.nodes.toMap() }
-    // Hoisted out of synchronizeNodes so the runtime pre-mount and pre-unmount of intermediate
-    // parallels can append to the same compensation lists — the inner catch below replays
-    // every phase's enter/exit in lockstep regardless of which one threw.
-    val syncEntered = mutableListOf<Pair<Node, Path>>()
-    val syncExited = mutableListOf<Pair<Node, Path>>()
-    premountIntermediates(state, event, resolvedTransition, syncEntered)
+    val premounted = premountIntermediates(state, event, resolvedTransition)
     val unmountedIntermediates = mutableSetOf<Path>()
     // calculateAliveNodes mutates and returns the SAME state instance; mutatedState === state.
     val mutatedState = calculateAliveNodes(state, resolvedTransition.targetPaths, nodeBuilder.schema)
-    unmountOrphanedIntermediates(state, event, syncExited, unmountedIntermediates)
+    exitOrphanedParallels(state, event, previousAlive, previousNodes, exited, unmountedIntermediates, premounted)
     // An intermediate parallel below a re-targeted node is kept, only region nodes are rebuilt
     val recreated = computeConfiguration(mutatedState).filterTo(mutableSetOf()) { path ->
       path !in mutatedState._intermediateParallels && retargeted.any { path.startsWith(it) }
@@ -334,19 +371,14 @@ class NavigationService<R : Any>(
       event,
       mutatedState._payloads,
       previousAlive,
-      previousNodes,
-      syncEntered,
-      syncExited,
+      entered,
+      exited,
       unmountedIntermediates,
       recreated,
+      premounted,
     )
-    try {
-      if (validateSchema) checkSchemaValidity(nodeBuilder.schema, mutatedState)
-      mutatedState._enqueuedEvents.addAll(resolvedTransition.enqueuedEvents.orEmpty())
-    } catch (e: Throwable) {
-      compensateLifecycle(syncEntered, syncExited, event, mutatedState._nodeExtensionPoints)
-      throw e
-    }
+    if (validateSchema) checkSchemaValidity(nodeBuilder.schema, mutatedState)
+    mutatedState._enqueuedEvents.addAll(resolvedTransition.enqueuedEvents.orEmpty())
     return mutatedState
   }
 
@@ -417,15 +449,31 @@ class NavigationService<R : Any>(
    * Only forward entries go through here. The re-entry in [compensateLifecycle] after a rollback intentionally does
    * not re-attach: the node keeps the sink of its original entry, which is live again because [TransactionSnapshot]
    * restores `_generations`.
+   *
+   * The node is added to [entered] right before its `onEntry`: a node which is there gets `onExit` on a rollback.
    */
-  private fun enter(state: NavigationState, node: Node, path: Path, event: Event) {
+  private fun enter(
+    state: NavigationState,
+    node: Node,
+    path: Path,
+    event: Event,
+    entered: MutableList<Pair<Node, Path>>,
+  ) {
     when (node) {
       is BaseFlowNode<*> -> node.attachEventSink(eventSink(path, state))
+
       is BaseScreenNode -> node.attachEventSink(eventSink(path, state))
-      is ParallelFlowNode<*> -> node.attachEventSink(eventSink(path, state))
+
+      is ParallelFlowNode<*> -> {
+        node.attachEventSink(eventSink(path, state))
+        // the root parallel gives the start payload to its regions which start later
+        val startPayload = (event as? InitEvent)?.payload.takeIf { path.length == 1 }
+        node.attachRegions(path, startPayload) { state._regions }
+      }
+
       else -> Unit
     }
-    callOnEntry(node, path, event, state._nodeExtensionPoints)
+    callOnEntry(node, path, event, state._nodeExtensionPoints) { entered.add(node to path) }
   }
 
   /**
@@ -439,7 +487,7 @@ class NavigationService<R : Any>(
    * its sub-regions) so its `onEntry` fires and its `ComposableNode.Content` can render.
    * The parallel-flow lives at the schema's `rootSegment` path — one segment shorter than each
    * sub-region path — and is NOT iterated by `schema.regions`, so without this step it would never
-   * be constructed. No-op for the common flow-rooted schema. Appends the entered root to
+   * be constructed. No-op for a flow-rooted schema: its root flow is the first region. Appends the entered root to
    * [initEnteredRoots] so the caller's catch can compensate its `onEntry` on a later failure.
    */
   private fun enterRootParallelIfNeeded(
@@ -468,8 +516,7 @@ class NavigationService<R : Any>(
     }
     // Entered before syncGenerations runs: give it its generation now so a sink obtained in onEntry is live.
     state._generations.getOrPut(rootSegmentPath) { nextGeneration++ }
-    enter(state, rootNode, rootSegmentPath, event)
-    initEnteredRoots.add(rootNode to rootSegmentPath)
+    enter(state, rootNode, rootSegmentPath, event, initEnteredRoots)
     state.rootNode = rootNode
     state.rootNodePath = rootSegmentPath
     state._rootFinishTransitionBuilder = erasedFinishRequest
@@ -479,16 +526,17 @@ class NavigationService<R : Any>(
    * Pre-mount step (runtime NavigateTo only): BEFORE [calculateAliveNodes]' prune runs, mount any
    * intermediate parallel a target path passes through that isn't yet in `_intermediateParallels`.
    * Without this, [calculateAliveNodes] prunes the freshly-activated sub-region because its parent
-   * intermediate isn't yet registered. Shallowest-first so `onEntry` fires parent-before-child;
-   * mounts are appended to [syncEntered] for compensation on a downstream throw.
+   * intermediate isn't yet registered. The mounted parallels are built and registered only, their paths are
+   * returned: [synchronizeNodes] enters them together with the nodes of the regions, after the nodes which are left
+   * got their `onExit` and after the flows they are declared in got their `onEntry`.
    */
   private fun premountIntermediates(
     state: NavigationState,
     event: Event,
     resolvedTransition: ResolvedTransition,
-    syncEntered: MutableList<Pair<Node, Path>>,
-  ) {
-    if (event is InitEvent) return
+  ): MutableSet<Path> {
+    val premounted = mutableSetOf<Path>()
+    if (event is InitEvent) return premounted
     // intermediateParallelAncestors returns shallowest-first; LinkedHashSet keeps that ordering
     // across multiple targets while de-duplicating.
     val premountOrdered = LinkedHashSet<Path>()
@@ -496,47 +544,67 @@ class NavigationService<R : Any>(
       premountOrdered.addAll(intermediateParallelAncestors(targetPath, nodeBuilder.schema))
     }
     premountOrdered.forEach { intermediatePath ->
-      if (intermediatePath !in state._intermediateParallels) {
-        mountIntermediateParallel(intermediatePath, event, state._payloads, syncEntered)
+      if (intermediatePath in state._intermediateParallels) return@forEach
+      // a parallel which an initial target has entered is alive as a node of the calling region only
+      val alive = state._regions.values.firstNotNullOfOrNull { it._nodes[intermediatePath] as? ParallelFlowNode<*> }
+      if (alive != null) {
+        state._intermediateParallels[intermediatePath] =
+          IntermediateParallel(node = alive, finishBuilder = finishBuilderFor(intermediatePath), initMounted = false)
+      } else {
+        mountIntermediateParallel(intermediatePath, event, state._payloads, entered = null)
+        // the root parallel is not an intermediate one, it is entered at start
+        if (intermediatePath in state._intermediateParallels) premounted.add(intermediatePath)
       }
     }
+    return premounted
   }
 
   /**
-   * Post-update unmount step (runtime NavigateTo only): now that each region's `alive` reflects this
-   * transition, a class-1 (runtime-mounted) intermediate is orphaned iff its path no longer appears
-   * in any region's `alive` (the path was placed there by `initParallelAndRouteAbsolute` on the way
-   * IN, and removed by [calculateAliveNodes] when the new target doesn't pass through it). Class-2
-   * (initMounted) intermediates are pinned for the service's lifetime and torn down only via
-   * [cleanDispose]. Unmounts deepest-first (matching the [cleanDispose] contract: an outer
-   * intermediate exits only AFTER its inner ones), recording exits in [syncExited] /
-   * [unmountedIntermediates]. If anything was unmounted, re-runs [pruneOrphanRegions] so sub-regions
-   * kept only by the "parent in _intermediateParallels" escape hatch are removed before
-   * [synchronizeNodes] runs.
+   * Leaves the parallels which the new configuration does not pass through any more: runtime-mounted intermediate
+   * parallels (the ones mounted at InitEvent live as long as the service does) and the regions which lived only
+   * because of them. Leaving a parallel can orphan a parallel declared inside of one of its regions, so the sweep
+   * repeats until nothing is left to drop.
+   *
+   * The structure is settled first, `onExit` is called after that, deepest path first: the nodes of a region exit
+   * before the parallel which owns the region, an inner parallel before the outer one. Every node gets its `onExit`
+   * even if an earlier one throws; the throws are rethrown together.
    */
-  private fun unmountOrphanedIntermediates(
+  private fun exitOrphanedParallels(
     state: NavigationState,
     event: Event,
-    syncExited: MutableList<Pair<Node, Path>>,
+    previousAlive: Map<RegionId, List<Path>>,
+    previousNodes: Map<RegionId, Map<Path, Node>>,
+    exited: MutableList<Pair<Node, Path>>,
     unmountedIntermediates: MutableSet<Path>,
+    premounted: MutableSet<Path>,
   ) {
     if (event is InitEvent) return
-    val configuration = computeConfiguration(state)
-    val toUnmount = state._intermediateParallels.entries
-      .asSequence()
-      .filter { (_, intermediate) -> !intermediate.initMounted }
-      .map { it.key }
-      .filter { path -> path !in configuration }
-      .toList()
-    toUnmount.sortedByDescending { it.length }.forEach { intermediatePath ->
-      val intermediate = state._intermediateParallels.remove(intermediatePath)!!
-      callOnExit(intermediate.node, intermediatePath, event, state._nodeExtensionPoints)
-      syncExited.add(intermediate.node to intermediatePath)
-      unmountedIntermediates.add(intermediatePath)
-    }
-    if (toUnmount.isNotEmpty()) {
+    val leaving = mutableMapOf<Path, Node>()
+    do {
+      val configuration = computeConfiguration(state)
+      val orphaned = state._intermediateParallels.filter { (path, intermediate) ->
+        !intermediate.initMounted && path !in configuration
+      }
+      orphaned.forEach { (path, intermediate) ->
+        state._intermediateParallels.remove(path)
+        unmountedIntermediates.add(path)
+        // a parallel which this transition has mounted is not entered yet
+        if (!premounted.remove(path)) leaving[path] = intermediate.node
+      }
       pruneOrphanRegions(state, nodeBuilder.schema)
+    } while (orphaned.isNotEmpty())
+    previousAlive.forEach { (regionId, paths) ->
+      if (regionId !in state._regions) {
+        // a region above a parallel carries the path of that parallel as well, the node is the same one
+        paths.forEach { path -> previousNodes[regionId]?.get(path)?.let { leaving.getOrPut(path) { it } } }
+      }
     }
+    val onExitThrows = mutableListOf<Throwable>()
+    leaving.entries.sortedByDescending { it.key.length }.forEach { (path, node) ->
+      runCatching { callOnExit(node, path, event, state._nodeExtensionPoints) { exited.add(node to path) } }
+        .onFailure { onExitThrows.add(it) }
+    }
+    onExitThrows.rethrowAsAggregate()
   }
 
   /**
@@ -573,8 +641,7 @@ class NavigationService<R : Any>(
     when (regionRoot) {
       is FlowNode<*> -> {
         state._generations.getOrPut(regionRootPath) { nextGeneration++ }
-        enter(state, regionRoot, regionRootPath, event)
-        initEnteredRoots.add(regionRoot to regionRootPath)
+        enter(state, regionRoot, regionRootPath, event, initEnteredRoots)
         val rootFinishBuilder = finishBuilderFor(regionRootPath)
         state._regions[regionId] = Region(
           _nodes = mutableMapOf(regionRootPath to regionRoot),
@@ -604,10 +671,13 @@ class NavigationService<R : Any>(
           regionRootPath,
           inclusive = true,
         )
-        innerSchema.regions.forEach { innerRelRegion ->
-          val innerAbsPath = absoluteRegionRoot(innerSchemaPath, innerRelRegion)
-          val innerAbsRegionId = RegionId(innerAbsPath)
-          materializeRegion(innerAbsRegionId, event, initEnteredRoots)
+        // only the regions of this parallel: the ones of a parallel declared deeper start when it is entered
+        val innerRegionRoots = regionRootsOf(innerSchema, innerSchemaPath, regionRootPath)
+        regionRoot.checkInitialRegions(regionRootPath, innerRegionRoots)
+        innerRegionRoots.forEach { innerAbsPath ->
+          if (regionRoot.startsRegion(regionRootPath, innerAbsPath)) {
+            materializeRegion(RegionId(innerAbsPath), event, initEnteredRoots)
+          }
         }
       }
 
@@ -624,9 +694,9 @@ class NavigationService<R : Any>(
    * [entered] so the caller's compensation sweep can reverse the mount on a downstream throw.
    *
    * Used both by [materializeRegion] (InitEvent path, passes the already-built [preBuiltNode])
-   * and by the pre-mount step in [transition] (runtime NavigateTo path that lands on a sub-region
-   * under a not-yet-mounted intermediate; passes `preBuiltNode = null` so this helper builds the
-   * node itself).
+   * and by [premountIntermediates] (runtime NavigateTo path that lands on a sub-region under a
+   * not-yet-mounted intermediate; passes `preBuiltNode = null` so this helper builds the node itself, and
+   * `entered = null` because such a parallel is entered later, after the flows above it).
    *
    * No-op if [parallelPath] is already in [NavigationState._intermediateParallels] OR equals
    * the service's [NavigationState.rootNodePath] (the root parallel is handled directly by the
@@ -636,7 +706,7 @@ class NavigationService<R : Any>(
     parallelPath: Path,
     event: Event,
     payloads: Map<Path, Any>,
-    entered: MutableList<Pair<Node, Path>>,
+    entered: MutableList<Pair<Node, Path>>?,
     preBuiltNode: Node? = null,
     initMounted: Boolean = false,
   ) {
@@ -655,8 +725,10 @@ class NavigationService<R : Any>(
       "expected ParallelFlowNode at $parallelPath, but builder returned ${node::class.simpleName}"
     }
     state._generations.getOrPut(parallelPath) { nextGeneration++ }
-    enter(state, node, parallelPath, event)
-    entered.add(node to parallelPath)
+    // without [entered] the caller enters the node itself
+    if (entered != null) {
+      enter(state, node, parallelPath, event, entered)
+    }
     val finishBuilder = finishBuilderFor(parallelPath)
     state._intermediateParallels[parallelPath] = IntermediateParallel(
       node = node,
@@ -701,124 +773,93 @@ class NavigationService<R : Any>(
     event: Event,
     payloads: Map<Path, Any>,
     previousAlive: Map<RegionId, List<Path>>,
-    previousNodes: Map<RegionId, Map<Path, Node>>,
     entered: MutableList<Pair<Node, Path>>,
     exited: MutableList<Pair<Node, Path>>,
     unmountedIntermediates: Set<Path>,
     recreated: Set<Path>,
+    premounted: Set<Path>,
   ) {
     // Record SCXML history for every compound flow/region that just left the alive set, keyed by
     // its path → the atomic leaf that was active under it. Done here — after calculateAliveNodes
     // recomputed each region's alive chain but before onExit/prune below — so the read of the
     // now-current alive set is accurate. Rolled back by the transaction snapshot on any later throw.
     recordHistoryOnExit(state, previousAlive)
-    // Track lifecycle calls so we can compensate if an exception occurs mid-synchronization.
-    // The snapshot rollback in transition() restores structural state; this tracking ensures
-    // onEntry/onExit calls remain balanced even when the rollback path is taken.
-    //
-    // [entered] and [exited] are owned by the caller (transition()) so the runtime pre-mount
-    // and pre-unmount steps' entries are folded into the same compensation lists this catch
-    // walks. A throw mid-synchronization then exits BOTH pre-mounted intermediates and
-    // per-region nodes in the same reversed sweep.
-    try {
-      // each callOnExit in the two prune loops below is wrapped in runCatching so that one
-      // consumer's throwing onExit doesn't skip sibling nodes' onExit calls. Mirrors the
-      // cleanDispose pattern (every step runCatching'd, every node gets a chance to clean up
-      // its DI scope / coroutine scope / etc). Throws are collected and rethrown — the first
-      // throw is the primary, the rest are attached via addSuppressed — after both loops
-      // complete. The inner catch below still runs because the rethrow happens before
-      // synchronizeNodes returns: it compensates `exited` via callOnEntry (re-enter the
-      // partially-exited nodes) and the outer transition catch then snapshot-restores state.
-      // `exited.add` always runs even when callOnExit throws, so the compensation re-enters
-      // every node we attempted to exit — keeping entry/exit balanced.
-      val onExitThrows = mutableListOf<Throwable>()
-      // Call onExit for nodes in regions that were pruned
-      previousAlive.forEach { (regionId, prevPaths) ->
-        if (!state._regions.containsKey(regionId)) {
-          val nodes = previousNodes[regionId] ?: emptyMap()
-          prevPaths.reversed().forEach { path ->
-            nodes[path]?.also {
-              runCatching { callOnExit(it, path, event, state._nodeExtensionPoints) }
-                .onFailure { onExitThrows.add(it) }
-              exited.add(it to path)
-            }
+    // Every onExit below runs even if an earlier one throws, so one failing node does not skip the others; the
+    // throws are rethrown together. [entered] and [exited] are compensated by the caller after it restores the state.
+    val onExitThrows = mutableListOf<Throwable>()
+    // Per-region synchronization
+    state._regions.forEach { (regionId, region) ->
+      previousAlive[regionId].orEmpty().reversed().forEach { path ->
+        if (!region.alive.contains(path) || path in recreated) {
+          // Skip intermediate parallels: their onExit was already fired by the pre-unmount
+          // step in transition(). They were carried in this region's previousAlive as a
+          // path-coverage placeholder (placed by initParallelAndRouteAbsolute's
+          // `resolved[callingRegionId] = parallelPath` on the way IN); the pre-unmount
+          // sweep handled the actual lifecycle teardown — emitting onExit again here would
+          // double-exit.
+          if (path in unmountedIntermediates) {
+            return@forEach
           }
+          val node = region._nodes[path] ?: error("state doesn't contain node at \"$path\"")
+          runCatching { callOnExit(node, path, event, state._nodeExtensionPoints) { exited.add(node to path) } }
+            .onFailure { onExitThrows.add(it) }
         }
       }
-      // Per-region synchronization
-      state._regions.forEach { (regionId, region) ->
-        previousAlive[regionId].orEmpty().reversed().forEach { path ->
-          if (!region.alive.contains(path) || path in recreated) {
-            // Skip intermediate parallels: their onExit was already fired by the pre-unmount
-            // step in transition(). They were carried in this region's previousAlive as a
-            // path-coverage placeholder (placed by initParallelAndRouteAbsolute's
-            // `resolved[callingRegionId] = parallelPath` on the way IN); the pre-unmount
-            // sweep handled the actual lifecycle teardown — emitting onExit again here would
-            // double-exit.
-            if (path in unmountedIntermediates) {
-              return@forEach
-            }
-            val node = region._nodes[path] ?: error("state doesn't contain node at \"$path\"")
-            runCatching { callOnExit(node, path, event, state._nodeExtensionPoints) }
-              .onFailure { onExitThrows.add(it) }
-            exited.add(node to path)
-          }
-        }
-        region._nodes.keys.retainAll(region.alive.toSet() - recreated)
-      }
-      onExitThrows.rethrowAsAggregate()
-      // A cached child NodeBuilder of a recreated node was created with the previous argument.
-      if (recreated.isNotEmpty()) nodeBuilder.invalidateCache(computeConfiguration(state) - recreated)
-      // Per-region build loop — entries newly added by calculateAliveNodes get their nodes
-      // built and onEntry fired.
-      state._regions.forEach { (_, region) ->
-        region.alive.forEach { path ->
-          if (!region._nodes.containsKey(path)) {
-            // Intermediate parallel paths are already built and entered by the pre-mount step
-            // (or by materializeRegion during InitEvent). Their node lives in
-            // _intermediateParallels and conceptually does NOT belong to any region — but a
-            // calling region whose NavigateTo lands beyond the intermediate carries the
-            // intermediate's path in its `alive` list (via initParallelAndRouteAbsolute's
-            // `resolved[callingRegionId] = parallelPath`). To keep runValidityChecks's
-            // alive==nodes invariant satisfied without re-building or re-entering, hand the
-            // same ParallelFlowNode instance to the region too.
-            val intermediate = state._intermediateParallels[path]
-            if (intermediate != null) {
-              region._nodes[path] = intermediate.node
-              return@forEach
-            }
-            val pathPayloads = payloads.onBuildPath(path)
-            region._nodes[path] =
-              nodeBuilder.build(path, pathPayloads, rootSegmentAlias = nodeBuilder.schema.rootSegment)
-                .also {
-                  enter(state, it, path, event)
-                  entered.add(it to path)
-                }
-          }
-        }
-      }
-      // Prune the persistent payload store: drop entries whose key is not a prefix of any
-      // alive path across all regions. Mirrors `region._nodes.keys.retainAll(region.alive)`
-      // and the lazy-NodeBuilder cache invalidation below. Without pruning the map would
-      // grow unboundedly and keep references to payload instances after the owning flow
-      // has been disposed.
-      val aliveAcrossRegions = computeConfiguration(state)
-      state._payloads.keys.retainAll { payloadKey ->
-        aliveAcrossRegions.any { alivePath -> alivePath.startsWith(payloadKey) }
-      }
-      // Invalidate the lazy-NodeBuilder cache ONCE with the union of every region's alive
-      // paths. A per-region call would evict children alive only in sibling parallel regions
-      // (e.g. invalidating with the profile region's active path drops the cached explore
-      // NodeBuilder, even though explore is still active in another region — and recreating
-      // it on next access constructs a fresh DI subcomponent, losing every scope-singleton
-      // state held inside).
-      nodeBuilder.invalidateCache(aliveAcrossRegions)
-    } catch (e: Throwable) {
-      // Exit nodes that received onEntry and re-enter nodes that received onExit — both will be
-      // reconciled by the caller's snapshot restore; this keeps entry/exit balanced meanwhile.
-      compensateLifecycle(entered, exited, event, state._nodeExtensionPoints)
-      throw e
+      region._nodes.keys.retainAll(region.alive.toSet() - recreated)
     }
+    onExitThrows.rethrowAsAggregate()
+    // A cached child NodeBuilder of a recreated node was created with the previous argument.
+    if (recreated.isNotEmpty()) nodeBuilder.invalidateCache(computeConfiguration(state) - recreated)
+    // Entries: the parallels mounted by this transition and the nodes newly added to the regions by
+    // calculateAliveNodes. A node is entered after every node above it, in whichever region that one lives.
+    val pendingEntries = LinkedHashMap<Path, () -> Unit>()
+    premounted.forEach { path ->
+      val node = state._intermediateParallels.getValue(path).node
+      pendingEntries[path] = {
+        enter(state, node, path, event, entered)
+      }
+    }
+    state._regions.forEach { (_, region) ->
+      region.alive.forEach { path ->
+        if (!region._nodes.containsKey(path)) {
+          // An intermediate parallel lives in _intermediateParallels and belongs to no region, but a calling
+          // region whose NavigateTo lands beyond it carries its path in the `alive` list (via
+          // initParallelAndRouteAbsolute's `resolved[callingRegionId] = parallelPath`). The region gets the same
+          // node instance, so that alive == nodes holds without building or entering it once more.
+          val intermediate = state._intermediateParallels[path]
+          if (intermediate != null) {
+            region._nodes[path] = intermediate.node
+            return@forEach
+          }
+          pendingEntries[path] = {
+            val node = nodeBuilder.build(path, payloads.onBuildPath(path), nodeBuilder.schema.rootSegment)
+            region._nodes[path] = node
+            enter(state, node, path, event, entered)
+          }
+        }
+      }
+    }
+    while (pendingEntries.isNotEmpty()) {
+      val path = pendingEntries.keys.first()
+      val above = pendingEntries.keys.filter { it != path && path.startsWith(it) }.sortedBy { it.length }
+      (above + path).forEach { pendingEntries.remove(it)?.invoke() }
+    }
+    // Prune the persistent payload store: drop entries whose key is not a prefix of any
+    // alive path across all regions. Mirrors `region._nodes.keys.retainAll(region.alive)`
+    // and the lazy-NodeBuilder cache invalidation below. Without pruning the map would
+    // grow unboundedly and keep references to payload instances after the owning flow
+    // has been disposed.
+    val aliveAcrossRegions = computeConfiguration(state)
+    state._payloads.keys.retainAll { payloadKey ->
+      aliveAcrossRegions.any { alivePath -> alivePath.startsWith(payloadKey) }
+    }
+    // Invalidate the lazy-NodeBuilder cache ONCE with the union of every region's alive
+    // paths. A per-region call would evict children alive only in sibling parallel regions
+    // (e.g. invalidating with the profile region's active path drops the cached explore
+    // NodeBuilder, even though explore is still active in another region — and recreating
+    // it on next access constructs a fresh DI subcomponent, losing every scope-singleton
+    // state held inside).
+    nodeBuilder.invalidateCache(aliveAcrossRegions)
   }
 
   /**
@@ -1014,18 +1055,32 @@ private fun List<Throwable>.rethrowAsAggregate() {
 private fun Map<Path, Any>.onBuildPath(path: Path): Map<Path, Any> =
   filterKeys { it.startsWith(path) || path.startsWith(it) }
 
-private fun callOnEntry(node: Node, path: Path, event: Event, extensionPoints: List<NodeExtensionPoint>) {
+private fun callOnEntry(
+  node: Node,
+  path: Path,
+  event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
+  onEntering: () -> Unit = {},
+) {
   val snapshot = extensionPoints.toList()
   snapshot.forEach { it.onPreEntry(node, path) }
+  onEntering()
   // Pass [path] to the new overload; default impl in [Node] delegates to the legacy
   // (event-only) variant for backward compatibility.
   node.onEntry(event, path)
   snapshot.forEach { it.onPostEntry(node, path) }
 }
 
-private fun callOnExit(node: Node, path: Path, event: Event, extensionPoints: List<NodeExtensionPoint>) {
+private fun callOnExit(
+  node: Node,
+  path: Path,
+  event: Event,
+  extensionPoints: List<NodeExtensionPoint>,
+  onExiting: () -> Unit = {},
+) {
   val snapshot = extensionPoints.toList()
   snapshot.forEach { it.onPreExit(node, path) }
+  onExiting()
   node.onExit(event, path)
   snapshot.forEach { it.onPostExit(node, path) }
 }
@@ -1035,4 +1090,37 @@ private fun callOnDispose(node: Node, path: Path, extensionPoints: List<NodeExte
   snapshot.forEach { runCatching { it.onPreDispose(node, path) } }
   runCatching { node.onDispose() }
   snapshot.forEach { runCatching { it.onPostDispose(node, path) } }
+}
+
+/**
+ * Resolving a transition builds the nodes it has to ask (the initial target of a flow, the initial regions of
+ * a parallel) before they are entered. Keeps such a node until the end of the transition, so the node which
+ * is entered is the one which was asked.
+ */
+private class TransitionNodeBuilder(private val delegate: NodeBuilder) : NodeBuilder {
+  private val built = mutableMapOf<Key, Node>()
+
+  /** [payloads] are the ones a build of [path] reads: its own one and those of its ancestors. */
+  private data class Key(val path: Path, val payloads: Map<Path, Any>, val rootSegmentAlias: Segment?)
+
+  override val schema: Schema get() = delegate.schema
+
+  override fun build(path: Path, payloads: Map<Path, Any>, rootSegmentAlias: Segment?): Node =
+    built.getOrPut(Key(path, payloads.filterKeys(path::startsWith), rootSegmentAlias)) {
+      delegate.build(path, payloads, rootSegmentAlias)
+    }
+
+  override fun invalidateCache(alivePaths: Set<Path>) {
+    // a child of a recreated node was built by the child NodeBuilder which is dropped here
+    built.keys.retainAll { it.path in alivePaths }
+    delegate.invalidateCache(alivePaths)
+  }
+
+  override fun snapshotCache(): Any? = delegate.snapshotCache()
+
+  override fun restoreCache(snapshot: Any?) = delegate.restoreCache(snapshot)
+
+  fun endTransition() {
+    built.clear()
+  }
 }

@@ -134,4 +134,68 @@ abstract class ParallelFlowNode<R : Any> : Node {
   internal fun attachEventSink(sink: EventSink) {
     _eventSink = sink
   }
+
+  /**
+   * Regions which start together with this node, as declared in its schema (`schema.<name>RegionId`). `null`
+   * (default) starts all of them. A region which is not listed has no nodes until [startRegion], or a
+   * [NavigateTo] with a target inside of it, starts it; then it lives as long as this node does. Must name at least one region of this node. Read on every entry.
+   */
+  open val initialRegions: Set<RegionId>? get() = null
+
+  private var regionsPath: Path? = null
+  private var regions: () -> Map<RegionId, Region> = { emptyMap() }
+  private var startPayload: Any? = null
+
+  /**
+   * A transition which starts [regionId] from its initial node, or [Stay] if the region is already started.
+   * Available from the first entry of this node.
+   */
+  fun startRegion(regionId: RegionId): FlowTransition<R> = if (isRegionStarted(regionId)) {
+    Stay
+  } else {
+    val root = absoluteRegionId(regionId).path
+    NavigateTo(AbsoluteTarget(root, payloads = startPayload?.let { mapOf(root to it) } ?: emptyMap()))
+  }
+
+  /** Whether [regionId] has nodes: it is one of [initialRegions] or has been started later. */
+  fun isRegionStarted(regionId: RegionId): Boolean {
+    val root = absoluteRegionId(regionId).path
+    // a region whose root is a parallel flow is known only by the regions of that parallel
+    return regions().keys.any { it.path.startsWith(root) }
+  }
+
+  /**
+   * Whether [regionId] is started and rests on the node it has started with. Lets [transition] decide by the state
+   * of a region, for example send Back to an overlay region only when it shows something.
+   */
+  fun isRegionAtRoot(regionId: RegionId): Boolean =
+    regions()[absoluteRegionId(regionId)]?.let { it.active == it.rootPath } ?: false
+
+  private fun absoluteRegionId(regionId: RegionId): RegionId {
+    val path = checkNotNull(regionsPath) { "regions are not available before the runtime calls onEntry on this node" }
+    return regionId.resolveAbsolute(path)
+  }
+
+  internal fun attachRegions(path: Path, startPayload: Any?, regions: () -> Map<RegionId, Region>) {
+    regionsPath = path
+    this.startPayload = startPayload
+    this.regions = regions
+  }
+}
+
+/** Whether the region with the root at [regionRoot] starts together with this node at [parallelPath]. */
+internal fun ParallelFlowNode<*>.startsRegion(parallelPath: Path, regionRoot: Path): Boolean {
+  val initial = initialRegions ?: return true
+  return initial.any { it.resolveAbsolute(parallelPath).path == regionRoot }
+}
+
+/** Fails if [ParallelFlowNode.initialRegions] of this node at [parallelPath] names no region out of [regionRoots]. */
+internal fun ParallelFlowNode<*>.checkInitialRegions(parallelPath: Path, regionRoots: List<Path>) {
+  val initial = initialRegions?.map { it.resolveAbsolute(parallelPath).path } ?: return
+  check(initial.isNotEmpty()) {
+    "initialRegions of the parallel flow at \"$parallelPath\" must name at least one region"
+  }
+  check(regionRoots.containsAll(initial)) {
+    "initialRegions of the parallel flow at \"$parallelPath\" must name its own regions $regionRoots, but were $initial"
+  }
 }

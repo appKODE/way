@@ -23,6 +23,14 @@ class RegionIdResolveAbsoluteTest : ShouldSpec() {
       regionId.resolveAbsolute(parentPath) shouldBe RegionId(Path("appFlow", "mainFlow", "homeFlow", "exploreFlow"))
     }
 
+    should("resolve a regionId of a parallel which is declared deeper in its schema") {
+      // homeFlow is a schema mounted as "home"; its region tabA belongs to the parallel tabs inside of its flow main
+      val regionId = RegionId(Path("homeFlow", "main", "tabs", "tabA"))
+      val absolute = RegionId(Path("appFlow", "home", "main", "tabs", "tabA"))
+      regionId.resolveAbsolute(Path("appFlow", "home", "main", "tabs")) shouldBe absolute
+      regionId.resolveAbsolute(Path("appFlow", "home")) shouldBe absolute
+    }
+
     should("resolve a length-1 schema-relative regionId to parentPath itself") {
       val parentPath = Path("appFlow", "mainFlow", "homeFlow")
       // A length-1 relative id (e.g. an imported non-parallel schema) has no tail to append.

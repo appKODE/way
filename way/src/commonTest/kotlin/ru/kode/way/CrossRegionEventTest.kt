@@ -184,6 +184,63 @@ class CrossRegionEventTest :
       parallelInvocations.shouldContainExactly(CrossRegionTestEvent("ping"))
     }
 
+    should("dispose a parallel entered by NavigateTo exactly once") {
+      var disposed = 0
+      val go = TestEvent("go")
+      val mainParallel = TestParallelNode(onDisposeImpl = { disposed++ })
+      val alphaNodeBuilder = Par03AlphaNodeBuilder(
+        nodeFactory = object : Par03AlphaNodeBuilder.Factory {
+          override fun createRootNode(): FlowNode<*> = TestFlowNode(initialTarget = Target.par03Alpha.par03AlphaScreen)
+          override fun createPar03AlphaScreenNode(): ScreenNode = TestScreenNode()
+          override fun createPar03AlphaScreen2Node(): ScreenNode = TestScreenNode()
+        },
+        schema = Parallel03AlphaSchema(),
+      )
+      val betaNodeBuilder = Par03BetaNodeBuilder(
+        nodeFactory = object : Par03BetaNodeBuilder.Factory {
+          override fun createRootNode(): FlowNode<*> = TestFlowNode(initialTarget = Target.par03Beta.par03BetaScreen)
+          override fun createPar03BetaScreenNode(): ScreenNode = TestScreenNode()
+        },
+        schema = Parallel03BetaSchema(),
+      )
+      val mainNodeBuilder = Par03MainNodeBuilder(
+        nodeFactory = object : Par03MainNodeBuilder.Factory {
+          override fun createRootNode(): ParallelFlowNode<Unit> = mainParallel
+          override fun createPar03AlphaNodeBuilder(): NodeBuilder = alphaNodeBuilder
+          override fun createPar03BetaNodeBuilder(): NodeBuilder = betaNodeBuilder
+        },
+        schema = Parallel03MainSchema(Parallel03AlphaSchema(), Parallel03BetaSchema()),
+      )
+      val appNodeBuilder = Par03AppNodeBuilder(
+        nodeFactory = object : Par03AppNodeBuilder.Factory {
+          override fun createRootNode(): FlowNode<*> = object : FlowNode<Unit> {
+            override val initial: Target = Target.par03App.par03Page
+            override val dismissResult: Unit = Unit
+            override fun transition(event: Event): FlowTransition<Unit> =
+              if (event == go) NavigateTo(Target.par03App.par03Main) else Ignore
+          }
+          override fun createPar03MainNodeBuilder(): NodeBuilder = mainNodeBuilder
+          override fun createPar03PageNode(): ScreenNode = TestScreenNode()
+        },
+        schema = Parallel03Schema(
+          par03MainSchema = Parallel03MainSchema(
+            par03AlphaSchema = Parallel03AlphaSchema(),
+            par03BetaSchema = Parallel03BetaSchema(),
+          ),
+        ),
+      )
+      val sut = NavigationService(
+        nodeBuilder = appNodeBuilder,
+        onFinishRequest = { _: Unit -> Stay },
+      )
+
+      sut.start()
+      sut.send(go)
+      sut.cleanDispose()
+
+      disposed shouldBe 1
+    }
+
     // Production code: NavigationService.send (NavigationService.kt:423-449) calls
     // `transition(state, current)` FIRST (line 433) — which invokes every node's
     // `transition()` via `resolveTransition` — and only THEN notifies listeners

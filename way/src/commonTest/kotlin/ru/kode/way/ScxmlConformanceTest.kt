@@ -393,6 +393,7 @@ private fun buildAcmeConformanceService(
   val mainFlowNodeBuilder = AcmeMainFlowNodeBuilder(
     nodeFactory = object : AcmeMainFlowNodeBuilder.Factory {
       override fun createRootNode(): FlowNode<*> = TestFlowNode(initialTarget = Target.acmeHomeTab.acmeHomeScreen)
+      override fun createAcmeIntroScreenNode(): ScreenNode = TestScreenNode()
       override fun createAcmeTabsFlowNodeBuilder(): NodeBuilder = tabsFlowNodeBuilder
     },
     schema = AcmeMainFlowSchema(),

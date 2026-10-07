@@ -10,14 +10,72 @@ import java.nio.file.Path
 import kotlin.io.path.relativeTo
 
 internal fun parseSchemaDotFile(file: File, projectDir: File, warn: (String) -> Unit = {}): SchemaParseResult =
-  file.inputStream().use { input ->
-    val stream = CommonTokenStream(DotLexer(CharStreams.fromStream(input)))
-    val parser = DotParser(stream)
-    val parseTree = parser.graph()
+  parseSchemaDotFiles(listOf(file), projectDir, warn).single()
+
+/**
+ * Parses [files] into one result per schema. A file whose graph has the `mode = "extend"` attribute is not a schema
+ * of its own: its nodes and edges are added to the schema with the same graph id, which is validated as a whole.
+ */
+internal fun parseSchemaDotFiles(
+  files: List<File>,
+  projectDir: File,
+  warn: (String) -> Unit = {},
+): List<SchemaParseResult> {
+  val (extensions, schemas) = files.map { it to parseGraph(it) }.partition { (_, graph) -> graph.isSchemaExtension() }
+  val schemaGraphIds = schemas.map { (_, graph) -> graph.id_()?.asString() }
+  extensions.forEach { (file, graph) ->
+    val graphId = graph.id_()?.asString() ?: error("schema extension $file must name the graph it extends")
+    if (graphId !in schemaGraphIds) {
+      error("schema extension $file extends \"$graphId\", but there is no schema with this graph id")
+    }
+    if (schemaGraphIds.count { it == graphId } > 1) {
+      error("schema extension $file extends \"$graphId\", but there are several schemas with this graph id")
+    }
+  }
+  return schemas.map { (file, graph) ->
     val visitor = Visitor()
-    visitor.visitGraph(parseTree)
+    visitor.visitGraph(graph)
+    extensions
+      .filter { (_, extension) -> extension.id_()?.asString() == graph.id_()?.asString() }
+      .forEach { (extensionFile, extension) -> visitor.visitExtension(extension, extensionFile) }
     visitor.buildResult(file.toPath().relativeTo(projectDir.toPath()), warn)
   }
+}
+
+/** True when [file] extends a schema instead of declaring (or replacing) one, see [parseSchemaDotFiles]. */
+internal fun isSchemaExtensionFile(file: File): Boolean = parseGraph(file).isSchemaExtension()
+
+private fun parseGraph(file: File): GraphContext = file.inputStream().use { input ->
+  DotParser(CommonTokenStream(DotLexer(CharStreams.fromStream(input)))).graph()
+}
+
+private fun GraphContext.isSchemaExtension(): Boolean = findGraphAttributeValue(this, MODE_ATTRIBUTE) == MODE_EXTEND
+
+private const val MODE_ATTRIBUTE = "mode"
+private const val MODE_EXTEND = "extend"
+private val schemaIdentityAttributes = listOf("schemaFileName", "targetsFileName", "package")
+
+private fun findGraphAttributeValue(ctx: GraphContext, name: String): String? {
+  // A genuinely blank/whitespace-only `.dot` file fails ANTLR's grammar check on immediate EOF,
+  // leaving `ctx.stmt_list()` null. Route that into the same empty-adjacency-list path (and its
+  // clear "empty navigation graph" error in GenerateClassesTask.generate()) instead of NPEing here.
+  for (stmt in ctx.stmt_list()?.stmt().orEmpty()) {
+    // A graph attribute statement is `attrName = attrValue`: id_(0) is the name, id_(1) the value.
+    val attrName = stmt.id_(0)?.asString()
+    if (attrName == name) {
+      return stmt.id_(1)?.asString() ?: error("no value for graph attr '$name'")
+    }
+  }
+  return null
+}
+
+private fun Id_Context.asString(): String = when {
+  ID() != null -> ID()!!.text
+  STRING() != null -> STRING()!!.text.removeSurrounding("\"")
+  HTML_STRING() != null -> HTML_STRING()!!.text.removeSurrounding("<", ">")
+  NUMBER() != null -> NUMBER()!!.text
+  else -> error("unrecognized id_ token: ${this.text}")
+}
 
 private class Visitor : DotBaseVisitor<Unit>() {
   private var graphId: String? = null
@@ -85,18 +143,14 @@ private class Visitor : DotBaseVisitor<Unit>() {
     super.visitGraph(ctx)
   }
 
-  private fun findGraphAttributeValue(ctx: GraphContext, name: String): String? {
-    // A genuinely blank/whitespace-only `.dot` file fails ANTLR's grammar check on immediate EOF,
-    // leaving `ctx.stmt_list()` null. Route that into the same empty-adjacency-list path (and its
-    // clear "empty navigation graph" error in GenerateClassesTask.generate()) instead of NPEing here.
-    for (stmt in ctx.stmt_list()?.stmt().orEmpty()) {
-      // A graph attribute statement is `attrName = attrValue`: id_(0) is the name, id_(1) the value.
-      val attrName = stmt.id_(0)?.asString()
-      if (attrName == name) {
-        return stmt.id_(1)?.asString() ?: error("no value for graph attr '$name'")
+  /** Adds the nodes and edges of [ctx], a `mode = "extend"` graph from [file], to the visited schema. */
+  fun visitExtension(ctx: GraphContext, file: File) {
+    schemaIdentityAttributes.forEach { name ->
+      if (findGraphAttributeValue(ctx, name) != null) {
+        error("schema extension $file must not set \"$name\": it is taken from the schema it extends")
       }
     }
-    return null
+    super.visitGraph(ctx)
   }
 
   override fun visitNode_stmt(ctx: DotParser.Node_stmtContext) {
@@ -223,14 +277,6 @@ private class Visitor : DotBaseVisitor<Unit>() {
     adjacencyList.getOrPut(from) { mutableSetOf() }
     adjacencyList.getOrPut(to) { mutableSetOf() }
     adjacencyList[from]?.add(to)
-  }
-
-  private fun Id_Context.asString(): String = when {
-    ID() != null -> ID()!!.text
-    STRING() != null -> STRING()!!.text.removeSurrounding("\"")
-    HTML_STRING() != null -> HTML_STRING()!!.text.removeSurrounding("<", ">")
-    NUMBER() != null -> NUMBER()!!.text
-    else -> error("unrecognized id_ token: ${this.text}")
   }
 }
 

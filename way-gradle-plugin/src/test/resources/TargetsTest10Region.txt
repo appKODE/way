@@ -1,0 +1,19 @@
+package ru.kode.test.app.schema
+
+import kotlin.String
+import ru.kode.way.RegionId
+
+public enum class TargetsTest10Region(
+  public val segmentName: String,
+) {
+  TabA("tabA"),
+  TabB("tabB"),
+  ;
+
+  public companion object {
+    public fun forRegionId(regionId: RegionId): TargetsTest10Region? {
+      val name = regionId.path.segments.last().id.substringBefore('@')
+      return entries.firstOrNull { it.segmentName == name }
+    }
+  }
+}

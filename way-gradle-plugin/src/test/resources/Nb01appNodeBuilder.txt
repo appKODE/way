@@ -1,6 +1,7 @@
 package ru.kode.test.app.schema
 
 import kotlin.Any
+import kotlin.Pair
 import kotlin.Suppress
 import kotlin.collections.HashMap
 import kotlin.collections.Map
@@ -43,14 +44,14 @@ public class Nb01appNodeBuilder(
     }
     return when {
       path == rootPath -> nodeFactory.createRootNode()
-      path.startsWith(targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
-        val targetPath = targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
-        val nodeBuilder = nb01loginNodeBuilder(rootSegmentAlias)
-        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
-      }
       path.startsWith(targetOrError(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
         val targetPath = targetOrError(Segment("nb01onboarding@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
         val nodeBuilder = nb01onboardingNodeBuilder(rootSegmentAlias)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+      }
+      path.startsWith(targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot"), rootSegmentAlias)
+        val nodeBuilder = nb01loginNodeBuilder(rootSegmentAlias)
         nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
       }
       else -> error("""illegal path build requested for "nb01app" node: $path""")
@@ -63,6 +64,17 @@ public class Nb01appNodeBuilder(
       val drop = builderPath.length - 1
       val childAlive = alivePaths.filter { it.startsWith(builderPath) && it.length > drop }.map { it.drop(drop) }.toSet()
       builder.invalidateCache(childAlive)
+    }
+  }
+
+  override fun snapshotCache(): Any? = nodeBuilders.mapValues { (_, builder) -> builder to builder.snapshotCache() }
+
+  override fun restoreCache(snapshot: Any?) {
+    nodeBuilders.clear()
+    (snapshot as Map<*, *>).forEach { (path, saved) ->
+      val (builder, childSnapshot) = saved as Pair<*, *>
+      nodeBuilders[path as Path] = builder as NodeBuilder
+      builder.restoreCache(childSnapshot)
     }
   }
 

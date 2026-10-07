@@ -332,6 +332,32 @@ internal fun buildNodeBuilderTypeSpec(
         }
         .build(),
     )
+    .apply {
+      if (lazyNodeBuilderFactories.isNotEmpty()) {
+        addFunction(
+          FunSpec.builder("snapshotCache")
+            .addModifiers(KModifier.OVERRIDE)
+            .returns(ANY.copy(nullable = true))
+            .addStatement(
+              "return %L.mapValues·{·(_,·builder)·->·builder·to·builder.snapshotCache()·}",
+              NODE_BUILDER_CACHE_PROPERTY_NAME,
+            )
+            .build(),
+        )
+        addFunction(
+          FunSpec.builder("restoreCache")
+            .addModifiers(KModifier.OVERRIDE)
+            .addParameter("snapshot", ANY.copy(nullable = true))
+            .addStatement("%L.clear()", NODE_BUILDER_CACHE_PROPERTY_NAME)
+            .beginControlFlow("(snapshot·as·%T<*,·*>).forEach·{·(path,·saved)·->", MAP)
+            .addStatement("val·(builder,·childSnapshot)·=·saved·as·%T<*,·*>", ClassName("kotlin", "Pair"))
+            .addStatement("%L[path·as·%T]·=·builder·as·%T", NODE_BUILDER_CACHE_PROPERTY_NAME, PATH, NODE_BUILDER)
+            .addStatement("builder.restoreCache(childSnapshot)")
+            .endControlFlow()
+            .build(),
+        )
+      }
+    }
     .addFunction(buildTargetOrErrorFunSpec())
     .apply {
       if (lazyNodeBuilderFactories.keys.any { adjacencyList.isFanIn(it) }) addFunction(buildTargetsOrErrorFunSpec())
@@ -393,10 +419,19 @@ private fun createBuildFunctionBody(
     .endControlFlow()
     .beginControlFlow("return when")
     .apply {
+      val nodes = mutableListOf<Node>()
       dfsWhile(adjacencyList, flow) { node ->
-        val shouldDescend = shouldDescendInto(node, flow)
         // See NOTE_GROUPING_NODES_BY_FLOW_RULE — foreign nodes route through their own flow's NodeBuilder.
-        if (isForeignToFlowScope(node, flow, isRootNode, adjacencyList)) return@dfsWhile shouldDescend
+        if (!isForeignToFlowScope(node, flow, isRootNode, adjacencyList)) nodes.add(node)
+        shouldDescendInto(node, flow)
+      }
+      // A flow declared inside of another flow of this schema goes first: the outer one is a prefix of its paths too.
+      // Only the flows are reordered, each of the other nodes stays where the traversal has put it.
+      val isNestedFlow = { node: Node -> node is Node.Flow && node != flow }
+      val nestedFlows = nodes.filter(isNestedFlow)
+        .sortedByDescending { node -> adjacencyList.parentChains(node).maxOf { it.size } }
+        .iterator()
+      nodes.map { node -> if (isNestedFlow(node)) nestedFlows.next() else node }.forEach { node ->
         when (node) {
           is Node.Flow -> {
             if (node == flow) {
@@ -501,7 +536,6 @@ private fun createBuildFunctionBody(
           // History nodes are never built, so they emit no routing branch.
           is Node.History -> Unit
         }
-        shouldDescend
       }
       addStatement("else -> error(%P)", "illegal path build requested for \"${flow.id}\" node: \$path")
     }

@@ -127,19 +127,19 @@ internal fun AdjacencyList.parallelParentOf(node: Node): Node.Flow.LocalParallel
  * Returns the "region roots" — the entry-point flow of every independently-navigable region in this schema.
  *
  * A region root is a direct child of any [Node.Flow.LocalParallel] whose immediate parent is NOT itself a
- * LocalParallel. For a plain (non-parallel) graph with no such parallel, the single root flow node is the only
- * region root.
+ * LocalParallel. A root flow is a region root too and goes first: for a plain (non-parallel) graph it is the only
+ * one, for a flow with a parallel declared under it the regions of this parallel follow it.
  *
  * This intentionally collects region roots at EVERY nesting depth, not just the top parallel's children. A
  * parallel reached through a linear [Node.Flow.Local] flow (e.g.
  * `acmeAppFlow[parallelFlow] -> acmeMainFlow[flow] -> acmeTabsFlow[parallelFlow] -> acmeHomeTab/acmeExploreTab`)
  * starts a NEW region tier, so `acmeHomeTab`/`acmeExploreTab` surface as region roots alongside the top parallel's
  * own children `acmeMainFlow`/`acmeAuthFlow` — four flat region roots in total. This is CORRECT and required, NOT
- * over-collection: the runtime region model is FLAT. `NavigationService.materializeRegion` iterates
- * `schema.regions` once and creates one top-level `Region` per entry, keyed by its full absolute path (region
- * depth is encoded in the path, never in map nesting), and `pruneOrphanRegions` pins every `schema.regions` entry
- * for the service lifetime. The generated `AcmeAppFlowSchema.regions` must therefore list all four so the runtime
- * materialises all four. This is asserted directly by the runtime contract test
+ * over-collection: the runtime region model is FLAT. `NavigationService.materializeRegion` creates one top-level
+ * `Region` per `schema.regions` entry, keyed by its full absolute path (region depth is encoded in the path, never
+ * in map nesting): the regions of the root parallel at start, the deeper ones when their parallel is entered (they
+ * live as long as it does). The generated `AcmeAppFlowSchema.regions` must therefore list all four so the runtime
+ * can materialise all four. This is asserted directly by the runtime contract test
  * "acme-style layout: each region has its own absolute regionId.path anchored at acmeAppFlow"
  * (`way/src/commonTest/.../ParallelNodeTest.kt`); reducing this
  * to two would fail that test and break navigation. The same flat set is what `AdjacencyListTest` pins.
@@ -159,13 +159,13 @@ internal fun AdjacencyList.parallelParentOf(node: Node): Node.Flow.LocalParallel
  */
 internal fun buildRegionRoots(adjacencyList: AdjacencyList): List<Node> {
   val regionRoots = mutableListOf<Node>()
+  // a root flow is a region itself, the regions of the parallels declared under it come after it
+  val root = adjacencyList.findRootNode()
+  if (root !is Node.Flow.LocalParallel) regionRoots.add(root)
   adjacencyList.forEach { (node, children) ->
     if (node is Node.Flow.LocalParallel && adjacencyList.findParent(node) !is Node.Flow.LocalParallel) {
       regionRoots.addAll(children)
     }
-  }
-  if (regionRoots.isEmpty()) {
-    regionRoots.add(adjacencyList.findRootNode())
   }
   return regionRoots
 }

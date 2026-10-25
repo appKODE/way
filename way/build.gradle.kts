@@ -1,7 +1,6 @@
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinMultiplatform.get().pluginId)
-  id(libs.plugins.dokka.get().pluginId)
   alias(libs.plugins.way)
   alias(libs.plugins.vanniktech.maven.publish)
 }

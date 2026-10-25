@@ -733,6 +733,5 @@ Gradle plugin publication also resolves version/group from project/shared proper
 ## Repository Notes
 
 - ANTLR parser sources are generated in `:way-gradle-plugin` and excluded from Javadoc warnings.
-- Dokka V2 mode is enabled (`org.jetbrains.dokka.experimental.gradle.pluginMode=V2Enabled`).
 - Spotless is configured with ktlint and `@Composable` function naming allowance.
 - In Android Studio, `Build -> Assemble Project` only executes tasks for selected/needed modules; if a module is not part of that task graph, its `generateWayClasses` task will not run and no generated folder will appear for that module in that build invocation.

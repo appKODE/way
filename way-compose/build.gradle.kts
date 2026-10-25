@@ -1,8 +1,10 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+import com.vanniktech.maven.publish.JavadocJar
+
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.androidLibrary.get().pluginId)
   alias(libs.plugins.kotlinCompose)
-  id(libs.plugins.dokka.get().pluginId)
   alias(libs.plugins.vanniktech.maven.publish)
 }
 
@@ -39,6 +41,7 @@ android {
 
 mavenPublishing {
   coordinates(artifactId = "way-compose")
+  configure(AndroidSingleVariantLibrary(javadocJar = JavadocJar.Empty()))
 
   publishToMavenCentral()
   signAllPublications()

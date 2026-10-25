@@ -3,7 +3,6 @@ plugins {
   alias(libs.plugins.spotless)
   alias(libs.plugins.kotlinMultiplatform) apply false
   alias(libs.plugins.kotlinCompose) apply false
-  alias(libs.plugins.dokka) apply false
   alias(libs.plugins.androidApplication) apply false
   alias(libs.plugins.kotlinJvm) apply false
   alias(libs.plugins.vanniktech.maven.publish) apply false

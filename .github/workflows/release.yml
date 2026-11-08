@@ -98,3 +98,9 @@ jobs:
           ./gradlew --no-daemon --stacktrace \
             :way:publishAndReleaseToMavenCentral \
             :way-compose:publishAndReleaseToMavenCentral
+
+  gh-release:
+    needs: publish-libraries
+    uses: appKODE/.github/.github/workflows/gh-release.yml@main
+    permissions:
+      contents: write

@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   publish-libraries:
-    runs-on: ubuntu-latest
+    # iOS targets only compile on macOS; on Linux they are skipped and the release would ship without them
+    runs-on: macos-latest
     environment: release
 
     steps:

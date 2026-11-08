@@ -62,7 +62,7 @@ jobs:
             :sample-compose:main-parallel:routing:assembleDebug \
             :sample-compose:categories:ui:assembleDebug \
             :sample-compose:login:routing:assembleDebug \
-            :way-compose:assembleDebug \
+            :way-compose:assembleAndroidMain \
             :sample-compose:main-parallel:ui:assembleDebug \
             :sample-compose:categories:routing:assembleDebug \
             :sample-compose:permissions:routing:assembleDebug

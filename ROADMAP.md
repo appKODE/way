@@ -18,6 +18,14 @@ hand-write an `AbsoluteTarget`. `AbsoluteTarget` stays as the load-bearing engin
 - **Value:** removes cross-schema navigation boilerplate for consumers.
 - **Trigger:** first app site that would otherwise hand-write an `AbsoluteTarget`.
 
+### `NodeHost` auto-start opt-out
+`NodeHost` calls `service.start()` without a payload when the service isn't started yet
+(`way-compose/.../NodeHost.kt`), so an app that must read something (e.g. DataStore) before
+`start(payload)` has to gate `NodeHost` behind its own "started" flag.
+- **Approach:** `autoStart: Boolean = true` parameter on `NodeHost`; with `false`, render nothing until
+  `start()` is called.
+- **Trigger:** first app that gates `NodeHost` behind its own "started" flag because of an async start.
+
 ## Feature extensions (on demand)
 
 ### History under imported (cross-schema) flows
@@ -50,3 +58,7 @@ The rework deliberately scoped these out; they are a distinct, larger effort:
   kept and documented.
 - **Remove `HistoryTarget` / hide it behind an auto-restore flag.** Kept as an explicit target: the
   teardown-and-resume use case is real and callers want per-navigation shallow-vs-deep control.
+- **Save/restore navigation across process death.** `NavigationState` payloads are `Any`, so this needs
+  a serialization contract for every payload — a big feature. It also doesn't solve the real problem:
+  feature-model state is lost anyway, so the app has to persist its own domain
+  marker and rebuild the path with a full target on cold start.

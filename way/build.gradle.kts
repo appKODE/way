@@ -1,6 +1,10 @@
 @Suppress("DSL_SCOPE_VIOLATION")
 plugins {
   id(libs.plugins.kotlinMultiplatform.get().pluginId)
+  id(libs.plugins.androidKmpLibrary.get().pluginId)
+  // KSP before Kotest: the Kotest plugin needs it to run specs on native
+  id(libs.plugins.ksp.get().pluginId)
+  id(libs.plugins.kotest.get().pluginId)
   alias(libs.plugins.way)
   alias(libs.plugins.vanniktech.maven.publish)
 }
@@ -17,6 +21,16 @@ kotlin {
     }
   }
 
+  androidLibrary {
+    namespace = "ru.kode.way"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    minSdk = 21
+  }
+
+  iosArm64()
+  iosSimulatorArm64()
+  iosX64()
+
   sourceSets {
     val commonMain by getting {
       dependencies {
@@ -28,8 +42,6 @@ kotlin {
         implementation(libs.bundles.koTestCommon)
         implementation(libs.turbine)
       }
-    }
-    val jvmMain by getting {
     }
     val jvmTest by getting {
       dependencies {

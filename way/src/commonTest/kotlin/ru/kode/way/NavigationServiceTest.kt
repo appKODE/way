@@ -35,7 +35,6 @@ import ru.kode.way.par01.top.par01Top
 import ru.kode.way.par03.alpha.par03Alpha
 import ru.kode.way.par03.beta.par03Beta
 import ru.kode.way.par03.par03App
-import java.nio.charset.Charset
 import ru.kode.way.nav01.app as app01
 import ru.kode.way.nav02.AppChildFinishRequest as Nav02AppChildFinishRequest
 import ru.kode.way.nav02.app as app02
@@ -798,10 +797,10 @@ class NavigationServiceTest :
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
-              tr("A", Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Dima")),
+              tr("A", Target.app12.login(charset = Charset.UTF_32, defaultUserName = "Dima")),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
             ),
           )
@@ -838,7 +837,7 @@ class NavigationServiceTest :
           // root flow node should receive an argument
           (aliveNodes["app"] as TestFlowNode?)?.payload shouldBe 42
           // initial node of root flow should receive an argument
-          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charset.UTF_32
         }
 
         sut.send(TestEvent("A"))
@@ -863,10 +862,10 @@ class NavigationServiceTest :
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
-              tr("L", Target.app12.login(charset = Charsets.UTF_8, defaultUserName = "Dima")),
+              tr("L", Target.app12.login(charset = Charset.UTF_8, defaultUserName = "Dima")),
               tr("P2", Target.app12.page2),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
             ),
@@ -900,7 +899,7 @@ class NavigationServiceTest :
         sut.send(TestEvent("L"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials"
-          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_32
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charset.UTF_32
         }
 
         // page1 is pruned together with its stored payload
@@ -911,7 +910,7 @@ class NavigationServiceTest :
         sut.send(TestEvent("L"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials"
-          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charset.UTF_8
         }
       }
     }
@@ -921,14 +920,14 @@ class NavigationServiceTest :
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
               tr("P2", Target.app12.page2),
               tr(
                 "ABS",
                 NavigateTo(
-                  AbsoluteTarget(rootSegment, Target.app12.login(charset = Charsets.UTF_8, defaultUserName = "Dima")),
+                  AbsoluteTarget(rootSegment, Target.app12.login(charset = Charset.UTF_8, defaultUserName = "Dima")),
                 ),
               ),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
@@ -965,7 +964,7 @@ class NavigationServiceTest :
         sut.send(TestEvent("ABS"))
         awaitItem().apply {
           active shouldBe "app.page1.login.credentials.otp"
-          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charsets.UTF_8
+          (aliveNodes["app.page1"] as TestScreenNode?)?.payload shouldBe Charset.UTF_8
           (aliveNodes["app.page1.login.credentials"] as TestScreenNode?)?.payload shouldBe "800"
         }
       }
@@ -1079,10 +1078,10 @@ class NavigationServiceTest :
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
-              tr("A", Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Dima")),
+              tr("A", Target.app12.login(charset = Charset.UTF_32, defaultUserName = "Dima")),
               tr<Nav12AppChildFinishRequest.Login>(Stay),
             ),
           )
@@ -1427,7 +1426,7 @@ class NavigationServiceTest :
     }
 
     should("correctly transition when given an absolute target") {
-      val loginFlowTarget = Target.app12.login(charset = Charsets.UTF_32, defaultUserName = "Gregoriy")
+      val loginFlowTarget = Target.app12.login(charset = Charset.UTF_32, defaultUserName = "Gregoriy")
       val loginCredentialsTarget = Target.login12.credentials(defaultPhone = "800")
       val loginOtpTarget = Target.login12.otp(defaultPhone = "+7981123456", useAnimation = true)
       val rootSegment = NavService12Schema(NavService12LoginSchema()).rootSegment
@@ -1448,7 +1447,7 @@ class NavigationServiceTest :
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
               tr("A", absoluteTarget),

@@ -39,7 +39,7 @@ gradlePlugin {
       implementationClass = "ru.kode.way.gradle.WayPlugin"
       displayName = "Code generation gradle plugin for Way navigation library"
       description = "Code generation gradle plugin for Way navigation library"
-      tags = listOf("navigation", "codegen", "android", "kmm", "compose", "compose-desktop")
+      tags = listOf("navigation", "codegen", "android", "ios", "kmp", "compose", "compose-multiplatform")
     }
   }
 }

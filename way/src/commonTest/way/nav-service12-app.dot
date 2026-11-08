@@ -14,7 +14,7 @@ digraph NavService12 {
     resultType = "kotlin.Int",
   ]
 
-  page1 [parameterName = "charset", parameterType = "java.nio.charset.Charset"]
+  page1 [parameterName = "charset", parameterType = "ru.kode.way.Charset"]
 
   app -> page1 -> login
   app -> page2

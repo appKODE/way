@@ -1,7 +1,5 @@
 package ru.kode.way.compose
 
-import android.content.pm.ApplicationInfo
-import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
@@ -29,7 +27,6 @@ import androidx.compose.runtime.saveable.SaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import ru.kode.way.FlowTransition
 import ru.kode.way.NavigationService
 import ru.kode.way.NavigationState
@@ -90,7 +87,7 @@ private fun FirstRegionFallback(
   root: NodeWithPath?,
 ) {
   if (root != null) {
-    Log.w(
+    logWarn(
       LOG_TAG,
       "parallel-flow root \"${root.path}\" is not a ComposableNode; only the first region will render — " +
         "implement ComposableNode on it and call NodeHost(regionId) per sub-region in its Content()",
@@ -193,13 +190,13 @@ private fun NodeAnimatedContent(
     } else {
       if (path != null) {
         if (node is ParallelFlowNode<*>) {
-          Log.w(
+          logWarn(
             LOG_TAG,
             "parallel-flow node at \"$path\" is not a ComposableNode; rendering an empty content — " +
               "implement ComposableNode on it and call NodeHost(regionId) per sub-region in its Content()",
           )
         } else {
-          Log.d(LOG_TAG, "didn't find a ComposableNode for \"$path\", rendering an empty content")
+          logDebug(LOG_TAG, "didn't find a ComposableNode for \"$path\", rendering an empty content")
         }
       }
       Box {}
@@ -277,7 +274,7 @@ fun <R : Any> NodeHost(nodeBuilder: NodeBuilder, onFinishRequest: (R) -> FlowTra
   // nodeBuilder only, so a new lambda passed on recomposition (the common case for an inline
   // lambda) would otherwise be ignored and the stale callback kept forever.
   val currentOnFinishRequest by rememberUpdatedState(onFinishRequest)
-  val isDebuggable = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+  val isDebuggable = isDebuggable()
   val service = remember(nodeBuilder) {
     NavigationService(nodeBuilder) { result: R -> currentOnFinishRequest(result) }
       // debug builds throw on a dropped event so the bug surfaces, release builds drop it silently

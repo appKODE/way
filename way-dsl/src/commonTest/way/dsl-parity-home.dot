@@ -1,0 +1,7 @@
+digraph DslParityHome {
+  package = "ru.kode.way.dslparity.home"
+
+  home [type = flow]
+
+  home -> homeScreen -> homeDetails
+}

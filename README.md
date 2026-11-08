@@ -10,12 +10,15 @@ A graph is defined in `.dot` files, and the `ru.kode.way` Gradle plugin generate
 - node builders
 - child flow finish request events
 
+A graph can also be declared in Kotlin, without the plugin, see [Kotlin DSL](#kotlin-dsl-no-code-generation).
+
 The runtime (`:way`) executes transitions, keeps navigation state, and supports extension points.
 The Compose integration (`:way-compose`) renders active nodes with `NodeHost`.
 
 ## Modules
 
 - `:way` - Kotlin Multiplatform runtime library: JVM, Android, iOS (`iosArm64`, `iosSimulatorArm64`, `iosX64`).
+- `:way-dsl` - Kotlin DSL for declaring graphs without code generation, same platforms as `:way`.
 - `:way-compose` - Compose integration for `NavigationService`: Android (androidx Compose) and iOS (Compose Multiplatform).
 - `:way-gradle-plugin` - Gradle plugin (`id("ru.kode.way")`) that generates code from `.dot` schemas.
 - `:sample` - JVM sample.
@@ -42,6 +45,7 @@ Notes:
 dependencies {
   implementation("ru.kode:way:<version>")
   implementation("ru.kode:way-compose:<version>") // optional, for Compose host
+  implementation("ru.kode:way-dsl:<version>") // optional, for the Kotlin DSL
 }
 ```
 
@@ -224,6 +228,94 @@ step, and the hand-written `AppFlow.kt` / `AppFlowNode.kt` / `di/AppFlowComponen
 duplicated per flavor under `src/google/kotlin` / `src/huawei/kotlin` accordingly.
 `src/test/kotlin/.../AppFlowNodeTest.kt` is a shared test that only touches the symbols common to
 both flavors, compiled once per flavor to prove both generate usable code.
+
+## Kotlin DSL (no code generation)
+
+`ru.kode.way.dsl.Graph` declares a graph in Kotlin instead of a `.dot` file. It ships as a separate artifact, needs no
+Gradle plugin and runs on every platform of `:way`:
+
+```kotlin
+dependencies {
+  implementation("ru.kode:way-dsl:<version>") // brings ru.kode:way as an api dependency
+}
+```
+
+A `Graph` gives the runtime a `Schema` and a `NodeBuilder` as generated code does, so `NavigationService`, extension
+points and `:way-compose` work the same with both, and both kinds of graph can include each other's schemas.
+
+Nodes are properties of a subclass, edges are declared with `to` in its `init` block. The node without a parent is the
+root:
+
+```kotlin
+object LoginGraph : Graph("Login") {
+  val login = flow<Int>("login", parameterized = true) // Finish(result: Int), built with a payload
+  val credentials = screen("credentials")
+  val otp = parameterizedScreen<String>("otp")
+
+  init {
+    login to credentials to otp
+  }
+}
+
+object AppGraph : Graph("App") {
+  val app = flow<Unit>("app")
+  val intro = screen("intro")
+  val login = include<Int>("login", LoginGraph) // the counterpart of a `type = schema` node
+
+  init {
+    app to intro
+    app to login
+  }
+}
+```
+
+Targets come from the nodes, a payload is passed as in a generated target (`null` for a nullable parameter is fine):
+
+```kotlin
+NavigateTo(AppGraph.login.target("alice"))
+NavigateTo(LoginGraph.otp.target("+7 900 000-00-00"))
+```
+
+A finished child flow is reported to its parent with a `ChildFlowFinishedEvent`, read its typed result with
+`childFlowResult`:
+
+```kotlin
+override fun transition(event: Event): FlowTransition<Unit> {
+  val userId: Int = event.childFlowResult(AppGraph.login) ?: return Ignore
+  return NavigateTo(AppGraph.intro.target())
+}
+```
+
+`nodeBuilder` registers a factory for every node, a parameterized node gets its payload. An included graph gets a
+factory of its own `NodeBuilder`, which makes it the place for a separate DI scope:
+
+```kotlin
+val service = NavigationService<Unit>(
+  AppGraph.nodeBuilder {
+    flow(AppGraph.app) { AppFlowNode() }
+    screen(AppGraph.intro) { IntroScreen() }
+    include(AppGraph.login) { userName ->
+      LoginGraph.nodeBuilder {
+        flow(LoginGraph.login) { LoginFlowNode(it as String) }
+        screen(LoginGraph.credentials) { CredentialsScreen() }
+        screen(LoginGraph.otp) { phone -> OtpScreen(phone) }
+      }
+    }
+  },
+  onFinishRequest = { Finish(Unit) },
+)
+```
+
+`parallel(...)` declares a parallel flow. It has to be the root of its graph and its children (the regions) are
+included graphs; a parallel flow deeper in a graph is a graph of its own which is included.
+
+The graph is checked when its `schema` or `nodeBuilder` is first used: one root which is a flow or a parallel flow,
+no cycles, one parent per node, no children under an included graph, a factory for every node. Segments are
+`<node id>@<graph id>`, so graph ids have to be unique among the graphs of a service.
+
+Not supported, unlike `.dot` files: a node with several parents, full targets (with the payloads of ancestors, use
+`AbsoluteTarget`), history nodes, typed region accessors (use `Schema.regionByName`) and a separate node builder per
+local flow (include a graph instead).
 
 ## Runtime Model
 

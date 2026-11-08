@@ -1,0 +1,8 @@
+digraph DslParityLogin {
+  package = "ru.kode.way.dslparity.login"
+
+  login [type = flow, parameterName = userName, parameterType = "kotlin.String", resultType = "kotlin.Int"]
+  otp [parameterName = code, parameterType = "kotlin.Int"]
+
+  login -> credentials -> otp
+}

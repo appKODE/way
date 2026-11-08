@@ -1,0 +1,13 @@
+digraph DslParityApp {
+  package = "ru.kode.way.dslparity"
+
+  // Mirrored by DslParityGraphs.kt: the same navigation has to happen with the generated and the DSL graph.
+  app [type = flow, parameterName = timeout, parameterType = "kotlin.Int"]
+  details [parameterName = id, parameterType = "kotlin.String?"]
+  settings [type = flow, resultType = "kotlin.String"]
+  login [type = schema, parameterName = userName, parameterType = "kotlin.String", resultType = "kotlin.Int"]
+
+  app -> intro -> details
+  app -> settings -> general
+  app -> login
+}

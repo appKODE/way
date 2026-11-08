@@ -49,6 +49,7 @@ jobs:
             :way-gradle-plugin:assemble \
             :way-gradle-plugin:test \
             :way:jvmTest \
+            :way-dsl:jvmTest \
             :sample-compose:core:ui:assembleDebug \
             :sample-compose:core:routing:assembleDebug \
             :sample-compose:main:ui:assembleDebug \

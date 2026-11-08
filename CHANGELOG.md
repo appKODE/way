@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+* New artifact `ru.kode:way-dsl`: `ru.kode.way.dsl.Graph` declares a navigation graph in Kotlin, without `.dot`
+  files and code generation. It gives the runtime the same `Schema` and `NodeBuilder` as generated code, on all
+  platforms of `way`. See "Kotlin DSL" in the README.
+
 ## 0.12.0 - 2026-11-08
 
 ### Added

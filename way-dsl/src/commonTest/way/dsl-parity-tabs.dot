@@ -1,0 +1,11 @@
+digraph DslParityTabs {
+  package = "ru.kode.way.dslparity.tabs"
+
+  // Mirrored by DslParityGraphs.kt: a parallel root whose regions are imported schemas.
+  tabs [type = parallelFlow]
+  home [type = schema]
+  feed [type = schema]
+
+  tabs -> home
+  tabs -> feed
+}

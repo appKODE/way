@@ -44,7 +44,8 @@ jobs:
         run: |
           ./gradlew --no-daemon --stacktrace \
             :way-gradle-plugin:test \
-            :way:jvmTest
+            :way:jvmTest \
+            :way-dsl:jvmTest
 
       - name: Validate tag matches version
         run: |
@@ -97,7 +98,8 @@ jobs:
         run: |
           ./gradlew --no-daemon --stacktrace \
             :way:publishAndReleaseToMavenCentral \
-            :way-compose:publishAndReleaseToMavenCentral
+            :way-compose:publishAndReleaseToMavenCentral \
+            :way-dsl:publishAndReleaseToMavenCentral
 
   gh-release:
     needs: publish-libraries

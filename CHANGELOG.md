@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.12.0 - 2026-11-08
+
+### Added
+
+* `way` is published for Android and iOS (`iosArm64`, `iosSimulatorArm64`, `iosX64`) next to JVM. The coordinates
+  stay `ru.kode:way`: Gradle metadata gives each consumer the artifact of its platform, an Android module gets
+  `way-android` instead of the JVM jar.
+* `way-compose` is a Kotlin Multiplatform library for Android and iOS. On Android it depends on androidx Compose
+  1.10.6 as before; on iOS it uses Compose Multiplatform 1.10.3.
+
+### Changed
+
+* `way-compose` is built with the Android Kotlin Multiplatform library plugin instead of `com.android.library`.
+  The coordinates stay `ru.kode:way-compose`.
+* The javadoc jars are empty, which makes the upload to Maven Central smaller.
+
 ## 0.11.0 - 2026-10-06
 
 ### Added

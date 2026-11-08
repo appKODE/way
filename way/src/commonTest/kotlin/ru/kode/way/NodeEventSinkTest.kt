@@ -30,7 +30,6 @@ import ru.kode.way.parlazyint.inner.leftTab
 import ru.kode.way.parlazyint.inner.rightTab
 import ru.kode.way.parlazyint.outerApp
 import ru.kode.way.partoproot.ParallelTestTopRootSchema
-import java.nio.charset.Charset
 import ru.kode.way.nav05.app as app05
 import ru.kode.way.nav12.AppNodeBuilder as Nav12AppNodeBuilder
 import ru.kode.way.nav12.LoginNodeBuilder as Nav12LoginNodeBuilder
@@ -391,7 +390,7 @@ class NodeEventSinkTest :
         Nav12AppNodeBuilder(
           object : Nav12AppNodeBuilder.Factory {
             override fun createRootNode(timeout: Int) = TestFlowNode(
-              initialTarget = Target.app12.page1(Charsets.UTF_8),
+              initialTarget = Target.app12.page1(Charset.UTF_8),
               transitions = listOf(
                 tr("L", Target.app12.login(defaultUserName = "alice")),
                 tr("P2", Target.app12.page2),

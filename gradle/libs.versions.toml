@@ -7,6 +7,8 @@ kotlin = "2.3.20"
 spotless = "8.4.0"
 turbine = "1.2.1"
 compose = "1.10.6"
+# Compose Multiplatform for iOS; its Android artifacts map to androidx compose 1.10.5, so `compose` above wins
+composeMultiplatform = "1.10.3"
 androidExtensions = "1.13.0"
 agp = "9.0.1"
 kotlinPoet = "2.2.0"
@@ -34,6 +36,9 @@ composeRuntime = { module = "androidx.compose.runtime:runtime", version.ref = "c
 composeMaterial = { module = "androidx.compose.material:material", version.ref = "compose" }
 composeAnimation = { module = "androidx.compose.animation:animation", version.ref = "compose" }
 composeFoundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose" }
+cmpUi = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+cmpAnimation = { module = "org.jetbrains.compose.animation:animation", version.ref = "composeMultiplatform" }
+cmpFoundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
 composeUiTestJunit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "compose" }
 composeUiTestManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "compose" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
@@ -60,8 +65,10 @@ kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
+androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 way = { id = "ru.kode.way" }
 gradlePublish = { id = "com.gradle.plugin-publish", version.ref = "gradlePublishPlugin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotest = { id = "io.kotest", version.ref = "koTest" }
 vanniktech-maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }

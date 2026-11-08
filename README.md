@@ -15,10 +15,10 @@ The Compose integration (`:way-compose`) renders active nodes with `NodeHost`.
 
 ## Modules
 
-- `:way` - Runtime library structured as a Kotlin Multiplatform project (common + JVM). **Current release targets JVM/Android only. iOS and other native targets are planned for a future release.**
-- `:way-compose` - Android Compose integration for `NavigationService`.
+- `:way` - Kotlin Multiplatform runtime library: JVM, Android, iOS (`iosArm64`, `iosSimulatorArm64`, `iosX64`).
+- `:way-compose` - Compose integration for `NavigationService`: Android (androidx Compose) and iOS (Compose Multiplatform).
 - `:way-gradle-plugin` - Gradle plugin (`id("ru.kode.way")`) that generates code from `.dot` schemas.
-- `:sample` - JVM sample (KMP multi-target support is not yet released).
+- `:sample` - JVM sample.
 - `:sample-compose:*` - Android sample split into feature modules.
   - `:sample-compose:main-parallel:*` - tab-bar example using `ParallelFlowNode` (see [Compose Integration](#compose-integration)).
   - `:sample-compose:app:routing` - `google`/`huawei` product flavors with a per-flavor `.dot` extension (see [Flavor-Specific Routing](#flavor-specific-routing)).

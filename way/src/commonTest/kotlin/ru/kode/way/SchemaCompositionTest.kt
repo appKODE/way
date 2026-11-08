@@ -18,7 +18,6 @@ import ru.kode.way.nav12.AppNodeBuilder
 import ru.kode.way.nav12.LoginNodeBuilder
 import ru.kode.way.nav12.NavService12LoginSchema
 import ru.kode.way.nav12.NavService12Schema
-import java.nio.charset.Charset
 import ru.kode.way.nav12.AppChildFinishRequest as Nav12AppChildFinishRequest
 import ru.kode.way.nav12.app as app12
 import ru.kode.way.nav12.login as login12
@@ -96,7 +95,7 @@ class SchemaCompositionTest : ShouldSpec() {
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             payload = timeout,
             transitions = listOf(
               tr("C", loginWithoutPayload),
@@ -204,11 +203,11 @@ class SchemaCompositionTest : ShouldSpec() {
       val nodeBuilder = AppNodeBuilder(
         object : AppNodeBuilder.Factory {
           override fun createRootNode(timeout: Int) = TestFlowNode(
-            initialTarget = Target.app12.page1(Charsets.UTF_32),
+            initialTarget = Target.app12.page1(Charset.UTF_32),
             transitions = listOf(
               tr("L", Target.app12.login(defaultUserName = "alice")),
               tr("NL", FlowTarget(Target.app12.login(defaultUserName = "unused").path)),
-              tr("P1", Target.app12.page1(Charsets.UTF_8)),
+              tr("P1", Target.app12.page1(Charset.UTF_8)),
               tr("P2", Target.app12.page2),
               tr("H", HistoryTarget(loginPath, deep = true)),
               tr("S", HistoryTarget(loginPath, deep = false)),
@@ -273,7 +272,7 @@ class SchemaCompositionTest : ShouldSpec() {
 
       f.dropped.shouldBeEmpty()
       f.states.last().active shouldBe "app.page1.login.credentials.otp"
-      f.payloadOf("app.page1") shouldBe Charsets.UTF_32
+      f.payloadOf("app.page1") shouldBe Charset.UTF_32
       (f.states.last().aliveNodes["app.page1.login"] as TestFlowNode).payload shouldBe "alice"
       f.payloadOf("app.page1.login.credentials") shouldBe "+700"
       f.payloadOf("app.page1.login.credentials.otp") shouldBe true
@@ -297,12 +296,12 @@ class SchemaCompositionTest : ShouldSpec() {
       f.sut.start(42)
       f.openOtpAndLeave()
       f.sut.send(TestEvent("P1"))
-      f.payloadOf("app.page1") shouldBe Charsets.UTF_8
+      f.payloadOf("app.page1") shouldBe Charset.UTF_8
 
       f.sut.send(TestEvent("H"))
 
       f.states.last().active shouldBe "app.page1.login.credentials.otp"
-      f.payloadOf("app.page1") shouldBe Charsets.UTF_8
+      f.payloadOf("app.page1") shouldBe Charset.UTF_8
       f.payloadOf("app.page1.login.credentials") shouldBe "+700"
     }
 

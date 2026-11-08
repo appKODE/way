@@ -4,6 +4,9 @@ plugins {
   alias(libs.plugins.kotlinMultiplatform) apply false
   alias(libs.plugins.kotlinCompose) apply false
   alias(libs.plugins.androidApplication) apply false
+  alias(libs.plugins.androidKmpLibrary) apply false
+  alias(libs.plugins.ksp) apply false
+  alias(libs.plugins.kotest) apply false
   alias(libs.plugins.kotlinJvm) apply false
   alias(libs.plugins.vanniktech.maven.publish) apply false
 }

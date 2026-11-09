@@ -1,0 +1,7 @@
+digraph DslParityCounter {
+  package = "ru.kode.way.dslparity.counter"
+
+  counter [type = flow, parameterName = start, parameterType = "kotlin.Int?"]
+
+  counter -> counterScreen
+}

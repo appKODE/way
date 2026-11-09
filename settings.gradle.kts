@@ -19,6 +19,7 @@ rootProject.name = "way"
 
 include(":way")
 include(":way-compose")
+include(":way-dsl")
 include(":sample")
 include(":sample-compose:core:routing")
 include(":sample-compose:core:ui")

@@ -1,0 +1,7 @@
+digraph DslParityFeed {
+  package = "ru.kode.way.dslparity.feed"
+
+  feed [type = flow]
+
+  feed -> feedScreen
+}

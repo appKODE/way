@@ -10,12 +10,15 @@ A graph is defined in `.dot` files, and the `ru.kode.way` Gradle plugin generate
 - node builders
 - child flow finish request events
 
+A graph can also be declared in Kotlin, without the plugin, see [Kotlin DSL](#kotlin-dsl-no-code-generation).
+
 The runtime (`:way`) executes transitions, keeps navigation state, and supports extension points.
 The Compose integration (`:way-compose`) renders active nodes with `NodeHost`.
 
 ## Modules
 
 - `:way` - Kotlin Multiplatform runtime library: JVM, Android, iOS (`iosArm64`, `iosSimulatorArm64`, `iosX64`).
+- `:way-dsl` - Kotlin DSL for declaring graphs without code generation, same platforms as `:way`.
 - `:way-compose` - Compose integration for `NavigationService`: Android (androidx Compose) and iOS (Compose Multiplatform).
 - `:way-gradle-plugin` - Gradle plugin (`id("ru.kode.way")`) that generates code from `.dot` schemas.
 - `:sample` - JVM sample.
@@ -42,6 +45,7 @@ Notes:
 dependencies {
   implementation("ru.kode:way:<version>")
   implementation("ru.kode:way-compose:<version>") // optional, for Compose host
+  implementation("ru.kode:way-dsl:<version>") // optional, for the Kotlin DSL
 }
 ```
 
@@ -224,6 +228,127 @@ step, and the hand-written `AppFlow.kt` / `AppFlowNode.kt` / `di/AppFlowComponen
 duplicated per flavor under `src/google/kotlin` / `src/huawei/kotlin` accordingly.
 `src/test/kotlin/.../AppFlowNodeTest.kt` is a shared test that only touches the symbols common to
 both flavors, compiled once per flavor to prove both generate usable code.
+
+## Kotlin DSL (no code generation)
+
+`ru.kode.way.dsl.Graph` declares a graph in Kotlin instead of a `.dot` file. It ships as a separate artifact, needs no
+Gradle plugin and runs on every platform of `:way`:
+
+```kotlin
+dependencies {
+  implementation("ru.kode:way-dsl:<version>") // brings ru.kode:way as an api dependency
+}
+```
+
+A `Graph` gives the runtime a `Schema` and a `NodeBuilder` as generated code does, so `NavigationService`, extension
+points and `:way-compose` work the same with both, and both kinds of graph can include each other's schemas.
+
+Nodes are properties of a subclass, edges are declared with `to` in its `init` block. The node without a parent is the
+root. A flow declares the type of its result, a parameterized node the type of its payload:
+
+```kotlin
+object LoginGraph : Graph("Login") {
+  val login = parameterizedFlow<String, Int>("login") // built with a String, Finish(result: Int)
+  val credentials = screen("credentials")
+  val otp = parameterizedScreen<String>("otp")
+
+  init {
+    login to credentials to otp
+  }
+}
+
+object AppGraph : Graph("App") {
+  val app = flow<Unit>("app")
+  val intro = screen("intro")
+  val login = include("login", LoginGraph.login) // a `type = schema` node, with the payload and result of the root
+
+  init {
+    app to intro
+    app to login
+  }
+}
+```
+
+Targets come from the nodes and take a payload of the declared type, as a generated target does:
+
+```kotlin
+NavigateTo(AppGraph.login.target("alice"))
+NavigateTo(LoginGraph.otp.target("+7 900 000-00-00"))
+```
+
+A flow with a nullable parameter (`parameterizedFlow<String?, Unit>`) takes `null` in its target; as the root of a
+graph it is built with `null` when it is started without a payload.
+
+A finished child flow is reported to its parent with a `ChildFlowFinishedEvent`, read its typed result with
+`childFlowResult`:
+
+```kotlin
+override fun transition(event: Event): FlowTransition<Unit> {
+  val userId: Int = event.childFlowResult(AppGraph.login) ?: return Ignore
+  return NavigateTo(AppGraph.intro.target())
+}
+```
+
+`nodeBuilder` registers a factory for every node, a parameterized node gets its typed payload (`Unit` for a flow
+without a parameter). An included graph gets a factory of its own `NodeBuilder`, which makes it the place for a
+separate DI scope:
+
+```kotlin
+val service = NavigationService<Unit>(
+  AppGraph.nodeBuilder {
+    flow(AppGraph.app) { AppFlowNode() }
+    screen(AppGraph.intro) { IntroScreen() }
+    include(AppGraph.login) { userName: String ->
+      LoginGraph.nodeBuilder {
+        flow(LoginGraph.login) { LoginFlowNode(it) }
+        screen(LoginGraph.credentials) { CredentialsScreen() }
+        screen(LoginGraph.otp) { phone -> OtpScreen(phone) }
+      }
+    }
+  },
+  onFinishRequest = { Finish(Unit) },
+)
+```
+
+`parallel<R>(...)` (`parameterizedParallel<P, R>(...)`) declares a parallel flow. It can be the root or sit under a
+flow, a screen or another parallel flow; its children (the regions) are flows, parallel flows or included graphs.
+
+`history(...)` and `deepHistory(...)` declare history nodes. A history node is a leaf under a flow, or under a parallel
+flow with a flow above it; its target re-enters the parent with the nodes which were active when it was left. History
+nodes need no factory:
+
+```kotlin
+object ShopGraph : Graph("Shop") {
+  val shop = flow<Unit>("shop")
+  val cart = screen("cart")
+  val checkout = screen("checkout")
+  val lastStep = deepHistory("lastStep")
+
+  init {
+    shop to cart to checkout
+    shop to lastStep
+  }
+}
+
+NavigateTo(ShopGraph.lastStep.target()) // back to checkout if the shop was left from there
+```
+
+An included graph can have several parents, which are not parallel flows and are in the same region. Its target then
+needs the parent it is entered from, the counterpart of a generated `<id>Via<Parent>` target:
+
+```kotlin
+NavigateTo(SettingsGraph.permission.target("camera", via = SettingsGraph.profile))
+```
+
+The graph is checked when its `schema` or `nodeBuilder` is first used, with the rules of a `.dot` file: one root which
+is a flow or a parallel flow, no cycles, children under a root flow and under every parallel flow, several parents
+only for an included graph, no children under an included graph, history nodes in place, a factory for every node
+but a history one. Segments are `<node id>@<graph id>`, so graph ids have to be unique among the graphs of a service.
+
+Not supported, unlike `.dot` files: screens as regions of a parallel flow (wrap them in a flow), full targets (with
+the payloads of ancestors, use `AbsoluteTarget`), typed region accessors (use `Schema.regionByName`) and a separate node
+builder per local flow (include a graph instead). The target of a node under a parallel flow starts at its closest
+flow, not at the flow above the parallel one as in generated code; both resolve to the same node.
 
 ## Runtime Model
 

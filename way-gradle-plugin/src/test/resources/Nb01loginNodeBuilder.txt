@@ -37,7 +37,10 @@ public class Nb01loginNodeBuilder(
 
   override fun invalidateCache(alivePaths: Set<Path>): Unit = Unit
 
-  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path {
+    val path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, null) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
+    return Path(listOf(rootSegmentAlias ?: Segment("nb01login@NodeBuildersTest01:src/test/resources/node-builders-multiple-flows.dot")) + path.segments.drop(2))
+  }
 
   @Suppress("UNCHECKED_CAST")
   public fun <T> payloadOrError(

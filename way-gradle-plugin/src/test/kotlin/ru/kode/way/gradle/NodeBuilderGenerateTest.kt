@@ -53,6 +53,11 @@ class NodeBuilderGenerateTest :
         testName = "imported schema reachable from several parents is built per path with that path's payloads",
       ),
       TestCase(
+        schemaFile = "node-builders-nested-local-flow.dot",
+        expectedOutputFiles = listOf("Nlf01settingsNodeBuilder.txt"),
+        testName = "nested local flow builds its children under its own segment",
+      ),
+      TestCase(
         schemaFile = "schema-parallel-history.dot",
         expectedOutputFiles = listOf("Ph01mainNodeBuilder.txt", "Ph01tabsNodeBuilder.txt"),
         testName = "history child of a parallel is not a region",

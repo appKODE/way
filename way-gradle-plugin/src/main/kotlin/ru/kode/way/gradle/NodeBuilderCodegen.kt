@@ -358,8 +358,12 @@ internal fun buildNodeBuilderTypeSpec(
         )
       }
     }
-    .addFunction(buildTargetOrErrorFunSpec())
+    // A non-root flow shares the schema of its root: its targets come from the schema root, so they are re-based
+    // onto this flow's own segment (or its alias), else the alias would replace the schema root and repeat this one.
     .apply {
+      val ownRoot = if (isRootNode) null else OwnRoot(buildSegmentId(flow), reversedParents(flow, adjacencyList).size)
+      addFunction(buildTargetOrErrorFunSpec(ownRoot))
+      // only a root flow builds nested flows (and so fan-in schemas) itself
       if (lazyNodeBuilderFactories.keys.any { adjacencyList.isFanIn(it) }) addFunction(buildTargetsOrErrorFunSpec())
     }
     .addFunction(buildPayloadOrErrorFunSpec())
@@ -579,6 +583,9 @@ private fun buildFanInLazyNodeBuilderFunSpec(node: Node.Flow, flowFactoryName: S
   .endControlFlow()
   .build()
 
+/** A non-root flow's own segment id and the length of its path from the schema root, itself included. */
+private data class OwnRoot(val segmentId: String, val prefixSize: Int)
+
 private fun buildTargetsOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGETS_OR_ERROR_FUN_NAME)
   .returns(LIST.parameterizedBy(PATH))
   .addParameter("segment", SEGMENT)
@@ -592,16 +599,34 @@ private fun buildTargetsOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGETS_OR_E
   )
   .build()
 
-private fun buildTargetOrErrorFunSpec(): FunSpec = FunSpec.builder(TARGET_OR_ERROR_FUN_NAME)
+private fun buildTargetOrErrorFunSpec(ownRoot: OwnRoot?): FunSpec = FunSpec.builder(TARGET_OR_ERROR_FUN_NAME)
   .returns(PATH)
   .addParameter("segment", SEGMENT)
   .addParameter("rootSegmentAlias", SEGMENT.copy(nullable = true))
-  .addCode(
-    "return %L.regions.firstNotNullOfOrNull·{·%L.target(it,${NBSP}segment, rootSegmentAlias)·}·?: error(%P)",
-    SCHEMA_PARAMETER_NAME,
-    SCHEMA_PARAMETER_NAME,
-    "internal error: no target generated for segment \"\${segment.id}\"",
-  )
+  .apply {
+    if (ownRoot == null) {
+      addCode(
+        "return %L.regions.firstNotNullOfOrNull·{·%L.target(it,${NBSP}segment, rootSegmentAlias)·}·?: error(%P)",
+        SCHEMA_PARAMETER_NAME,
+        SCHEMA_PARAMETER_NAME,
+        "internal error: no target generated for segment \"\${segment.id}\"",
+      )
+    } else {
+      addStatement(
+        "val path = %L.regions.firstNotNullOfOrNull·{·%L.target(it,${NBSP}segment, null)·}·?: error(%P)",
+        SCHEMA_PARAMETER_NAME,
+        SCHEMA_PARAMETER_NAME,
+        "internal error: no target generated for segment \"\${segment.id}\"",
+      )
+      addStatement(
+        "return %T(listOf(rootSegmentAlias·?: %T(%S)) + path.segments.drop(%L))",
+        PATH,
+        SEGMENT,
+        ownRoot.segmentId,
+        ownRoot.prefixSize,
+      )
+    }
+  }
   .build()
 
 private fun buildPayloadOrErrorFunSpec(): FunSpec = FunSpec.builder(PAYLOAD_OR_ERROR_FUN_NAME)

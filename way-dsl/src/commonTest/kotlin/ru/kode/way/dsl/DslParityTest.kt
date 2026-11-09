@@ -17,13 +17,13 @@ import ru.kode.way.TestEvent
 import ru.kode.way.TestFlowNode
 import ru.kode.way.TestFlowNodeWithResult
 import ru.kode.way.TestFlowTransitionSpec
-import ru.kode.way.TestNodeBuilder
 import ru.kode.way.TestParallelNode
 import ru.kode.way.TestParallelTransitionSpec
 import ru.kode.way.TestScreenNode
 import ru.kode.way.dslparity.AppChildFinishRequest
 import ru.kode.way.dslparity.AppNodeBuilder
 import ru.kode.way.dslparity.DslParityAppSchema
+import ru.kode.way.dslparity.SettingsNodeBuilder
 import ru.kode.way.dslparity.app
 import ru.kode.way.dslparity.counter.CounterNodeBuilder
 import ru.kode.way.dslparity.counter.DslParityCounterSchema
@@ -37,6 +37,7 @@ import ru.kode.way.dslparity.feed.FeedNodeBuilder
 import ru.kode.way.dslparity.feed.feed
 import ru.kode.way.dslparity.history.DslParityHistorySchema
 import ru.kode.way.dslparity.history.HistNodeBuilder
+import ru.kode.way.dslparity.history.ShopNodeBuilder
 import ru.kode.way.dslparity.history.hist
 import ru.kode.way.dslparity.history.shop
 import ru.kode.way.dslparity.home.DslParityHomeSchema
@@ -266,10 +267,13 @@ private fun generatedAppBuilder(): NodeBuilder {
       override fun createIntroNode() = TestScreenNode()
       override fun createDetailsNode(id: String?) = TestScreenNode(payload = id)
 
-      // the generated SettingsNodeBuilder resolves "general" to app.settings.general under the "settings" alias and
-      // fails to build it, so the local flow is built by hand
-      override fun createSettingsNodeBuilder(): NodeBuilder =
-        TestNodeBuilder(schema, mapOf("settings" to settingsNode(spec), "settings.general" to TestScreenNode()))
+      override fun createSettingsNodeBuilder(): NodeBuilder = SettingsNodeBuilder(
+        object : SettingsNodeBuilder.Factory {
+          override fun createRootNode() = settingsNode(spec)
+          override fun createGeneralNode() = TestScreenNode()
+        },
+        schema,
+      )
 
       override fun createLoginNodeBuilder(userName: String): NodeBuilder = LoginNodeBuilder(
         object : LoginNodeBuilder.Factory {
@@ -465,10 +469,13 @@ private fun generatedHistoryBuilder(): NodeBuilder {
       override fun createRootNode() = histRootNode(spec)
       override fun createHomeNode() = TestScreenNode()
 
-      // way#19: the generated ShopNodeBuilder duplicates the root segment of the nested flow, built by hand
-      override fun createShopNodeBuilder(): NodeBuilder = TestNodeBuilder(
+      override fun createShopNodeBuilder(): NodeBuilder = ShopNodeBuilder(
+        object : ShopNodeBuilder.Factory {
+          override fun createRootNode() = shopNode(spec)
+          override fun createCartNode() = TestScreenNode()
+          override fun createCheckoutNode() = TestScreenNode()
+        },
         schema,
-        mapOf("shop" to shopNode(spec), "shop.cart" to TestScreenNode(), "shop.cart.checkout" to TestScreenNode()),
       )
     },
     schema,

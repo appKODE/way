@@ -264,16 +264,24 @@ sealed class NodeRef(
   }
 
   /**
-   * [FlowTarget.ancestorPayloads] / [ScreenTarget.ancestorPayloads] of a full target: every one of [ancestors] must be a
-   * parameterized ancestor of this node (entered through [via]).
+   * [FlowTarget.ancestorPayloads] / [ScreenTarget.ancestorPayloads] of a full target: [ancestors] must be the payloads
+   * of every parameterized ancestor of this node (entered through [via]) below the root of the graph, which is always
+   * alive, as the arguments of a generated full target are. No [ancestors] is a short target.
    */
   internal fun ancestorPayloads(ancestors: Array<out AncestorPayload>, via: NodeRef? = null): Map<Segment, Any?> {
     if (ancestors.isEmpty()) return emptyMap()
-    val above = generateSequence(via ?: graph.parentsOf(this).firstOrNull(), graph::parentOf).toSet()
-    return ancestors.associate {
-      require(it.ref.parameterized && it.ref in above) { "'${it.ref.id}' is not a parameterized ancestor of '$id'" }
+    val required = generateSequence(via ?: graph.parentsOf(this).firstOrNull(), graph::parentOf)
+      .filter { it.parameterized && graph.parentsOf(it).isNotEmpty() }
+      .toList()
+    val payloads = ancestors.associate {
+      require(it.ref in required) { "'${it.ref.id}' is not a parameterized ancestor of '$id'" }
       it.ref.segment to it.value
     }
+    val missing = required.filter { it.segment !in payloads }
+    require(missing.isEmpty()) {
+      "full target of '$id' has no payloads for parameterized ancestors: ${missing.asReversed().joinToString { it.id }}"
+    }
+    return payloads
   }
 }
 

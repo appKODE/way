@@ -856,6 +856,8 @@ class DslParityTest :
         "'item' is not a parameterized ancestor of 'shopScreen'"
       shouldThrow<IllegalArgumentException> { FullGraph.item.target(5, FullGraph.item with 5) }.message shouldBe
         "'item' is not a parameterized ancestor of 'item'"
+      shouldThrow<IllegalArgumentException> { FullGraph.promo.target(FullGraph.item with 5) }.message shouldBe
+        "full target of 'promo' has no payloads for parameterized ancestors: shop"
     }
 
     should("navigate to history nodes as the generated graph does") {

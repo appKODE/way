@@ -262,21 +262,48 @@ sealed class NodeRef(
     }
     return Path(segments)
   }
+
+  /**
+   * [FlowTarget.ancestorPayloads] / [ScreenTarget.ancestorPayloads] of a full target: every one of [ancestors] must be a
+   * parameterized ancestor of this node (entered through [via]).
+   */
+  internal fun ancestorPayloads(ancestors: Array<out AncestorPayload>, via: NodeRef? = null): Map<Segment, Any?> {
+    if (ancestors.isEmpty()) return emptyMap()
+    val above = generateSequence(via ?: graph.parentsOf(this).firstOrNull(), graph::parentOf).toSet()
+    return ancestors.associate {
+      require(it.ref.parameterized && it.ref in above) { "'${it.ref.id}' is not a parameterized ancestor of '$id'" }
+      it.ref.segment to it.value
+    }
+  }
 }
+
+/** A payload of a parameterized ancestor in a full target, made with [with]. */
+class AncestorPayload internal constructor(internal val ref: NodeRef, internal val value: Any?)
+
+/** The [payload] of this parameterized flow when it is an ancestor in a full target. */
+infix fun <P> FlowNodeRef<P, *>.with(payload: P): AncestorPayload = AncestorPayload(this, payload)
+
+/** The [payload] of this parameterized screen when it is an ancestor in a full target. */
+infix fun <P> ParameterizedScreenRef<P>.with(payload: P): AncestorPayload = AncestorPayload(this, payload)
 
 /** A flow or a parallel flow with a parameter of type [P] (`Unit` for none) and a result of type [R]. */
 sealed class FlowNodeRef<P, R : Any>(graph: Graph, id: String, parameterized: Boolean, nullable: Boolean) :
   NodeRef(graph, id, parameterized, nullable) {
   /**
    * A target which starts this flow with [payload]. An included graph with several parents needs [via], the parent
-   * it is entered from (a generated `<id>Via<Parent>` target).
+   * it is entered from (a generated `<id>Via<Parent>` target). Payloads of parameterized [ancestors]
+   * (`shop with shopId`) make it a full target, which rebuilds them when they are not alive, like a generated full target.
    */
-  fun target(payload: P, via: NodeRef? = null): FlowTarget =
-    FlowTarget(targetPath(via), if (parameterized) payload ?: NullPayload else null)
+  fun target(payload: P, vararg ancestors: AncestorPayload, via: NodeRef? = null): FlowTarget = FlowTarget(
+    targetPath(via),
+    if (parameterized) payload ?: NullPayload else null,
+    ancestorPayloads(ancestors, via),
+  )
 }
 
 /** A target of a flow without a parameter, see [FlowNodeRef.target]. */
-fun FlowNodeRef<Unit, *>.target(via: NodeRef? = null): FlowTarget = target(Unit, via)
+fun FlowNodeRef<Unit, *>.target(vararg ancestors: AncestorPayload, via: NodeRef? = null): FlowTarget =
+  target(Unit, *ancestors, via = via)
 
 class FlowRef<P, R : Any> internal constructor(
   graph: Graph,
@@ -304,12 +331,16 @@ class ParallelRef<P, R : Any> internal constructor(
 }
 
 class ScreenRef internal constructor(graph: Graph, id: String) : NodeRef(graph, id, parameterized = false) {
-  fun target(): ScreenTarget = ScreenTarget(targetPath())
+  /** A target of this screen, a full one with payloads of parameterized [ancestors], see [FlowNodeRef.target]. */
+  fun target(vararg ancestors: AncestorPayload): ScreenTarget =
+    ScreenTarget(targetPath(), ancestorPayloads = ancestorPayloads(ancestors))
 }
 
 class ParameterizedScreenRef<P> internal constructor(graph: Graph, id: String) :
   NodeRef(graph, id, parameterized = true) {
-  fun target(payload: P): ScreenTarget = ScreenTarget(targetPath(), payload ?: NullPayload)
+  /** A target of this screen, a full one with payloads of parameterized [ancestors], see [FlowNodeRef.target]. */
+  fun target(payload: P, vararg ancestors: AncestorPayload): ScreenTarget =
+    ScreenTarget(targetPath(), payload ?: NullPayload, ancestorPayloads(ancestors))
 }
 
 /**

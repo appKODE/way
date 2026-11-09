@@ -340,13 +340,26 @@ needs the parent it is entered from, the counterpart of a generated `<id>Via<Par
 NavigateTo(SettingsGraph.permission.target("camera", via = SettingsGraph.profile))
 ```
 
+A full target carries the payloads of parameterized ancestors, so they are rebuilt when they are not alive (a cold
+start, a flow's `initial`, a jump into another branch), the counterpart of a generated full target:
+
+```kotlin
+NavigateTo(ShopGraph.promo.target(ShopGraph.shop with "s1", ShopGraph.item with 5))
+```
+
+The region id of a child of a parallel flow is relative to the parallel's schema, the counterpart of a generated
+`<child>RegionId`:
+
+```kotlin
+override val initialRegions = setOf(TabsGraph.tabs.regionId(TabsGraph.home))
+```
+
 The graph is checked when its `schema` or `nodeBuilder` is first used, with the rules of a `.dot` file: one root which
 is a flow or a parallel flow, no cycles, children under a root flow and under every parallel flow, several parents
 only for an included graph, no children under an included graph, history nodes in place, a factory for every node
 but a history one. Segments are `<node id>@<graph id>`, so graph ids have to be unique among the graphs of a service.
 
-Not supported, unlike `.dot` files: screens as regions of a parallel flow (wrap them in a flow), full targets (with
-the payloads of ancestors, use `AbsoluteTarget`), typed region accessors (use `Schema.regionByName`) and a separate node
+Not supported, unlike `.dot` files: screens as regions of a parallel flow (wrap them in a flow) and a separate node
 builder per local flow (include a graph instead). The target of a node under a parallel flow starts at its closest
 flow, not at the flow above the parallel one as in generated code; both resolve to the same node.
 

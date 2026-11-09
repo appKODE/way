@@ -1,5 +1,6 @@
 package ru.kode.way.dsl
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -35,6 +36,10 @@ import ru.kode.way.dslparity.fanin.shared
 import ru.kode.way.dslparity.feed.DslParityFeedSchema
 import ru.kode.way.dslparity.feed.FeedNodeBuilder
 import ru.kode.way.dslparity.feed.feed
+import ru.kode.way.dslparity.full.DslParityFullSchema
+import ru.kode.way.dslparity.full.FullNodeBuilder
+import ru.kode.way.dslparity.full.PromoNodeBuilder
+import ru.kode.way.dslparity.full.full
 import ru.kode.way.dslparity.history.DslParityHistorySchema
 import ru.kode.way.dslparity.history.HistNodeBuilder
 import ru.kode.way.dslparity.history.ShopNodeBuilder
@@ -70,6 +75,9 @@ import ru.kode.way.dslparity.tabs.DslParityTabsSchema
 import ru.kode.way.dslparity.tabs.TabsChildFinishRequest
 import ru.kode.way.dslparity.tabs.TabsNodeBuilder
 import ru.kode.way.tr
+import ru.kode.way.dslparity.full.ShopNodeBuilder as FullShopNodeBuilder
+import ru.kode.way.dslparity.full.promo as fullPromo
+import ru.kode.way.dslparity.full.shop as fullShop
 import ru.kode.way.dslparity.nested.TabsNodeBuilder as NestedTabsNodeBuilder
 
 /** The DSL counterparts of `dsl-parity-*.dot`. */
@@ -363,6 +371,63 @@ private fun dslTabsBuilder(): NodeBuilder = TabsGraph.nodeBuilder {
       screen(FeedGraph.feedScreen) { TestScreenNode() }
     }
   }
+}
+
+private object FullGraph : Graph("DslParityFull") {
+  val full = flow<Unit>("full")
+  val home = screen("home")
+  val shop = parameterizedFlow<String, Unit>("shop")
+  val shopScreen = screen("shopScreen")
+  val item = parameterizedScreen<Int>("item")
+  val promo = flow<Unit>("promo")
+  val promoScreen = screen("promoScreen")
+
+  init {
+    full to home
+    full to shop to shopScreen
+    shop to item to promo to promoScreen
+  }
+}
+
+private fun fullRootNode(home: Target, promo: Target) =
+  TestFlowNode(initialTarget = home, transitions = listOf(tr("P", promo)))
+
+private fun generatedFullBuilder(): NodeBuilder {
+  val schema = DslParityFullSchema()
+  return FullNodeBuilder(
+    object : FullNodeBuilder.Factory {
+      override fun createRootNode() = fullRootNode(Target.full.home, Target.full.promo("s1", 5))
+      override fun createHomeNode() = TestScreenNode()
+      override fun createShopNodeBuilder(shopId: String): NodeBuilder = FullShopNodeBuilder(
+        object : FullShopNodeBuilder.Factory {
+          override fun createRootNode(shopId: String) =
+            TestFlowNode(initialTarget = Target.fullShop.shopScreen, payload = shopId)
+          override fun createShopScreenNode() = TestScreenNode()
+          override fun createItemNode(itemId: Int) = TestScreenNode(payload = itemId)
+        },
+        schema,
+      )
+      override fun createPromoNodeBuilder(): NodeBuilder = PromoNodeBuilder(
+        object : PromoNodeBuilder.Factory {
+          override fun createRootNode() = TestFlowNode(initialTarget = Target.fullPromo.promoScreen)
+          override fun createPromoScreenNode() = TestScreenNode()
+        },
+        schema,
+      )
+    },
+    schema,
+  )
+}
+
+private fun dslFullBuilder(): NodeBuilder = FullGraph.nodeBuilder {
+  val promo = FullGraph.promo.target(FullGraph.shop with "s1", FullGraph.item with 5)
+  flow(FullGraph.full) { fullRootNode(FullGraph.home.target(), promo) }
+  screen(FullGraph.home) { TestScreenNode() }
+  flow(FullGraph.shop) { TestFlowNode(initialTarget = FullGraph.shopScreen.target(), payload = it) }
+  screen(FullGraph.shopScreen) { TestScreenNode() }
+  screen(FullGraph.item) { TestScreenNode(payload = it) }
+  flow(FullGraph.promo) { TestFlowNode(initialTarget = FullGraph.promoScreen.target()) }
+  screen(FullGraph.promoScreen) { TestScreenNode() }
 }
 
 private class ParamsSpec(
@@ -777,6 +842,20 @@ class DslParityTest :
         dsl[1].single() shouldContain "params=$rootPayload, params.paramsScreen=null, params.paramsScreen.counter=null,"
         dsl[4].single() shouldContain "params.paramsScreen.counter=7,"
       }
+    }
+
+    should("rebuild ancestors which are not alive from a full target as the generated graph does") {
+      val (generated, _) = run(generatedFullBuilder(), rootPayload = null, listOf("P"))
+      val (dsl, _) = run(dslFullBuilder(), rootPayload = null, listOf("P"))
+
+      dsl shouldBe generated
+      dsl.last().single() shouldBe
+        "full.shop.item.promo.promoScreen [full=null, full.shop=s1, full.shop.item=5, full.shop.item.promo=null, " +
+        "full.shop.item.promo.promoScreen=null]"
+      shouldThrow<IllegalArgumentException> { FullGraph.shopScreen.target(FullGraph.item with 5) }.message shouldBe
+        "'item' is not a parameterized ancestor of 'shopScreen'"
+      shouldThrow<IllegalArgumentException> { FullGraph.item.target(5, FullGraph.item with 5) }.message shouldBe
+        "'item' is not a parameterized ancestor of 'item'"
     }
 
     should("navigate to history nodes as the generated graph does") {

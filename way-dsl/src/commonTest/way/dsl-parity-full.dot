@@ -1,0 +1,13 @@
+digraph DslParityFull {
+  package = "ru.kode.way.dslparity.full"
+
+  // Mirrored by DslParityTest.kt: a full target into a branch whose parameterized ancestors are not alive.
+  full [type = flow]
+  shop [type = flow, parameterName = shopId, parameterType = "kotlin.String"]
+  item [parameterName = itemId, parameterType = "kotlin.Int"]
+  promo [type = flow]
+
+  full -> home
+  full -> shop -> shopScreen
+  shop -> item -> promo -> promoScreen
+}

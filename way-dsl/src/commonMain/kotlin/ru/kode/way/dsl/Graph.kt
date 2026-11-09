@@ -6,6 +6,7 @@ import ru.kode.way.HistoryTarget
 import ru.kode.way.NodeBuilder
 import ru.kode.way.NullPayload
 import ru.kode.way.Path
+import ru.kode.way.RegionId
 import ru.kode.way.Schema
 import ru.kode.way.ScreenTarget
 import ru.kode.way.Segment
@@ -290,7 +291,17 @@ class ParallelRef<P, R : Any> internal constructor(
   id: String,
   parameterized: Boolean,
   nullable: Boolean,
-) : FlowNodeRef<P, R>(graph, id, parameterized, nullable)
+) : FlowNodeRef<P, R>(graph, id, parameterized, nullable) {
+  /**
+   * Id of the region which starts at [child], relative to the schema of this parallel flow, like a generated
+   * `<child>RegionId`. Use it in `initialRegions`, `startRegion`, `DispatchBackTo` and `NodeHost(regionId = ...)`.
+   */
+  fun regionId(child: FlowNodeRef<*, *>): RegionId {
+    graph.schema // validates and freezes the graph
+    require(this in graph.parentsOf(child)) { "'${child.id}' is not a region of parallel '$id'" }
+    return RegionId(Path(listOf(segment, child.segment)))
+  }
+}
 
 class ScreenRef internal constructor(graph: Graph, id: String) : NodeRef(graph, id, parameterized = false) {
   fun target(): ScreenTarget = ScreenTarget(targetPath())

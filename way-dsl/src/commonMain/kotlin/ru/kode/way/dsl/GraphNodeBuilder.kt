@@ -22,80 +22,106 @@ import ru.kode.way.take
 class NodeFactories internal constructor(private val graph: Graph) {
   internal val factories = HashMap<NodeRef, (Any?) -> Any>()
 
-  /** [factory] gets the payload of the flow, `null` for a flow without a parameter. */
-  fun flow(ref: FlowRef<*>, factory: (payload: Any?) -> FlowNode<*>) {
+  /** [factory] gets the payload of the flow, `Unit` for a flow without a parameter. */
+  fun <P, R : Any> flow(ref: FlowRef<P, R>, factory: (payload: P) -> FlowNode<R>) {
     require(ref.included == null) { "'${ref.id}' is an included graph, register it with include()" }
     put(ref, factory)
   }
 
-  fun parallel(ref: ParallelRef, factory: (payload: Any?) -> ParallelFlowNode<*>) = put(ref, factory)
+  /** [factory] gets the payload of the parallel flow, `Unit` for a parallel flow without a parameter. */
+  fun <P, R : Any> parallel(ref: ParallelRef<P, R>, factory: (payload: P) -> ParallelFlowNode<R>) = put(ref, factory)
 
-  fun screen(ref: ScreenRef, factory: () -> ScreenNode) = put(ref) { factory() }
+  fun screen(ref: ScreenRef, factory: () -> ScreenNode) = put(ref) { _: Any? -> factory() }
 
-  @Suppress("UNCHECKED_CAST")
-  fun <P> screen(ref: ParameterizedScreenRef<P>, factory: (payload: P) -> ScreenNode) = put(ref) { factory(it as P) }
+  fun <P> screen(ref: ParameterizedScreenRef<P>, factory: (payload: P) -> ScreenNode) = put(ref, factory)
 
   /** [factory] creates the [NodeBuilder] of the included graph, it gets the payload of the graph's root. */
-  fun include(ref: FlowRef<*>, factory: (payload: Any?) -> NodeBuilder) {
+  fun <P> include(ref: FlowRef<P, *>, factory: (payload: P) -> NodeBuilder) {
     require(ref.included != null) { "'${ref.id}' is not an included graph, register it with flow()" }
     put(ref, factory)
   }
 
-  private fun put(ref: NodeRef, factory: (Any?) -> Any) {
+  @Suppress("UNCHECKED_CAST")
+  private fun <P> put(ref: NodeRef, factory: (P) -> Any) {
     require(ref.graph === graph) { "node '$ref' does not belong to graph '${graph.id}'" }
-    factories[ref] = factory
+    factories[ref] = { payload -> factory(payload as P) }
   }
 }
 
-internal class GraphSchema(private val graph: Graph) : Schema {
-  override val rootSegment: Segment = graph.rootNode.segment
+/**
+ * The schema of the part of a [Graph] under [root], the graph's root or a node which owns a schema (see
+ * [Graph.ownsSchema]), as a generated schema or virtual sub-schema is. History nodes are not part of it: they are never
+ * built, their target is the one of their parent.
+ */
+internal class GraphSchema(private val graph: Graph, private val root: NodeRef) : Schema {
+  private val nodes: Set<NodeRef> = LinkedHashSet<NodeRef>().also { collect(root, it) }
 
-  override val childSchemas: Map<Segment, Schema> = collectNodes(graph.rootNode)
-    .mapNotNull { node -> (node as? FlowRef<*>)?.included?.let { node.segment to it.schema } }
-    .toMap()
+  override val rootSegment: Segment = root.segment
 
-  override val regions: List<RegionId> = if (graph.rootNode is ParallelRef) {
-    graph.childrenOf(graph.rootNode).map { RegionId(Path(listOf(rootSegment, it.segment))) }
-  } else {
-    listOf(RegionId(Path(rootSegment)))
-  }
+  override val childSchemas: Map<Segment, Schema> = nodes.filter { it !== root }.mapNotNull { node ->
+    val included = (node as? FlowRef<*, *>)?.included
+    when {
+      included != null -> node.segment to included.schema
+      graph.ownsSchema(node) -> node.segment to GraphSchema(graph, node)
+      else -> null
+    }
+  }.toMap()
 
-  override fun target(regionId: RegionId, segment: Segment, rootSegmentAlias: Segment?): Path? {
+  /**
+   * The root unless it is a parallel flow, then the children of every parallel flow which is not a child of another
+   * one (the regions of that one), as in a generated schema.
+   */
+  override val regions: List<RegionId> = buildList {
+    if (root !is ParallelRef<*, *>) add(root)
+    nodes.filter { it is ParallelRef<*, *> && (it === root || graph.parentOf(it) !is ParallelRef<*, *>) }
+      .forEach { parallel -> addAll(graph.childrenOf(parallel).filter { it in nodes }) }
+  }.map { RegionId(pathsOf(it, rootSegmentAlias = null).single()) }
+
+  override fun target(regionId: RegionId, segment: Segment, rootSegmentAlias: Segment?): Path? =
+    targets(regionId, segment, rootSegmentAlias).firstOrNull()
+
+  override fun targets(regionId: RegionId, segment: Segment, rootSegmentAlias: Segment?): List<Path> {
     checkRegion(regionId)
-    return graph.nodeBySegment(segment)?.let { pathOf(it, rootSegmentAlias) }
+    return graph.nodeBySegment(segment)?.takeIf { it in nodes }?.let { pathsOf(it, rootSegmentAlias) }.orEmpty()
   }
 
   override fun nodeType(regionId: RegionId, path: Path, rootSegmentAlias: Segment?): Schema.NodeType =
     when (nodeAt(regionId, path, rootSegmentAlias)) {
-      is FlowRef<*> -> Schema.NodeType.Flow
-      is ParallelRef -> Schema.NodeType.ParallelFlow
+      is FlowRef<*, *> -> Schema.NodeType.Flow
+      is ParallelRef<*, *> -> Schema.NodeType.ParallelFlow
       is ScreenRef, is ParameterizedScreenRef<*> -> Schema.NodeType.Screen
+      is HistoryRef -> error("internal error: history node at path=$path")
     }
 
-  override fun isParameterized(regionId: RegionId, path: Path, rootSegmentAlias: Segment?): Boolean =
-    nodeAt(regionId, path, rootSegmentAlias).parameterized
+  /** A nullable root is built with `null` when it has no payload, so it never misses one. */
+  override fun isParameterized(regionId: RegionId, path: Path, rootSegmentAlias: Segment?): Boolean {
+    val node = nodeAt(regionId, path, rootSegmentAlias)
+    return node.parameterized && !(node === root && node.nullable)
+  }
 
   override fun createChildFlowFinishRequestEvent(regionId: RegionId, path: Path, result: Any): Event {
     checkRegion(regionId)
     return ChildFlowFinishedEvent(path.lastSegment(), result)
   }
 
-  /** The path of [node] from the root of the graph, the root is replaced with [rootSegmentAlias]. */
-  private fun pathOf(node: NodeRef, rootSegmentAlias: Segment?): Path {
-    val segments = generateSequence(node, graph::parentOf).map { it.segment }.toMutableList()
-    segments[segments.lastIndex] = rootSegmentAlias ?: rootSegment
-    return Path(segments.asReversed())
+  /** The paths of [node] from [root], one per parent, the root is replaced with [rootSegmentAlias]. */
+  private fun pathsOf(node: NodeRef, rootSegmentAlias: Segment?): List<Path> = if (node === root) {
+    listOf(Path(rootSegmentAlias ?: rootSegment))
+  } else {
+    graph.parentsOf(node).flatMap { pathsOf(it, rootSegmentAlias) }.map { Path(it.segments + node.segment) }
   }
 
   private fun nodeAt(regionId: RegionId, path: Path, rootSegmentAlias: Segment?): NodeRef {
     checkRegion(regionId)
-    val node = if (path.length == 1) graph.rootNode else graph.nodeBySegment(path.lastSegment())
-    return node?.takeIf { pathOf(it, rootSegmentAlias) == path } ?: error("internal error: no node for path=$path")
+    val node = if (path.length == 1) root else graph.nodeBySegment(path.lastSegment())?.takeIf { it in nodes }
+    return node?.takeIf { path in pathsOf(it, rootSegmentAlias) } ?: error("internal error: no node for path=$path")
   }
 
   private fun checkRegion(regionId: RegionId) = check(regionId in regions) { "unknown regionId=$regionId" }
 
-  private fun collectNodes(node: NodeRef): List<NodeRef> = listOf(node) + graph.childrenOf(node).flatMap(::collectNodes)
+  private fun collect(node: NodeRef, into: MutableSet<NodeRef>) {
+    if (node !is HistoryRef && into.add(node)) graph.childrenOf(node).forEach { collect(it, into) }
+  }
 }
 
 /**
@@ -115,7 +141,7 @@ internal class GraphNodeBuilder(private val graph: Graph, private val factories:
     for (index in 1 until path.length) {
       node = graph.childrenOf(node).find { it.segment == path.segments[index] }
         ?: error("illegal path build requested for graph '${graph.id}': $path")
-      if (node is FlowRef<*> && node.included != null) {
+      if (node is FlowRef<*, *> && node.included != null) {
         val includePath = path.take(index + 1)
         val included = node
         val nodeBuilder = nodeBuilders.getOrPut(includePath) {
@@ -150,9 +176,10 @@ internal class GraphNodeBuilder(private val graph: Graph, private val factories:
     }
   }
 
+  /** `Unit` for a node without a parameter, `null` for a missing payload of a nullable flow (see [GraphSchema]). */
   private fun payload(node: NodeRef, path: Path, payloads: Map<Path, Any>): Any? {
-    if (!node.parameterized) return null
-    val payload = payloads[path] ?: throw MissingPayloadException(path)
+    if (!node.parameterized) return Unit
+    val payload = payloads[path] ?: if (node.nullable) return null else throw MissingPayloadException(path)
     return payload.takeUnless { it === NullPayload }
   }
 }

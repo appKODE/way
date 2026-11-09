@@ -1,0 +1,12 @@
+digraph DslParityFanIn {
+  package = "ru.kode.way.dslparity.fanin"
+
+  // Mirrored by DslParityTest.kt: an imported schema entered from two parents.
+  shared [type = flow]
+  a [parameterName = aId, parameterType = "kotlin.Int"]
+  b [parameterName = bId, parameterType = "kotlin.String"]
+  perm [type = schema, parameterName = reason, parameterType = "kotlin.String", resultType = "kotlin.String"]
+
+  shared -> a -> perm
+  shared -> b -> perm
+}

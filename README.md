@@ -244,11 +244,11 @@ A `Graph` gives the runtime a `Schema` and a `NodeBuilder` as generated code doe
 points and `:way-compose` work the same with both, and both kinds of graph can include each other's schemas.
 
 Nodes are properties of a subclass, edges are declared with `to` in its `init` block. The node without a parent is the
-root:
+root. A flow declares the type of its result, a parameterized node the type of its payload:
 
 ```kotlin
 object LoginGraph : Graph("Login") {
-  val login = flow<Int>("login", parameterized = true) // Finish(result: Int), built with a payload
+  val login = parameterizedFlow<String, Int>("login") // built with a String, Finish(result: Int)
   val credentials = screen("credentials")
   val otp = parameterizedScreen<String>("otp")
 
@@ -260,7 +260,7 @@ object LoginGraph : Graph("Login") {
 object AppGraph : Graph("App") {
   val app = flow<Unit>("app")
   val intro = screen("intro")
-  val login = include<Int>("login", LoginGraph) // the counterpart of a `type = schema` node
+  val login = include("login", LoginGraph.login) // a `type = schema` node, with the payload and result of the root
 
   init {
     app to intro
@@ -269,12 +269,15 @@ object AppGraph : Graph("App") {
 }
 ```
 
-Targets come from the nodes, a payload is passed as in a generated target (`null` for a nullable parameter is fine):
+Targets come from the nodes and take a payload of the declared type, as a generated target does:
 
 ```kotlin
 NavigateTo(AppGraph.login.target("alice"))
 NavigateTo(LoginGraph.otp.target("+7 900 000-00-00"))
 ```
+
+A flow with a nullable parameter (`parameterizedFlow<String?, Unit>`) takes `null` in its target; as the root of a
+graph it is built with `null` when it is started without a payload.
 
 A finished child flow is reported to its parent with a `ChildFlowFinishedEvent`, read its typed result with
 `childFlowResult`:
@@ -286,17 +289,18 @@ override fun transition(event: Event): FlowTransition<Unit> {
 }
 ```
 
-`nodeBuilder` registers a factory for every node, a parameterized node gets its payload. An included graph gets a
-factory of its own `NodeBuilder`, which makes it the place for a separate DI scope:
+`nodeBuilder` registers a factory for every node, a parameterized node gets its typed payload (`Unit` for a flow
+without a parameter). An included graph gets a factory of its own `NodeBuilder`, which makes it the place for a
+separate DI scope:
 
 ```kotlin
 val service = NavigationService<Unit>(
   AppGraph.nodeBuilder {
     flow(AppGraph.app) { AppFlowNode() }
     screen(AppGraph.intro) { IntroScreen() }
-    include(AppGraph.login) { userName ->
+    include(AppGraph.login) { userName: String ->
       LoginGraph.nodeBuilder {
-        flow(LoginGraph.login) { LoginFlowNode(it as String) }
+        flow(LoginGraph.login) { LoginFlowNode(it) }
         screen(LoginGraph.credentials) { CredentialsScreen() }
         screen(LoginGraph.otp) { phone -> OtpScreen(phone) }
       }
@@ -306,16 +310,45 @@ val service = NavigationService<Unit>(
 )
 ```
 
-`parallel(...)` declares a parallel flow. It has to be the root of its graph and its children (the regions) are
-included graphs; a parallel flow deeper in a graph is a graph of its own which is included.
+`parallel<R>(...)` (`parameterizedParallel<P, R>(...)`) declares a parallel flow. It can be the root or sit under a
+flow, a screen or another parallel flow; its children (the regions) are flows, parallel flows or included graphs.
 
-The graph is checked when its `schema` or `nodeBuilder` is first used: one root which is a flow or a parallel flow,
-no cycles, one parent per node, no children under an included graph, a factory for every node. Segments are
-`<node id>@<graph id>`, so graph ids have to be unique among the graphs of a service.
+`history(...)` and `deepHistory(...)` declare history nodes. A history node is a leaf under a flow, or under a parallel
+flow with a flow above it; its target re-enters the parent with the nodes which were active when it was left. History
+nodes need no factory:
 
-Not supported, unlike `.dot` files: a node with several parents, full targets (with the payloads of ancestors, use
-`AbsoluteTarget`), history nodes, typed region accessors (use `Schema.regionByName`) and a separate node builder per
-local flow (include a graph instead).
+```kotlin
+object ShopGraph : Graph("Shop") {
+  val shop = flow<Unit>("shop")
+  val cart = screen("cart")
+  val checkout = screen("checkout")
+  val lastStep = deepHistory("lastStep")
+
+  init {
+    shop to cart to checkout
+    shop to lastStep
+  }
+}
+
+NavigateTo(ShopGraph.lastStep.target()) // back to checkout if the shop was left from there
+```
+
+An included graph can have several parents, which are not parallel flows and are in the same region. Its target then
+needs the parent it is entered from, the counterpart of a generated `<id>Via<Parent>` target:
+
+```kotlin
+NavigateTo(SettingsGraph.permission.target("camera", via = SettingsGraph.profile))
+```
+
+The graph is checked when its `schema` or `nodeBuilder` is first used, with the rules of a `.dot` file: one root which
+is a flow or a parallel flow, no cycles, children under a root flow and under every parallel flow, several parents
+only for an included graph, no children under an included graph, history nodes in place, a factory for every node
+but a history one. Segments are `<node id>@<graph id>`, so graph ids have to be unique among the graphs of a service.
+
+Not supported, unlike `.dot` files: screens as regions of a parallel flow (wrap them in a flow), full targets (with
+the payloads of ancestors, use `AbsoluteTarget`), typed region accessors (use `Schema.regionByName`) and a separate node
+builder per local flow (include a graph instead). The target of a node under a parallel flow starts at its closest
+flow, not at the flow above the parallel one as in generated code; both resolve to the same node.
 
 ## Runtime Model
 

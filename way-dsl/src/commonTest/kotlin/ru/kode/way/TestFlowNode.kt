@@ -16,6 +16,7 @@ class TestFlowNodeWithResult<R : Any>(
   onExitImpl: () -> Unit = {},
   onDisposeImpl: () -> Unit = {},
   transitions: List<TestFlowTransitionSpec> = emptyList(),
+  val payload: Any? = null,
 ) : GenericTestFlowNode<R>(initialTarget, dismissResult, onEntryImpl, onExitImpl, onDisposeImpl, transitions)
 
 open class GenericTestFlowNode<R : Any>(

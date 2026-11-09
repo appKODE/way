@@ -1,0 +1,9 @@
+digraph DslParityParams {
+  package = "ru.kode.way.dslparity.params"
+
+  // Mirrored by DslParityTest.kt: a nullable root parameter and an imported schema with a nullable parameter.
+  params [type = flow, parameterName = name, parameterType = "kotlin.String?"]
+  counter [type = schema, parameterName = start, parameterType = "kotlin.Int?"]
+
+  params -> paramsScreen -> counter
+}

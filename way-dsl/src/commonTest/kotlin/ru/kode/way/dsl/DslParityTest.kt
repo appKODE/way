@@ -3,6 +3,8 @@ package ru.kode.way.dsl
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldStartWith
 import ru.kode.way.Event
 import ru.kode.way.Finish
 import ru.kode.way.Ignore
@@ -23,24 +25,55 @@ import ru.kode.way.dslparity.AppChildFinishRequest
 import ru.kode.way.dslparity.AppNodeBuilder
 import ru.kode.way.dslparity.DslParityAppSchema
 import ru.kode.way.dslparity.app
+import ru.kode.way.dslparity.counter.CounterNodeBuilder
+import ru.kode.way.dslparity.counter.DslParityCounterSchema
+import ru.kode.way.dslparity.counter.counter
+import ru.kode.way.dslparity.fanin.DslParityFanInSchema
+import ru.kode.way.dslparity.fanin.SharedChildFinishRequest
+import ru.kode.way.dslparity.fanin.SharedNodeBuilder
+import ru.kode.way.dslparity.fanin.shared
 import ru.kode.way.dslparity.feed.DslParityFeedSchema
 import ru.kode.way.dslparity.feed.FeedNodeBuilder
 import ru.kode.way.dslparity.feed.feed
+import ru.kode.way.dslparity.history.DslParityHistorySchema
+import ru.kode.way.dslparity.history.HistNodeBuilder
+import ru.kode.way.dslparity.history.hist
+import ru.kode.way.dslparity.history.shop
 import ru.kode.way.dslparity.home.DslParityHomeSchema
 import ru.kode.way.dslparity.home.HomeNodeBuilder
 import ru.kode.way.dslparity.home.home
 import ru.kode.way.dslparity.login.DslParityLoginSchema
 import ru.kode.way.dslparity.login.LoginNodeBuilder
 import ru.kode.way.dslparity.login.login
+import ru.kode.way.dslparity.nested.DslParityNestedSchema
+import ru.kode.way.dslparity.nested.InnerNodeBuilder
+import ru.kode.way.dslparity.nested.InnerSchema
+import ru.kode.way.dslparity.nested.LeftNodeBuilder
+import ru.kode.way.dslparity.nested.LeftSchema
+import ru.kode.way.dslparity.nested.MainNodeBuilder
+import ru.kode.way.dslparity.nested.RightNodeBuilder
+import ru.kode.way.dslparity.nested.RightSchema
+import ru.kode.way.dslparity.nested.TabsSchema
+import ru.kode.way.dslparity.nested.left
+import ru.kode.way.dslparity.nested.main
+import ru.kode.way.dslparity.nested.right
+import ru.kode.way.dslparity.params.DslParityParamsSchema
+import ru.kode.way.dslparity.params.ParamsChildFinishRequest
+import ru.kode.way.dslparity.params.ParamsNodeBuilder
+import ru.kode.way.dslparity.params.params
+import ru.kode.way.dslparity.perm.DslParityPermSchema
+import ru.kode.way.dslparity.perm.PermNodeBuilder
+import ru.kode.way.dslparity.perm.perm
 import ru.kode.way.dslparity.settings
 import ru.kode.way.dslparity.tabs.DslParityTabsSchema
 import ru.kode.way.dslparity.tabs.TabsChildFinishRequest
 import ru.kode.way.dslparity.tabs.TabsNodeBuilder
 import ru.kode.way.tr
+import ru.kode.way.dslparity.nested.TabsNodeBuilder as NestedTabsNodeBuilder
 
 /** The DSL counterparts of `dsl-parity-*.dot`. */
 private object LoginGraph : Graph("DslLogin") {
-  val login = flow<Int>("login", parameterized = true)
+  val login = parameterizedFlow<String, Int>("login")
   val credentials = screen("credentials")
   val otp = parameterizedScreen<Int>("otp")
 
@@ -50,12 +83,12 @@ private object LoginGraph : Graph("DslLogin") {
 }
 
 private object AppGraph : Graph("DslApp") {
-  val app = flow<Unit>("app", parameterized = true)
+  val app = parameterizedFlow<Int, Unit>("app")
   val intro = screen("intro")
   val details = parameterizedScreen<String?>("details")
   val settings = flow<String>("settings")
   val general = screen("general")
-  val login = include<Int>("login", LoginGraph)
+  val login = include("login", LoginGraph.login)
 
   init {
     app to intro to details
@@ -84,13 +117,95 @@ private object FeedGraph : Graph("DslFeed") {
 }
 
 private object TabsGraph : Graph("DslTabs") {
-  val tabs = parallel("tabs")
-  val home = include<Unit>("home", HomeGraph)
-  val feed = include<Unit>("feed", FeedGraph)
+  val tabs = parallel<Unit>("tabs")
+  val home = include("home", HomeGraph.home)
+  val feed = include("feed", FeedGraph.feed)
 
   init {
     tabs to home
     tabs to feed
+  }
+}
+
+private object CounterGraph : Graph("DslCounter") {
+  val counter = parameterizedFlow<Int?, Unit>("counter")
+  val counterScreen = screen("counterScreen")
+
+  init {
+    counter to counterScreen
+  }
+}
+
+private object ParamsGraph : Graph("DslParams") {
+  val params = parameterizedFlow<String?, Unit>("params")
+  val paramsScreen = screen("paramsScreen")
+  val counter = include("counter", CounterGraph.counter)
+
+  init {
+    params to paramsScreen to counter
+  }
+}
+
+private object HistoryGraph : Graph("DslHistory") {
+  val hist = flow<Unit>("hist")
+  val home = screen("home")
+  val shop = flow<Unit>("shop")
+  val cart = screen("cart")
+  val checkout = screen("checkout")
+  val cartHistory = history("cartHistory")
+  val cartDeepHistory = deepHistory("cartDeepHistory")
+
+  init {
+    hist to home
+    hist to shop to cart to checkout
+    shop to cartHistory
+    shop to cartDeepHistory
+  }
+}
+
+private object NestedGraph : Graph("DslNested") {
+  val main = flow<Unit>("main")
+  val start = screen("start")
+  val tabs = parallel<Unit>("tabs")
+  val left = flow<Unit>("left")
+  val leftScreen = screen("leftScreen")
+  val leftDetails = screen("leftDetails")
+  val inner = parallel<Unit>("inner")
+  val right = flow<Unit>("right")
+  val rightScreen = screen("rightScreen")
+  val feed = include("feed", FeedGraph.feed)
+  val tabsHistory = deepHistory("tabsHistory")
+
+  init {
+    main to start
+    main to tabs
+    tabs to left to leftScreen to leftDetails
+    left to inner
+    inner to right to rightScreen
+    inner to feed
+    tabs to tabsHistory
+  }
+}
+
+private object PermGraph : Graph("DslPerm") {
+  val perm = parameterizedFlow<String, String>("perm")
+  val permIntro = screen("permIntro")
+  val permDetails = screen("permDetails")
+
+  init {
+    perm to permIntro to permDetails
+  }
+}
+
+private object FanInGraph : Graph("DslFanIn") {
+  val shared = flow<Unit>("shared")
+  val a = parameterizedScreen<Int>("a")
+  val b = parameterizedScreen<String>("b")
+  val perm = include("perm", PermGraph.perm)
+
+  init {
+    shared to a to perm
+    shared to b to perm
   }
 }
 
@@ -125,8 +240,9 @@ private fun settingsNode(spec: AppSpec) = TestFlowNodeWithResult(
   transitions = listOf(tr("F", Finish("done"))),
 )
 
-private fun loginNode(spec: AppSpec, payload: Any?) = TestFlowNode(
+private fun loginNode(spec: AppSpec, payload: Any?) = TestFlowNodeWithResult(
   initialTarget = spec.credentials,
+  dismissResult = 0,
   payload = payload,
   transitions = listOf(tr("O", spec.otp(7)), tr("F", Finish(5))),
 )
@@ -245,11 +361,334 @@ private fun dslTabsBuilder(): NodeBuilder = TabsGraph.nodeBuilder {
   }
 }
 
+private class ParamsSpec(
+  val paramsScreen: Target,
+  val counter: (Int?) -> Target,
+  val counterScreen: Target,
+  val isCounterFinished: (Event) -> Boolean,
+)
+
+private fun paramsRootNode(spec: ParamsSpec, payload: String?) = TestFlowNode(
+  initialTarget = spec.paramsScreen,
+  payload = payload,
+  transitions = listOf(
+    tr("C", spec.counter(null)),
+    tr("C7", spec.counter(7)),
+    TestFlowTransitionSpec(spec.isCounterFinished, NavigateTo(spec.paramsScreen)),
+  ),
+)
+
+private fun counterNode(spec: ParamsSpec, payload: Int?) = TestFlowNode(
+  initialTarget = spec.counterScreen,
+  payload = payload,
+  transitions = listOf(tr("F", Finish(Unit))),
+)
+
+private fun generatedParamsBuilder(): NodeBuilder {
+  val spec = ParamsSpec(
+    paramsScreen = Target.params.paramsScreen,
+    counter = { Target.params.counter(it) },
+    counterScreen = Target.counter.counterScreen,
+    isCounterFinished = { it == ParamsChildFinishRequest.Counter },
+  )
+  return ParamsNodeBuilder(
+    object : ParamsNodeBuilder.Factory {
+      override fun createRootNode(name: String?) = paramsRootNode(spec, name)
+      override fun createParamsScreenNode() = TestScreenNode()
+      override fun createCounterNodeBuilder(start: Int?): NodeBuilder = CounterNodeBuilder(
+        object : CounterNodeBuilder.Factory {
+          override fun createRootNode(start: Int?) = counterNode(spec, start)
+          override fun createCounterScreenNode() = TestScreenNode()
+        },
+        DslParityCounterSchema(),
+      )
+    },
+    DslParityParamsSchema(DslParityCounterSchema()),
+  )
+}
+
+private fun dslParamsBuilder(): NodeBuilder {
+  val spec = ParamsSpec(
+    paramsScreen = ParamsGraph.paramsScreen.target(),
+    counter = { ParamsGraph.counter.target(it) },
+    counterScreen = CounterGraph.counterScreen.target(),
+    isCounterFinished = { it.childFlowResult(ParamsGraph.counter) != null },
+  )
+  return ParamsGraph.nodeBuilder {
+    flow(ParamsGraph.params) { paramsRootNode(spec, it) }
+    screen(ParamsGraph.paramsScreen) { TestScreenNode() }
+    include(ParamsGraph.counter) {
+      CounterGraph.nodeBuilder {
+        flow(CounterGraph.counter) { counterNode(spec, it) }
+        screen(CounterGraph.counterScreen) { TestScreenNode() }
+      }
+    }
+  }
+}
+
+private class HistorySpec(
+  val home: Target,
+  val shop: Target,
+  val cart: Target,
+  val checkout: Target,
+  val cartHistory: Target,
+  val cartDeepHistory: Target,
+)
+
+private fun histRootNode(spec: HistorySpec) = TestFlowNode(
+  initialTarget = spec.home,
+  transitions = listOf(
+    tr("S", spec.shop),
+    tr("H", spec.home),
+    tr("R", spec.cartHistory),
+    tr("D", spec.cartDeepHistory),
+  ),
+)
+
+private fun shopNode(spec: HistorySpec) = TestFlowNode(
+  initialTarget = spec.cart,
+  transitions = listOf(tr("C", spec.checkout)),
+)
+
+private fun generatedHistoryBuilder(): NodeBuilder {
+  val spec = HistorySpec(
+    home = Target.hist.home,
+    shop = Target.hist.shop,
+    cart = Target.shop.cart,
+    checkout = Target.shop.checkout,
+    cartHistory = Target.shop.cartHistory,
+    cartDeepHistory = Target.shop.cartDeepHistory,
+  )
+  val schema = DslParityHistorySchema()
+  return HistNodeBuilder(
+    object : HistNodeBuilder.Factory {
+      override fun createRootNode() = histRootNode(spec)
+      override fun createHomeNode() = TestScreenNode()
+
+      // way#19: the generated ShopNodeBuilder duplicates the root segment of the nested flow, built by hand
+      override fun createShopNodeBuilder(): NodeBuilder = TestNodeBuilder(
+        schema,
+        mapOf("shop" to shopNode(spec), "shop.cart" to TestScreenNode(), "shop.cart.checkout" to TestScreenNode()),
+      )
+    },
+    schema,
+  )
+}
+
+private fun dslHistoryBuilder(): NodeBuilder {
+  val spec = HistorySpec(
+    home = HistoryGraph.home.target(),
+    shop = HistoryGraph.shop.target(),
+    cart = HistoryGraph.cart.target(),
+    checkout = HistoryGraph.checkout.target(),
+    cartHistory = HistoryGraph.cartHistory.target(),
+    cartDeepHistory = HistoryGraph.cartDeepHistory.target(),
+  )
+  return HistoryGraph.nodeBuilder {
+    flow(HistoryGraph.hist) { histRootNode(spec) }
+    screen(HistoryGraph.home) { TestScreenNode() }
+    flow(HistoryGraph.shop) { shopNode(spec) }
+    screen(HistoryGraph.cart) { TestScreenNode() }
+    screen(HistoryGraph.checkout) { TestScreenNode() }
+  }
+}
+
+private class NestedSpec(
+  val start: Target,
+  val tabs: Target,
+  /** Only in the DSL graph: the generated one can't enter a parallel flow with a history child. */
+  val tabsHistory: Target?,
+  val leftScreen: Target,
+  val leftDetails: Target,
+  val inner: Target,
+  val rightScreen: Target,
+  val feedScreen: Target,
+)
+
+private fun mainRootNode(spec: NestedSpec) = TestFlowNode(
+  initialTarget = spec.start,
+  transitions = listOfNotNull(tr("T", spec.tabs), tr("B", spec.start), spec.tabsHistory?.let { tr("TH", it) }),
+)
+
+private fun leftNode(spec: NestedSpec) = TestFlowNode(
+  initialTarget = spec.leftScreen,
+  transitions = listOf(tr("LD", spec.leftDetails), tr("I", spec.inner)),
+)
+
+private fun feedBuilder(feedScreen: Target): NodeBuilder = FeedNodeBuilder(
+  object : FeedNodeBuilder.Factory {
+    override fun createRootNode() = TestFlowNode(initialTarget = feedScreen)
+    override fun createFeedScreenNode() = TestScreenNode()
+  },
+  DslParityFeedSchema(),
+)
+
+private fun generatedNestedBuilder(): NodeBuilder {
+  val spec = NestedSpec(
+    start = Target.main.start,
+    tabs = Target.main.tabs,
+    tabsHistory = null,
+    leftScreen = Target.left.leftScreen,
+    leftDetails = Target.left.leftDetails,
+    inner = Target.main.inner,
+    rightScreen = Target.right.rightScreen,
+    feedScreen = Target.feed.feedScreen,
+  )
+  val innerBuilder = {
+    InnerNodeBuilder(
+      object : InnerNodeBuilder.Factory {
+        override fun createRootNode() = TestParallelNode()
+        override fun createFeedNodeBuilder() = feedBuilder(spec.feedScreen)
+        override fun createRightNodeBuilder(): NodeBuilder = RightNodeBuilder(
+          object : RightNodeBuilder.Factory {
+            override fun createRootNode() = TestFlowNode(initialTarget = spec.rightScreen)
+            override fun createRightScreenNode() = TestScreenNode()
+          },
+          RightSchema(),
+        )
+      },
+      InnerSchema(DslParityFeedSchema()),
+    )
+  }
+  return MainNodeBuilder(
+    object : MainNodeBuilder.Factory {
+      override fun createRootNode() = mainRootNode(spec)
+      override fun createStartNode() = TestScreenNode()
+      override fun createTabsNodeBuilder(): NodeBuilder = NestedTabsNodeBuilder(
+        object : NestedTabsNodeBuilder.Factory {
+          override fun createRootNode() = TestParallelNode()
+          override fun createInnerNodeBuilder(): NodeBuilder = innerBuilder()
+          override fun createLeftNodeBuilder(): NodeBuilder = LeftNodeBuilder(
+            object : LeftNodeBuilder.Factory {
+              override fun createRootNode() = leftNode(spec)
+              override fun createInnerNodeBuilder(): NodeBuilder = innerBuilder()
+              override fun createLeftScreenNode() = TestScreenNode()
+              override fun createLeftDetailsNode() = TestScreenNode()
+            },
+            LeftSchema(DslParityFeedSchema()),
+          )
+        },
+        TabsSchema(DslParityFeedSchema()),
+      )
+    },
+    DslParityNestedSchema(DslParityFeedSchema()),
+  )
+}
+
+private fun dslNestedBuilder(): NodeBuilder {
+  val spec = NestedSpec(
+    start = NestedGraph.start.target(),
+    tabs = NestedGraph.tabs.target(),
+    tabsHistory = NestedGraph.tabsHistory.target(),
+    leftScreen = NestedGraph.leftScreen.target(),
+    leftDetails = NestedGraph.leftDetails.target(),
+    inner = NestedGraph.inner.target(),
+    rightScreen = NestedGraph.rightScreen.target(),
+    feedScreen = FeedGraph.feedScreen.target(),
+  )
+  return NestedGraph.nodeBuilder {
+    flow(NestedGraph.main) { mainRootNode(spec) }
+    screen(NestedGraph.start) { TestScreenNode() }
+    parallel(NestedGraph.tabs) { TestParallelNode() }
+    flow(NestedGraph.left) { leftNode(spec) }
+    screen(NestedGraph.leftScreen) { TestScreenNode() }
+    screen(NestedGraph.leftDetails) { TestScreenNode() }
+    parallel(NestedGraph.inner) { TestParallelNode() }
+    flow(NestedGraph.right) { TestFlowNode(initialTarget = spec.rightScreen) }
+    screen(NestedGraph.rightScreen) { TestScreenNode() }
+    include(NestedGraph.feed) {
+      FeedGraph.nodeBuilder {
+        flow(FeedGraph.feed) { TestFlowNode(initialTarget = spec.feedScreen) }
+        screen(FeedGraph.feedScreen) { TestScreenNode() }
+      }
+    }
+  }
+}
+
+private class FanInSpec(
+  val a: (Int) -> Target,
+  val b: (String) -> Target,
+  val permViaA: (String) -> Target,
+  val permViaB: (String) -> Target,
+  val permDetails: Target,
+  val permIntro: Target,
+  val permResult: (Event) -> String?,
+)
+
+private fun sharedRootNode(spec: FanInSpec) = TestFlowNode(
+  initialTarget = spec.a(1),
+  transitions = listOf(
+    tr("PA", spec.permViaA("x")),
+    tr("PB", spec.permViaB("y")),
+    TestFlowTransitionSpec({ spec.permResult(it) != null }, NavigateTo(spec.b("after"))),
+  ),
+)
+
+private fun permNode(spec: FanInSpec, reason: String) = TestFlowNodeWithResult(
+  initialTarget = spec.permIntro,
+  dismissResult = "dismissed",
+  payload = reason,
+  transitions = listOf(tr("PD", spec.permDetails), tr("F", Finish("granted"))),
+)
+
+private fun generatedFanInBuilder(): NodeBuilder {
+  val spec = FanInSpec(
+    a = { Target.shared.a(it) },
+    b = { Target.shared.b(it) },
+    permViaA = { Target.shared.permViaA(it) },
+    permViaB = { Target.shared.permViaB(it) },
+    permIntro = Target.perm.permIntro,
+    permDetails = Target.perm.permDetails,
+    permResult = { (it as? SharedChildFinishRequest.Perm)?.result },
+  )
+  return SharedNodeBuilder(
+    object : SharedNodeBuilder.Factory {
+      override fun createRootNode() = sharedRootNode(spec)
+      override fun createANode(aId: Int) = TestScreenNode(payload = aId)
+      override fun createBNode(bId: String) = TestScreenNode(payload = bId)
+      override fun createPermNodeBuilder(reason: String): NodeBuilder = PermNodeBuilder(
+        object : PermNodeBuilder.Factory {
+          override fun createRootNode(reason: String) = permNode(spec, reason)
+          override fun createPermIntroNode() = TestScreenNode()
+          override fun createPermDetailsNode() = TestScreenNode()
+        },
+        DslParityPermSchema(),
+      )
+    },
+    DslParityFanInSchema(DslParityPermSchema()),
+  )
+}
+
+private fun dslFanInBuilder(): NodeBuilder {
+  val spec = FanInSpec(
+    a = { FanInGraph.a.target(it) },
+    b = { FanInGraph.b.target(it) },
+    permViaA = { FanInGraph.perm.target(it, via = FanInGraph.a) },
+    permViaB = { FanInGraph.perm.target(it, via = FanInGraph.b) },
+    permIntro = PermGraph.permIntro.target(),
+    permDetails = PermGraph.permDetails.target(),
+    permResult = { it.childFlowResult(FanInGraph.perm) },
+  )
+  return FanInGraph.nodeBuilder {
+    flow(FanInGraph.shared) { sharedRootNode(spec) }
+    screen(FanInGraph.a) { TestScreenNode(payload = it) }
+    screen(FanInGraph.b) { TestScreenNode(payload = it) }
+    include(FanInGraph.perm) {
+      PermGraph.nodeBuilder {
+        flow(PermGraph.perm) { permNode(spec, it) }
+        screen(PermGraph.permIntro) { TestScreenNode() }
+        screen(PermGraph.permDetails) { TestScreenNode() }
+      }
+    }
+  }
+}
+
 /** Everything a test can observe after each step: per region the active path, the alive paths and their payloads. */
 private fun NavigationState.describe(): List<String> = regions.values.map { region ->
   val payloads = region.alive.joinToString { path ->
     val payload = when (val node = region.nodes[path]) {
       is TestFlowNode -> node.payload
+      is TestFlowNodeWithResult<*> -> node.payload
       is TestScreenNode -> node.payload
       else -> null
     }
@@ -312,5 +751,84 @@ class DslParityTest :
         listOf("tabs.home.homeScreen.homeDetails", "tabs.feed.feedScreen")
       dslFinished shouldBe true
       generatedFinished shouldBe true
+    }
+    should("pass typed and nullable payloads as the generated graph does") {
+      val events = listOf("C", "F", "C7", "F")
+      for (rootPayload in listOf(null, "bob")) {
+        val (generated, _) = run(generatedParamsBuilder(), rootPayload, events)
+        val (dsl, _) = run(dslParamsBuilder(), rootPayload, events)
+
+        dsl shouldBe generated
+        dsl.map { it.single().substringBefore(' ') } shouldContainExactly listOf(
+          "params.paramsScreen",
+          "params.paramsScreen.counter.counterScreen",
+          "params.paramsScreen.counter.counterScreen",
+          "params.paramsScreen",
+          "params.paramsScreen.counter.counterScreen",
+          "params.paramsScreen.counter.counterScreen",
+          "params.paramsScreen",
+        )
+        dsl[1].single() shouldContain "params=$rootPayload, params.paramsScreen=null, params.paramsScreen.counter=null,"
+        dsl[4].single() shouldContain "params.paramsScreen.counter=7,"
+      }
+    }
+
+    should("navigate to history nodes as the generated graph does") {
+      val events = listOf("S", "C", "H", "D", "H", "R")
+
+      val (generated, _) = run(generatedHistoryBuilder(), rootPayload = null, events)
+      val (dsl, _) = run(dslHistoryBuilder(), rootPayload = null, events)
+
+      dsl shouldBe generated
+      // the deep history restores checkout, the shallow one only the direct child of shop
+      dsl.map { it.single().substringBefore(' ') } shouldContainExactly listOf(
+        "hist.home",
+        "hist.shop.cart",
+        "hist.shop.cart.checkout",
+        "hist.home",
+        "hist.shop.cart.checkout",
+        "hist.home",
+        "hist.shop.cart",
+      )
+    }
+
+    should("navigate nested parallel flows as the generated graph does") {
+      val events = listOf("T", "LD", "I", "B")
+
+      val (generated, _) = run(generatedNestedBuilder(), rootPayload = null, events)
+      val (dsl, _) = run(dslNestedBuilder(), rootPayload = null, events)
+
+      dsl shouldBe generated
+      dsl[3].map { it.substringBefore(' ') } shouldContainExactly listOf(
+        "main.tabs",
+        "main.tabs.left.inner",
+        "main.tabs.left.inner.right.rightScreen",
+        "main.tabs.left.inner.feed.feedScreen",
+      )
+      dsl[4].single() shouldStartWith "main.start "
+      // the deep history of the outer parallel flow restores its regions, the nested ones included
+      val (withHistory, _) = run(dslNestedBuilder(), rootPayload = null, events + "TH")
+      withHistory.last() shouldBe dsl[3]
+    }
+
+    should("enter an included graph from each of its parents as the generated graph does") {
+      val events = listOf("PA", "PD", "F", "PB", "F")
+
+      val (generated, _) = run(generatedFanInBuilder(), rootPayload = null, events)
+      val (dsl, _) = run(dslFanInBuilder(), rootPayload = null, events)
+
+      dsl shouldBe generated
+      dsl.map { it.single().substringBefore(' ') } shouldContainExactly listOf(
+        "shared.a",
+        "shared.a.perm.permIntro",
+        "shared.a.perm.permIntro.permDetails",
+        "shared.a.perm.permIntro.permDetails",
+        "shared.b",
+        "shared.b.perm.permIntro",
+        "shared.b.perm.permIntro",
+        "shared.b",
+      )
+      dsl[1].single() shouldContain "shared.a.perm=x,"
+      dsl[5].single() shouldContain "shared.b=after, shared.b.perm=y,"
     }
   })

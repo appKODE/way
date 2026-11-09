@@ -7,6 +7,13 @@
 * New artifact `ru.kode:way-dsl`: `ru.kode.way.dsl.Graph` declares a navigation graph in Kotlin, without `.dot`
   files and code generation. It gives the runtime the same `Schema` and `NodeBuilder` as generated code, on all
   platforms of `way`. See "Kotlin DSL" in the README.
+  * Typed parameters: `parameterizedFlow<P, R>`, `parameterizedParallel<P, R>` and `parameterizedScreen<P>` take a
+    payload of type `P` in their targets and pass it to their factories; an included graph has the parameter and the
+    result of its root. A nullable root is built with `null` when it is started without a payload.
+  * History nodes: `history(id)` and `deepHistory(id)`, with a `HistoryTarget`.
+  * Parallel flows anywhere a `.dot` file allows them, regions may be local flows and parallel flows.
+  * An included graph may have several parents in one region, `target(payload, via = parent)` picks the one to
+    enter it from.
 
 ## 0.12.0 - 2026-11-08
 

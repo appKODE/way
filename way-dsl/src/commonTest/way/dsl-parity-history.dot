@@ -1,0 +1,14 @@
+digraph DslParityHistory {
+  package = "ru.kode.way.dslparity.history"
+
+  // Mirrored by DslParityTest.kt: a shallow and a deep history of a nested flow.
+  hist [type = flow]
+  shop [type = flow]
+  cartHistory [type = history]
+  cartDeepHistory [type = deepHistory]
+
+  hist -> home
+  hist -> shop -> cart -> checkout
+  shop -> cartHistory
+  shop -> cartDeepHistory
+}

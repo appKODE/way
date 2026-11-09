@@ -1,0 +1,7 @@
+digraph DslParityPerm {
+  package = "ru.kode.way.dslparity.perm"
+
+  perm [type = flow, parameterName = reason, parameterType = "kotlin.String", resultType = "kotlin.String"]
+
+  perm -> permIntro -> permDetails
+}

@@ -1,0 +1,16 @@
+digraph ParallelHistory {
+  schemaFileName = "schema-parallel-history"
+  targetsFileName = "schema-parallel-history-targets"
+
+  ph01main [type = flow]
+  ph01tabs [type = parallelFlow]
+  ph01left [type = flow]
+  ph01right [type = flow]
+  ph01tabsHistory [type = deepHistory]
+
+  ph01main -> ph01start
+  ph01main -> ph01tabs
+  ph01tabs -> ph01left -> ph01leftScreen
+  ph01tabs -> ph01right -> ph01rightScreen
+  ph01tabs -> ph01tabsHistory
+}

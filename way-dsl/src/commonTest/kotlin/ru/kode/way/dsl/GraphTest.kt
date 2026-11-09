@@ -412,6 +412,18 @@ class GraphTest :
         HistoryTarget(Path(listOf(graph.main.segment, graph.tabs.segment)), deep = true)
     }
 
+    should("give the region id of a parallel's child relative to the parallel's schema") {
+      val graph = NestedParallelGraph()
+      val tabsRegions = graph.schema.childSchemas.getValue(graph.tabs.segment).regions
+      val innerRegions = graph.schema.childSchemas.getValue(graph.inner.segment).regions
+
+      graph.tabs.regionId(graph.left) shouldBe tabsRegions.first()
+      graph.inner.regionId(graph.right) shouldBe innerRegions[0]
+      graph.inner.regionId(graph.feed) shouldBe innerRegions[1]
+      shouldThrow<IllegalArgumentException> { graph.tabs.regionId(graph.right) }.message shouldContain
+        "'right' is not a region of parallel 'tabs'"
+    }
+
     should("reject a parallel flow without children") {
       fun invalid(build: () -> Graph) = shouldThrow<IllegalArgumentException> { build().schema }.message!!
 

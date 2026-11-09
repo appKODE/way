@@ -398,7 +398,7 @@ private fun validateNoEmptyFlows(adjacencyList: AdjacencyList) {
   // Imported (schema) flows are excluded — they always appear childless here by design.
   val nodesWithIncoming = adjacencyList.values.flatten().toSet()
   for ((node, children) in adjacencyList) {
-    if (node is Node.Flow.LocalParallel && children.isEmpty()) {
+    if (node is Node.Flow.LocalParallel && children.none { it !is Node.History }) {
       error("parallel node \"${node.id}\" has no children; a parallel node must have at least one child flow")
     }
     if (node is Node.Flow.Local && node !in nodesWithIncoming && children.isEmpty()) {

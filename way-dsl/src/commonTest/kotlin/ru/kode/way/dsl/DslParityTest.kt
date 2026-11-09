@@ -1,5 +1,6 @@
 package ru.kode.way.dsl
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -17,13 +18,13 @@ import ru.kode.way.TestEvent
 import ru.kode.way.TestFlowNode
 import ru.kode.way.TestFlowNodeWithResult
 import ru.kode.way.TestFlowTransitionSpec
-import ru.kode.way.TestNodeBuilder
 import ru.kode.way.TestParallelNode
 import ru.kode.way.TestParallelTransitionSpec
 import ru.kode.way.TestScreenNode
 import ru.kode.way.dslparity.AppChildFinishRequest
 import ru.kode.way.dslparity.AppNodeBuilder
 import ru.kode.way.dslparity.DslParityAppSchema
+import ru.kode.way.dslparity.SettingsNodeBuilder
 import ru.kode.way.dslparity.app
 import ru.kode.way.dslparity.counter.CounterNodeBuilder
 import ru.kode.way.dslparity.counter.DslParityCounterSchema
@@ -35,8 +36,13 @@ import ru.kode.way.dslparity.fanin.shared
 import ru.kode.way.dslparity.feed.DslParityFeedSchema
 import ru.kode.way.dslparity.feed.FeedNodeBuilder
 import ru.kode.way.dslparity.feed.feed
+import ru.kode.way.dslparity.full.DslParityFullSchema
+import ru.kode.way.dslparity.full.FullNodeBuilder
+import ru.kode.way.dslparity.full.PromoNodeBuilder
+import ru.kode.way.dslparity.full.full
 import ru.kode.way.dslparity.history.DslParityHistorySchema
 import ru.kode.way.dslparity.history.HistNodeBuilder
+import ru.kode.way.dslparity.history.ShopNodeBuilder
 import ru.kode.way.dslparity.history.hist
 import ru.kode.way.dslparity.history.shop
 import ru.kode.way.dslparity.home.DslParityHomeSchema
@@ -69,6 +75,9 @@ import ru.kode.way.dslparity.tabs.DslParityTabsSchema
 import ru.kode.way.dslparity.tabs.TabsChildFinishRequest
 import ru.kode.way.dslparity.tabs.TabsNodeBuilder
 import ru.kode.way.tr
+import ru.kode.way.dslparity.full.ShopNodeBuilder as FullShopNodeBuilder
+import ru.kode.way.dslparity.full.promo as fullPromo
+import ru.kode.way.dslparity.full.shop as fullShop
 import ru.kode.way.dslparity.nested.TabsNodeBuilder as NestedTabsNodeBuilder
 
 /** The DSL counterparts of `dsl-parity-*.dot`. */
@@ -266,10 +275,13 @@ private fun generatedAppBuilder(): NodeBuilder {
       override fun createIntroNode() = TestScreenNode()
       override fun createDetailsNode(id: String?) = TestScreenNode(payload = id)
 
-      // the generated SettingsNodeBuilder resolves "general" to app.settings.general under the "settings" alias and
-      // fails to build it, so the local flow is built by hand
-      override fun createSettingsNodeBuilder(): NodeBuilder =
-        TestNodeBuilder(schema, mapOf("settings" to settingsNode(spec), "settings.general" to TestScreenNode()))
+      override fun createSettingsNodeBuilder(): NodeBuilder = SettingsNodeBuilder(
+        object : SettingsNodeBuilder.Factory {
+          override fun createRootNode() = settingsNode(spec)
+          override fun createGeneralNode() = TestScreenNode()
+        },
+        schema,
+      )
 
       override fun createLoginNodeBuilder(userName: String): NodeBuilder = LoginNodeBuilder(
         object : LoginNodeBuilder.Factory {
@@ -359,6 +371,63 @@ private fun dslTabsBuilder(): NodeBuilder = TabsGraph.nodeBuilder {
       screen(FeedGraph.feedScreen) { TestScreenNode() }
     }
   }
+}
+
+private object FullGraph : Graph("DslParityFull") {
+  val full = flow<Unit>("full")
+  val home = screen("home")
+  val shop = parameterizedFlow<String, Unit>("shop")
+  val shopScreen = screen("shopScreen")
+  val item = parameterizedScreen<Int>("item")
+  val promo = flow<Unit>("promo")
+  val promoScreen = screen("promoScreen")
+
+  init {
+    full to home
+    full to shop to shopScreen
+    shop to item to promo to promoScreen
+  }
+}
+
+private fun fullRootNode(home: Target, promo: Target) =
+  TestFlowNode(initialTarget = home, transitions = listOf(tr("P", promo)))
+
+private fun generatedFullBuilder(): NodeBuilder {
+  val schema = DslParityFullSchema()
+  return FullNodeBuilder(
+    object : FullNodeBuilder.Factory {
+      override fun createRootNode() = fullRootNode(Target.full.home, Target.full.promo("s1", 5))
+      override fun createHomeNode() = TestScreenNode()
+      override fun createShopNodeBuilder(shopId: String): NodeBuilder = FullShopNodeBuilder(
+        object : FullShopNodeBuilder.Factory {
+          override fun createRootNode(shopId: String) =
+            TestFlowNode(initialTarget = Target.fullShop.shopScreen, payload = shopId)
+          override fun createShopScreenNode() = TestScreenNode()
+          override fun createItemNode(itemId: Int) = TestScreenNode(payload = itemId)
+        },
+        schema,
+      )
+      override fun createPromoNodeBuilder(): NodeBuilder = PromoNodeBuilder(
+        object : PromoNodeBuilder.Factory {
+          override fun createRootNode() = TestFlowNode(initialTarget = Target.fullPromo.promoScreen)
+          override fun createPromoScreenNode() = TestScreenNode()
+        },
+        schema,
+      )
+    },
+    schema,
+  )
+}
+
+private fun dslFullBuilder(): NodeBuilder = FullGraph.nodeBuilder {
+  val promo = FullGraph.promo.target(FullGraph.shop with "s1", FullGraph.item with 5)
+  flow(FullGraph.full) { fullRootNode(FullGraph.home.target(), promo) }
+  screen(FullGraph.home) { TestScreenNode() }
+  flow(FullGraph.shop) { TestFlowNode(initialTarget = FullGraph.shopScreen.target(), payload = it) }
+  screen(FullGraph.shopScreen) { TestScreenNode() }
+  screen(FullGraph.item) { TestScreenNode(payload = it) }
+  flow(FullGraph.promo) { TestFlowNode(initialTarget = FullGraph.promoScreen.target()) }
+  screen(FullGraph.promoScreen) { TestScreenNode() }
 }
 
 private class ParamsSpec(
@@ -465,10 +534,13 @@ private fun generatedHistoryBuilder(): NodeBuilder {
       override fun createRootNode() = histRootNode(spec)
       override fun createHomeNode() = TestScreenNode()
 
-      // way#19: the generated ShopNodeBuilder duplicates the root segment of the nested flow, built by hand
-      override fun createShopNodeBuilder(): NodeBuilder = TestNodeBuilder(
+      override fun createShopNodeBuilder(): NodeBuilder = ShopNodeBuilder(
+        object : ShopNodeBuilder.Factory {
+          override fun createRootNode() = shopNode(spec)
+          override fun createCartNode() = TestScreenNode()
+          override fun createCheckoutNode() = TestScreenNode()
+        },
         schema,
-        mapOf("shop" to shopNode(spec), "shop.cart" to TestScreenNode(), "shop.cart.checkout" to TestScreenNode()),
       )
     },
     schema,
@@ -496,8 +568,7 @@ private fun dslHistoryBuilder(): NodeBuilder {
 private class NestedSpec(
   val start: Target,
   val tabs: Target,
-  /** Only in the DSL graph: the generated one can't enter a parallel flow with a history child. */
-  val tabsHistory: Target?,
+  val tabsHistory: Target,
   val leftScreen: Target,
   val leftDetails: Target,
   val inner: Target,
@@ -507,7 +578,7 @@ private class NestedSpec(
 
 private fun mainRootNode(spec: NestedSpec) = TestFlowNode(
   initialTarget = spec.start,
-  transitions = listOfNotNull(tr("T", spec.tabs), tr("B", spec.start), spec.tabsHistory?.let { tr("TH", it) }),
+  transitions = listOf(tr("T", spec.tabs), tr("B", spec.start), tr("TH", spec.tabsHistory)),
 )
 
 private fun leftNode(spec: NestedSpec) = TestFlowNode(
@@ -527,7 +598,7 @@ private fun generatedNestedBuilder(): NodeBuilder {
   val spec = NestedSpec(
     start = Target.main.start,
     tabs = Target.main.tabs,
-    tabsHistory = null,
+    tabsHistory = Target.main.tabsHistory,
     leftScreen = Target.left.leftScreen,
     leftDetails = Target.left.leftDetails,
     inner = Target.main.inner,
@@ -773,6 +844,22 @@ class DslParityTest :
       }
     }
 
+    should("rebuild ancestors which are not alive from a full target as the generated graph does") {
+      val (generated, _) = run(generatedFullBuilder(), rootPayload = null, listOf("P"))
+      val (dsl, _) = run(dslFullBuilder(), rootPayload = null, listOf("P"))
+
+      dsl shouldBe generated
+      dsl.last().single() shouldBe
+        "full.shop.item.promo.promoScreen [full=null, full.shop=s1, full.shop.item=5, full.shop.item.promo=null, " +
+        "full.shop.item.promo.promoScreen=null]"
+      shouldThrow<IllegalArgumentException> { FullGraph.shopScreen.target(FullGraph.item with 5) }.message shouldBe
+        "'item' is not a parameterized ancestor of 'shopScreen'"
+      shouldThrow<IllegalArgumentException> { FullGraph.item.target(5, FullGraph.item with 5) }.message shouldBe
+        "'item' is not a parameterized ancestor of 'item'"
+      shouldThrow<IllegalArgumentException> { FullGraph.promo.target(FullGraph.item with 5) }.message shouldBe
+        "full target of 'promo' has no payloads for parameterized ancestors: shop"
+    }
+
     should("navigate to history nodes as the generated graph does") {
       val events = listOf("S", "C", "H", "D", "H", "R")
 
@@ -807,7 +894,9 @@ class DslParityTest :
       )
       dsl[4].single() shouldStartWith "main.start "
       // the deep history of the outer parallel flow restores its regions, the nested ones included
+      val (generatedWithHistory, _) = run(generatedNestedBuilder(), rootPayload = null, events + "TH")
       val (withHistory, _) = run(dslNestedBuilder(), rootPayload = null, events + "TH")
+      withHistory shouldBe generatedWithHistory
       withHistory.last() shouldBe dsl[3]
     }
 

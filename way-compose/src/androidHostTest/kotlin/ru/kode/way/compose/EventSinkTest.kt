@@ -34,6 +34,20 @@ class EventSinkTest {
   }
 
   @Test
+  fun `host without auto start renders nothing until the service is started`() {
+    val fixture = FlowFixture()
+    rule.setContent { NodeHost(fixture.service, autoStart = false) }
+    rule.waitForIdle()
+    assertEquals(false, fixture.service.isStarted())
+    assertTrue(fixture.screens.isEmpty())
+
+    rule.runOnIdle { fixture.service.start() }
+    rule.waitForIdle()
+
+    assertTrue("main was never rendered", fixture.screen("main").sinks.isNotEmpty())
+  }
+
+  @Test
   fun `sink stays the same instance across recompositions of a node`() {
     val fixture = FlowFixture().host()
     val main = rule.runOnIdle { fixture.screen("main") }

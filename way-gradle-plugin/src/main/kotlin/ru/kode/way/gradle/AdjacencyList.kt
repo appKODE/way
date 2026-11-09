@@ -164,7 +164,8 @@ internal fun buildRegionRoots(adjacencyList: AdjacencyList): List<Node> {
   if (root !is Node.Flow.LocalParallel) regionRoots.add(root)
   adjacencyList.forEach { (node, children) ->
     if (node is Node.Flow.LocalParallel && adjacencyList.findParent(node) !is Node.Flow.LocalParallel) {
-      regionRoots.addAll(children)
+      // a history child of a parallel only restores its regions, it is not a region itself
+      regionRoots.addAll(children.filterNot { it is Node.History })
     }
   }
   return regionRoots

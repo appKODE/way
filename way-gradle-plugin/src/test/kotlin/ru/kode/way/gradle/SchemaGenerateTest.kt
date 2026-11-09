@@ -49,6 +49,11 @@ class SchemaGenerateTest :
         ),
         testName = "multiple parallel in one schema",
       ),
+      TestCase(
+        schemaFile = "schema-parallel-history.dot",
+        expectedOutputFiles = listOf("schema-parallel-history.txt", "Ph01tabsSchema.txt"),
+        testName = "history child of a parallel is not a region",
+      ),
       // These two fixtures only prove that two independently valid graphs codegen correctly and
       // differently from each other — they do NOT exercise resolveOverriddenDotFiles itself (no
       // source-set resolution happens here, each file is codegenned standalone). The actual

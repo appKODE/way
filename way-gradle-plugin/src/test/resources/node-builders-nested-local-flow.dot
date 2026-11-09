@@ -1,0 +1,10 @@
+digraph NestedLocalFlow {
+  schemaFileName = "node-builders-nested-local-flow-schema"
+  targetsFileName = "node-builders-nested-local-flow-targets"
+
+  nlf01app [type = flow, parameterName = timeout, parameterType = "kotlin.Int"]
+  nlf01settings [type = flow, resultType = "kotlin.String"]
+
+  nlf01app -> nlf01intro
+  nlf01app -> nlf01settings -> nlf01general
+}

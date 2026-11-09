@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.0 - 2026-11-09
 
 ### Added
 
@@ -14,6 +14,19 @@
   * Parallel flows anywhere a `.dot` file allows them, regions may be local flows and parallel flows.
   * An included graph may have several parents in one region, `target(payload, via = parent)` picks the one to
     enter it from.
+  * Full targets: `target(payload, shop with shopId, item with itemId)` passes the payloads of every parameterized
+    ancestor (a missing one throws), so they are rebuilt when they are not alive, like a generated full target.
+  * `ParallelRef.regionId(child)` gives the region id of a child of a parallel flow, like a generated
+    `<child>RegionId`, in place of `Schema.regionByName`.
+* way-compose: `NodeHost(service, autoStart = false)` doesn't start the service and renders nothing until the app
+  calls `start(payload)`, for a start which waits for something (e.g. DataStore).
+
+### Fixed
+
+* Gradle plugin: the node builder of a local flow nested in a flow builds the targets of its children under its own
+  segment; the root segment was repeated (`settings.settings.general`) and the builder failed.
+* Gradle plugin: a `history`/`deepHistory` child of a `parallelFlow` is no longer a region of the parallel flow, the
+  schema and the node builder failed for it. A parallel flow with only history children has no children.
 
 ## 0.12.0 - 2026-11-08
 

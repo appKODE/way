@@ -266,7 +266,7 @@ internal fun buildNodeBuilderTypeSpec(
       // For parallel nodes: emit named val <childId>RegionId constants so users never need
       // to hardcode Path strings for sub-region lookups.
       if (flow is Node.Flow.LocalParallel) {
-        adjacencyList[flow].orEmpty().forEach { child ->
+        adjacencyList[flow].orEmpty().filterNot { it is Node.History }.forEach { child ->
           addProperty(
             PropertySpec
               .builder("${child.id}RegionId", REGION_ID)

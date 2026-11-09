@@ -1,14 +1,15 @@
 digraph DslParityNested {
   package = "ru.kode.way.dslparity.nested"
 
-  // Mirrored by DslParityTest.kt: a parallel under a flow whose region holds another parallel. The DSL graph also has a
-  // history of the outer parallel, which codegen lists as a region and fails to build.
+  // Mirrored by DslParityTest.kt: a parallel under a flow whose region holds another parallel, with a deep history of
+  // the outer parallel.
   main [type = flow]
   tabs [type = parallelFlow]
   left [type = flow]
   inner [type = parallelFlow]
   right [type = flow]
   feed [type = schema]
+  tabsHistory [type = deepHistory]
 
   main -> start
   main -> tabs
@@ -16,4 +17,5 @@ digraph DslParityNested {
   left -> inner
   inner -> right -> rightScreen
   inner -> feed
+  tabs -> tabsHistory
 }

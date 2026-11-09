@@ -496,8 +496,7 @@ private fun dslHistoryBuilder(): NodeBuilder {
 private class NestedSpec(
   val start: Target,
   val tabs: Target,
-  /** Only in the DSL graph: the generated one can't enter a parallel flow with a history child. */
-  val tabsHistory: Target?,
+  val tabsHistory: Target,
   val leftScreen: Target,
   val leftDetails: Target,
   val inner: Target,
@@ -507,7 +506,7 @@ private class NestedSpec(
 
 private fun mainRootNode(spec: NestedSpec) = TestFlowNode(
   initialTarget = spec.start,
-  transitions = listOfNotNull(tr("T", spec.tabs), tr("B", spec.start), spec.tabsHistory?.let { tr("TH", it) }),
+  transitions = listOf(tr("T", spec.tabs), tr("B", spec.start), tr("TH", spec.tabsHistory)),
 )
 
 private fun leftNode(spec: NestedSpec) = TestFlowNode(
@@ -527,7 +526,7 @@ private fun generatedNestedBuilder(): NodeBuilder {
   val spec = NestedSpec(
     start = Target.main.start,
     tabs = Target.main.tabs,
-    tabsHistory = null,
+    tabsHistory = Target.main.tabsHistory,
     leftScreen = Target.left.leftScreen,
     leftDetails = Target.left.leftDetails,
     inner = Target.main.inner,
@@ -807,7 +806,9 @@ class DslParityTest :
       )
       dsl[4].single() shouldStartWith "main.start "
       // the deep history of the outer parallel flow restores its regions, the nested ones included
+      val (generatedWithHistory, _) = run(generatedNestedBuilder(), rootPayload = null, events + "TH")
       val (withHistory, _) = run(dslNestedBuilder(), rootPayload = null, events + "TH")
+      withHistory shouldBe generatedWithHistory
       withHistory.last() shouldBe dsl[3]
     }
 

@@ -1,0 +1,108 @@
+package ru.kode.test.app.schema
+
+import kotlin.Any
+import kotlin.Pair
+import kotlin.Suppress
+import kotlin.collections.HashMap
+import kotlin.collections.Map
+import kotlin.collections.MutableMap
+import kotlin.collections.Set
+import ru.kode.way.MissingPayloadException
+import ru.kode.way.Node
+import ru.kode.way.NodeBuilder
+import ru.kode.way.NullPayload
+import ru.kode.way.ParallelFlowNode
+import ru.kode.way.Path
+import ru.kode.way.RegionId
+import ru.kode.way.Segment
+import ru.kode.way.drop
+import ru.kode.way.firstSegment
+import ru.kode.way.lastSegment
+import ru.kode.way.startsWith
+
+public class Ph01tabsNodeBuilder(
+  private val nodeFactory: Factory,
+  override val schema: Ph01tabsSchema,
+) : NodeBuilder {
+  private val nodeBuilders: MutableMap<Path, NodeBuilder> = HashMap(2)
+
+  public val ph01leftRegionId: RegionId
+    get() = RegionId(Path(listOf(Segment("ph01tabs@ParallelHistory:src/test/resources/schema-parallel-history.dot"), Segment("ph01left@ParallelHistory:src/test/resources/schema-parallel-history.dot"))))
+
+  public val ph01rightRegionId: RegionId
+    get() = RegionId(Path(listOf(Segment("ph01tabs@ParallelHistory:src/test/resources/schema-parallel-history.dot"), Segment("ph01right@ParallelHistory:src/test/resources/schema-parallel-history.dot"))))
+
+  private fun ph01rightNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("ph01right@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)) {
+    nodeFactory.createPh01rightNodeBuilder()
+  }
+
+  private fun ph01leftNodeBuilder(rootSegmentAlias: Segment?): NodeBuilder = nodeBuilders.getOrPut(targetOrError(Segment("ph01left@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)) {
+    nodeFactory.createPh01leftNodeBuilder()
+  }
+
+  override fun build(
+    path: Path,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): Node {
+    val rootPath = rootSegmentAlias?.let { Path(it) } ?: Path(Segment("ph01tabs@ParallelHistory:src/test/resources/schema-parallel-history.dot"))
+    check(path.firstSegment().id == rootPath.firstSegment().id) {
+      """illegal path build requested for "ph01tabs" node: $path"""
+    }
+    return when {
+      path == rootPath -> nodeFactory.createRootNode()
+      path.startsWith(targetOrError(Segment("ph01right@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("ph01right@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)
+        val nodeBuilder = ph01rightNodeBuilder(rootSegmentAlias)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+      }
+      path.startsWith(targetOrError(Segment("ph01left@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)) -> {
+        val targetPath = targetOrError(Segment("ph01left@ParallelHistory:src/test/resources/schema-parallel-history.dot"), rootSegmentAlias)
+        val nodeBuilder = ph01leftNodeBuilder(rootSegmentAlias)
+        nodeBuilder.build(path.drop(targetPath.length - 1), payloads = payloads.filterKeys { it.length > targetPath.length - 1 }.mapKeys { it.key.drop(targetPath.length - 1) }, rootSegmentAlias = targetPath.lastSegment())
+      }
+      else -> error("""illegal path build requested for "ph01tabs" node: $path""")
+    }
+  }
+
+  override fun invalidateCache(alivePaths: Set<Path>) {
+    nodeBuilders.keys.retainAll { key -> alivePaths.any { it.startsWith(key) } }
+    nodeBuilders.forEach { (builderPath, builder) ->
+      val drop = builderPath.length - 1
+      val childAlive = alivePaths.filter { it.startsWith(builderPath) && it.length > drop }.map { it.drop(drop) }.toSet()
+      builder.invalidateCache(childAlive)
+    }
+  }
+
+  override fun snapshotCache(): Any? = nodeBuilders.mapValues { (_, builder) -> builder to builder.snapshotCache() }
+
+  override fun restoreCache(snapshot: Any?) {
+    nodeBuilders.clear()
+    (snapshot as Map<*, *>).forEach { (path, saved) ->
+      val (builder, childSnapshot) = saved as Pair<*, *>
+      nodeBuilders[path as Path] = builder as NodeBuilder
+      builder.restoreCache(childSnapshot)
+    }
+  }
+
+  public fun targetOrError(segment: Segment, rootSegmentAlias: Segment?): Path = schema.regions.firstNotNullOfOrNull { schema.target(it, segment, rootSegmentAlias) } ?: error("""internal error: no target generated for segment "${segment.id}"""")
+
+  @Suppress("UNCHECKED_CAST")
+  public fun <T> payloadOrError(
+    segment: Segment,
+    payloads: Map<Path, Any>,
+    rootSegmentAlias: Segment?,
+  ): T {
+    val targetPath = targetOrError(segment, rootSegmentAlias)
+    val payload = payloads[targetPath] ?: throw MissingPayloadException(targetPath)
+    return (if (payload === NullPayload) null else payload) as T
+  }
+
+  public interface Factory {
+    public fun createRootNode(): ParallelFlowNode<*>
+
+    public fun createPh01rightNodeBuilder(): NodeBuilder
+
+    public fun createPh01leftNodeBuilder(): NodeBuilder
+  }
+}

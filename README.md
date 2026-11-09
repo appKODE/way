@@ -341,7 +341,8 @@ NavigateTo(SettingsGraph.permission.target("camera", via = SettingsGraph.profile
 ```
 
 A full target carries the payloads of parameterized ancestors, so they are rebuilt when they are not alive (a cold
-start, a flow's `initial`, a jump into another branch), the counterpart of a generated full target:
+start, a flow's `initial`, a jump into another branch), the counterpart of a generated full target. As there, it
+needs the payload of every parameterized ancestor below the root of the graph, a missing one throws:
 
 ```kotlin
 NavigateTo(ShopGraph.promo.target(ShopGraph.shop with "s1", ShopGraph.item with 5))
@@ -703,7 +704,7 @@ a flow node extends `BaseFlowNode`.
 - `ComposableNode` interface with `@Composable fun Content(modifier: Modifier)`
 - A `ParallelFlowNode` renders by implementing `ComposableNode` — its `Content()` lays out the parallel and calls `NodeHost(regionId)` inside it to render each sub-region's screen stack.
 - `LocalNavigationService` — `CompositionLocal<NavigationService<*>>` provided by `NodeHost(service)`. Available inside any `Content()` for reading state.
-- `NodeHost(service)` composable — auto-starts service, observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
+- `NodeHost(service)` composable — auto-starts service (`autoStart = false` renders nothing until the app calls `start`), observes root region's active node, renders `ComposableNode.Content()`, applies animated transitions.
 - `LocalEventSink` — the `EventSink` of the node being rendered, provided by `NodeHost` to every node's `Content()`. Always use it in UI: an event sent from a screen's `Content()` starts at that screen, one sent from a parallel's `Content()` at the active children of its regions; it then reaches every parallel enclosing the node and bubbles up through each parallel's ancestors, like `service.send`, and a tap on a screen which is animating out after Back is dropped instead of being applied to the new screen. Outside any node (but under `LocalNavigationService`) it is the service itself, the root sink.
 - `NodeHost(regionId)` composable — renders the active screen in a specific sub-region. Call from a parallel node's `Content()` for each sub-region. Requires a parent `NodeHost(service)` to have provided `LocalNavigationService`.
 - `FocusedRegionHost(regionId)` composable — renders only the given sub-region and keeps the saved state of the other ones.

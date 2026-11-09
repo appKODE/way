@@ -18,14 +18,6 @@ hand-write an `AbsoluteTarget`. `AbsoluteTarget` stays as the load-bearing engin
 - **Value:** removes cross-schema navigation boilerplate for consumers.
 - **Trigger:** first app site that would otherwise hand-write an `AbsoluteTarget`.
 
-### `NodeHost` auto-start opt-out
-`NodeHost` calls `service.start()` without a payload when the service isn't started yet
-(`way-compose/.../NodeHost.kt`), so an app that must read something (e.g. DataStore) before
-`start(payload)` has to gate `NodeHost` behind its own "started" flag.
-- **Approach:** `autoStart: Boolean = true` parameter on `NodeHost`; with `false`, render nothing until
-  `start()` is called.
-- **Trigger:** first app that gates `NodeHost` behind its own "started" flag because of an async start.
-
 ## Feature extensions (on demand)
 
 ### History under imported (cross-schema) flows

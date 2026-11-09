@@ -14,10 +14,12 @@
   * Parallel flows anywhere a `.dot` file allows them, regions may be local flows and parallel flows.
   * An included graph may have several parents in one region, `target(payload, via = parent)` picks the one to
     enter it from.
-  * Full targets: `target(payload, shop with shopId, item with itemId)` passes the payloads of parameterized
-    ancestors, so they are rebuilt when they are not alive, like a generated full target.
+  * Full targets: `target(payload, shop with shopId, item with itemId)` passes the payloads of every parameterized
+    ancestor (a missing one throws), so they are rebuilt when they are not alive, like a generated full target.
   * `ParallelRef.regionId(child)` gives the region id of a child of a parallel flow, like a generated
     `<child>RegionId`, in place of `Schema.regionByName`.
+* way-compose: `NodeHost(service, autoStart = false)` doesn't start the service and renders nothing until the app
+  calls `start(payload)`, for a start which waits for something (e.g. DataStore).
 
 ### Fixed
 

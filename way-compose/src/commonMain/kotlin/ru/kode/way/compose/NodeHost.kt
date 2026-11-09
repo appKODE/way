@@ -40,14 +40,20 @@ import ru.kode.way.isRegionAtRoot
 import ru.kode.way.resolveAbsolute
 import ru.kode.way.startsWith
 
+/**
+ * Renders the root of [service]. With [autoStart] (default) it starts a service which is not started yet without a
+ * payload; with `false` it renders nothing until the app calls `service.start(payload)`, e.g. after an async read of
+ * the start payload.
+ */
 @ExperimentalAnimationApi
 @Composable
 fun NodeHost(
   service: NavigationService<*>,
   transitionSpec: AnimatedContentTransitionScope<Path?>.() -> ContentTransform = defaultTransitionSpec,
+  autoStart: Boolean = true,
 ) {
-  LaunchedEffect(service) {
-    if (!service.isStarted()) {
+  LaunchedEffect(service, autoStart) {
+    if (autoStart && !service.isStarted()) {
       service.start()
     }
   }
